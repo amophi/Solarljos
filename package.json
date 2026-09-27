@@ -1,0 +1,37 @@
+{
+  "name": "solarljos",
+  "version": "0.1.0",
+  "description": "Find deleted files in the places copies survive: the Recycle Bin, editor Local History, Claude Code transcripts and backups, and git.",
+  "license": "MIT",
+  "author": "amophi",
+  "homepage": "https://github.com/amophi/Solarljos#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amophi/Solarljos.git"
+  },
+  "bugs": {
+    "url": "https://github.com/amophi/Solarljos/issues"
+  },
+  "keywords": [
+    "recover",
+    "undelete",
+    "deleted files",
+    "recycle bin",
+    "local history",
+    "claude code",
+    "git"
+  ],
+  "bin": {
+    "solarljos": "bin/solarljos.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}
