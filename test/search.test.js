@@ -10,25 +10,29 @@ const dirs = [];
 after(() => dirs.forEach(cleanup));
 
 /** The same file seen by an editor's history and by Claude Code, plus a file that still exists. */
+/** A file URI for a path on this machine, as an editor would record it. */
+const fileUri = (p) => 'file://' + (p.startsWith('/') ? '' : '/') + p.replace(/\\/g, '/');
+
 function makeSources() {
   const root = workDir('search');
   dirs.push(root);
   const existing = write(path.join(root, 'live', 'alive.txt'), 'still here');
+  // A path of this machine's own kind that does not exist, so its state can be checked.
+  const gone = path.join(root, 'gone', 'notes.md');
   const history = path.join(root, 'History');
   write(path.join(history, 'f1', 'entries.json'), JSON.stringify({
-    version: 1, resource: 'file:///c%3A/work/notes.md', entries: [{ id: 'a.md', timestamp: 1000 }, { id: 'b.md', timestamp: 3000 }],
+    version: 1, resource: fileUri(gone), entries: [{ id: 'a.md', timestamp: 1000 }, { id: 'b.md', timestamp: 3000 }],
   }));
   write(path.join(history, 'f1', 'a.md'), 'draft one');
   write(path.join(history, 'f1', 'b.md'), 'draft two');
   write(path.join(history, 'f2', 'entries.json'), JSON.stringify({
-    version: 1, resource: 'file://' + (existing.startsWith('/') ? '' : '/') + existing.replace(/\\/g, '/'),
-    entries: [{ id: 'c.txt', timestamp: 500 }],
+    version: 1, resource: fileUri(existing), entries: [{ id: 'c.txt', timestamp: 500 }],
   }));
   write(path.join(history, 'f2', 'c.txt'), 'older');
   const claudeDir = path.join(root, 'claude');
   write(path.join(claudeDir, 'projects', 'p', '11111111-2222-3333-4444-555555555555.jsonl'), JSON.stringify({
     type: 'user', timestamp: new Date(2000).toISOString(),
-    toolUseResult: { type: 'create', filePath: 'C:\\work\\notes.md', content: 'draft one' },
+    toolUseResult: { type: 'create', filePath: gone, content: 'draft one' },
   }) + '\n');
   return { history, claudeDir };
 }

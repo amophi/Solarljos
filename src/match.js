@@ -22,7 +22,10 @@ function globToRe(glob) {
   return out;
 }
 
-const norm = (p) => p.replace(/\\/g, '/').toLowerCase();
+// NFC, so that a name written in decomposed form (as macOS does, notably with Hangul) matches
+// the same name typed in composed form.
+const norm = (p) => p.normalize('NFC').replace(/\\/g, '/').toLowerCase();
+const nameOf = (p) => baseName(p).normalize('NFC').toLowerCase();
 
 function compile(pattern) {
   const raw = String(pattern == null ? '' : pattern).trim() || '*';
@@ -32,13 +35,13 @@ function compile(pattern) {
 
   let test;
   if (!wild) {
-    test = onPath ? (p) => norm(p).includes(lower) : (p) => baseName(p).toLowerCase().includes(lower);
+    test = onPath ? (p) => norm(p).includes(lower) : (p) => nameOf(p).includes(lower);
   } else if (onPath) {
     const re = new RegExp('(^|/)' + globToRe(lower.replace(/^\/+/, '')) + '$');
     test = (p) => re.test(norm(p));
   } else {
     const re = new RegExp('^' + globToRe(lower) + '$');
-    test = (p) => re.test(baseName(p).toLowerCase());
+    test = (p) => re.test(nameOf(p));
   }
 
   const literal = lower.split(/[*?/]+/).reduce((a, b) => (b.length > a.length ? b : a), '');

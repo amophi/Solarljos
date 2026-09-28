@@ -21,6 +21,7 @@ const OPTIONS = {
   repo: { type: 'string', multiple: true },
   'claude-dir': { type: 'string' },
   'antigravity-dir': { type: 'string', multiple: true },
+  location: { type: 'string', multiple: true },
   'history-dir': { type: 'string', multiple: true },
   'recycle-dir': { type: 'string', multiple: true },
   'no-discover': { type: 'boolean' },
@@ -59,6 +60,7 @@ Locations (added to the ones found on this machine unless --no-discover)
   --history-dir <dir>       an editor's User/History folder
   --claude-dir <dir>        a Claude Code config folder (normally ~/.claude)
   --antigravity-dir <dir>   an Antigravity data folder (normally ~/.gemini/antigravity-ide)
+  --location <id>=<place>   a place for any other source, e.g. jetbrains=D:\old\LocalHistory
   --repo <dir>              look for git repositories here (default: the current folder)
   --no-discover             search only the locations given
 
@@ -81,6 +83,18 @@ function parseSince(s) {
   return ms;
 }
 
+/** --location <id>=<place>, repeatable, grouped by source id. */
+function ownDirs(v) {
+  const dirs = {};
+  for (const entry of v.location || []) {
+    const at = entry.indexOf('=');
+    if (at <= 0) throw usageError(t('Write --location as <source>=<place>, for example notepad=D:\\old\\TabState.'));
+    const id = entry.slice(0, at).trim();
+    (dirs[id] = dirs[id] || []).push(entry.slice(at + 1).trim());
+  }
+  return dirs;
+}
+
 function searchOptions(v, pattern) {
   return {
     pattern,
@@ -95,6 +109,7 @@ function searchOptions(v, pattern) {
       claudeDir: v['claude-dir'],
       antigravityDirs: v['antigravity-dir'],
       repos: v.repo,
+      dirs: ownDirs(v),
     },
   };
 }
@@ -108,6 +123,7 @@ function carryOver(v) {
   for (const d of v['history-dir'] || []) out.push('--history-dir', fmt.arg(d));
   if (v['claude-dir']) out.push('--claude-dir', fmt.arg(v['claude-dir']));
   for (const d of v['antigravity-dir'] || []) out.push('--antigravity-dir', fmt.arg(d));
+  for (const d of v.location || []) out.push('--location', fmt.arg(d));
   for (const d of v.repo || []) out.push('--repo', fmt.arg(d));
   if (v['no-discover']) out.push('--no-discover');
   return out.join(' ');
@@ -117,7 +133,7 @@ const print = (s = '') => process.stdout.write(s + '\n');
 const note = (s = '') => process.stderr.write(s + '\n');
 
 function kindLabel(c) {
-  return t(c.kind) + (c.copies > 1 ? ` x${c.copies}` : '');
+  return t(c.kind) + (c.draft ? ' ' + t('(never saved)') : '') + (c.copies > 1 ? ` x${c.copies}` : '');
 }
 
 function toJson(c) {
@@ -131,6 +147,7 @@ function toJson(c) {
     path: c.path,
     size: c.size,
     state: c.state,
+    draft: !!c.draft,
     origin: c.origin,
     note: c.note || null,
   };

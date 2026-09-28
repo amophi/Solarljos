@@ -127,7 +127,9 @@ function newer(a, b) {
 const segments = (p) => String(p).split(/[\\/]/).filter(Boolean);
 
 /**
- * One copy per path below `folder`: the one to write when rebuilding it.
+ * One copy per path below `folder`: the one to write when rebuilding it. A draft -- text that
+ * was never saved -- is usually the newest thing around, so it is taken only for a path that
+ * has no saved copy at all.
  * @returns {{ rel: string[], copy: object }[]} sorted by path
  */
 function planRebuild(results, folder) {
@@ -139,7 +141,10 @@ function planRebuild(results, folder) {
     const key = pathKey(c.path);
     if (!key.startsWith(prefix + '/')) continue;
     const prev = best.get(key);
-    if (!prev || newer(c, prev)) best.set(key, c);
+    if (!prev) best.set(key, c);
+    else if (!!prev.draft !== !!c.draft) {
+      if (prev.draft) best.set(key, c);
+    } else if (newer(c, prev)) best.set(key, c);
   }
   return [...best.values()]
     .map((copy) => ({ rel: segments(copy.path).slice(depth), copy }))

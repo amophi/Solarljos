@@ -153,6 +153,29 @@ goes beside it as `name (recovered 2)`. A copy that cannot be read is reported a
 the rest are still written. `--deleted-only` limits it to files that are missing today, which
 is how a folder that was only partly deleted is filled in.
 
+## Using it from code
+
+The command line is a front end on a small API, which a graphical front end can use the same
+way:
+
+```js
+const solarljos = require('solarljos');
+
+const { results, locations } = await solarljos.search({
+  pattern: 'budget.xlsx',
+  onProgress: (e) => console.log(e.type, e.id ?? '', e.done ?? '', e.total ?? ''),
+});
+const bytes = await solarljos.readCopy(results[0]);
+await solarljos.restoreCopy(results[0], 'D:\\recovered', locations);
+
+const { plan } = await solarljos.planFolder('C:\\work\\app');
+await solarljos.rebuildFolder(plan, 'C:\\work\\app', 'D:\\recovered', locations);
+```
+
+Progress arrives as `source-start`, `source-progress` (`done` of `total`, from sources that go
+through many files), `source-done`, `filtering` and `done`. Results are plain objects; the same
+rules apply as on the command line.
+
 ## How each source is read
 
 ### Recycle Bin

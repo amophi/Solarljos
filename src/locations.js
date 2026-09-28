@@ -83,6 +83,8 @@ function discoverAntigravityDirs() {
  * @param {string} o.claudeDir
  * @param {string[]} o.antigravityDirs
  * @param {string[]} o.repos       folders to look for git repositories in
+ * @param {object} o.dirs          { <source id>: [places] } for sources that find their own places
+ * @param {object} o.discoverers   { <source id>: () => places }, supplied by search.js
  */
 function resolveLocations(o) {
   const discover = o.discover !== false;
@@ -99,12 +101,31 @@ function resolveLocations(o) {
     antigravity.push(...discoverAntigravityDirs());
     if (!repos.length) repos.push(process.cwd());
   }
+
+  // Newer sources find their own places. Their entries are kept as given, since some are
+  // more than a folder (a snapshot and the drive it belongs to, say); each source reads its own.
+  const own = {};
+  const ids = new Set([...Object.keys(o.dirs || {}), ...Object.keys(o.discoverers || {})]);
+  for (const id of ids) {
+    const given = (o.dirs && o.dirs[id]) || [];
+    let found = [];
+    if (discover && o.discoverers && typeof o.discoverers[id] === 'function') {
+      try {
+        found = o.discoverers[id]() || [];
+      } catch (_) {
+        found = [];
+      }
+    }
+    own[id] = dedupe([...given, ...found]);
+  }
+
   return {
     recycle: dedupe(recycle),
     history: dedupeBy(history, (h) => h.dir),
     claude,
     antigravity: dedupe(antigravity),
     repos: dedupe(repos),
+    ...own,
   };
 }
 

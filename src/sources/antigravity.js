@@ -122,11 +122,11 @@ async function scanTranscript({ file, cut }, ctx, out) {
 
 async function scan(ctx) {
   const out = [];
-  for (const dir of ctx.locations.antigravity) {
-    for (const conv of conversations(dir)) {
-      const tr = transcriptOf(conv);
-      if (tr) await scanTranscript(tr, ctx, out);
-    }
+  const all = ctx.locations.antigravity.flatMap((dir) => conversations(dir));
+  for (let i = 0; i < all.length; i++) {
+    const tr = transcriptOf(all[i]);
+    if (tr) await scanTranscript(tr, ctx, out);
+    if (ctx.progress) ctx.progress(i + 1, all.length);
   }
   return out;
 }

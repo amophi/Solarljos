@@ -12,10 +12,14 @@ function isWindowsPath(p) {
   return DRIVE.test(p) || p.startsWith('\\\\');
 }
 
-/** A key for comparing paths: Windows paths ignore case and take either separator. */
+/**
+ * A key for comparing paths: Windows paths ignore case and take either separator, and every
+ * path is compared in NFC, since macOS writes names decomposed.
+ */
 function pathKey(p) {
   if (!p) return '';
-  return isWindowsPath(p) ? p.replace(/\\/g, '/').toLowerCase() : p;
+  const n = String(p).normalize('NFC');
+  return isWindowsPath(n) ? n.replace(/\\/g, '/').toLowerCase() : n;
 }
 
 function baseName(p) {

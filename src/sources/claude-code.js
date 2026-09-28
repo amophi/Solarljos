@@ -189,8 +189,10 @@ async function scan(ctx) {
   const resolve = backupResolver(fileHistoryDir);
   const out = [];
   const seenBackups = new Set();
-  for (const file of walk(projectsDir, '.jsonl')) {
-    await scanTranscript(file, sessionOf(file, projectsDir), ctx, resolve, out, seenBackups);
+  const transcripts = walk(projectsDir, '.jsonl');
+  for (let i = 0; i < transcripts.length; i++) {
+    await scanTranscript(transcripts[i], sessionOf(transcripts[i], projectsDir), ctx, resolve, out, seenBackups);
+    if (ctx.progress) ctx.progress(i + 1, transcripts.length);
   }
   // A search by content alone also offers backups no transcript names any more. Those that
   // match a named copy are merged away later, by content.
