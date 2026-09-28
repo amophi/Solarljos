@@ -1,10 +1,12 @@
 'use strict';
 
+const path = require('path');
 const { parseArgs } = require('util');
 const { t } = require('./i18n');
 const { search, sourceRoots, describeAll, git } = require('./search');
-const { restore } = require('./restore');
+const { restore, planRebuild, rebuild } = require('./restore');
 const { load, looksBinary } = require('./content');
+const { isWindowsPath } = require('./paths');
 const fmt = require('./format');
 const pkg = require('../package.json');
 
@@ -18,10 +20,12 @@ const OPTIONS = {
   json: { type: 'boolean' },
   repo: { type: 'string', multiple: true },
   'claude-dir': { type: 'string' },
+  'antigravity-dir': { type: 'string', multiple: true },
   'history-dir': { type: 'string', multiple: true },
   'recycle-dir': { type: 'string', multiple: true },
   'no-discover': { type: 'boolean' },
   to: { type: 'string' },
+  'dry-run': { type: 'boolean' },
   binary: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
@@ -33,6 +37,7 @@ Usage
   solarljos find <name>                    list every surviving copy, newest first
   solarljos show <name> <id>               print one copy
   solarljos restore <name> <id> --to <dir> write one copy into <dir>
+  solarljos rebuild <folder> --to <dir>    bring back everything below a folder, newest copies
   solarljos sources                        show what can be searched on this machine
 
   <name> matches file names, any case: "report" finds report-final.docx. With * or ? it is
@@ -43,19 +48,21 @@ Options
                         whose file name was lost
   --deleted-only        only copies whose original path no longer exists
   --since <when>        only copies from then on: 2026-09-01, 7d, 12h
-  --source <ids>        search only these: recycle, history, claude, git (comma-separated)
+  --source <ids>        search only these: recycle, history, claude, antigravity, git
   --limit <n>           rows to show (default 30); --all shows every row
   --json                machine-readable output
-  --to <dir>            restore: where to write; never inside a searched location
+  --to <dir>            restore, rebuild: where to write; never inside a searched location
+  --dry-run             rebuild: list what would be written, write nothing
 
 Locations (added to the ones found on this machine unless --no-discover)
-  --recycle-dir <dir>   a $Recycle.Bin folder, or one account's folder inside it
-  --history-dir <dir>   an editor's User/History folder
-  --claude-dir <dir>    a Claude Code config folder (normally ~/.claude)
-  --repo <dir>          look for git repositories here (default: the current folder)
-  --no-discover         search only the locations given
+  --recycle-dir <dir>       a $Recycle.Bin folder, or one account's folder inside it
+  --history-dir <dir>       an editor's User/History folder
+  --claude-dir <dir>        a Claude Code config folder (normally ~/.claude)
+  --antigravity-dir <dir>   an Antigravity data folder (normally ~/.gemini/antigravity-ide)
+  --repo <dir>              look for git repositories here (default: the current folder)
+  --no-discover             search only the locations given
 
-Nothing is ever written except by restore, and only under --to.`, pkg.version);
+Nothing is ever written except by restore and rebuild, and only under --to.`, pkg.version);
 
 function usageError(message) {
   const e = new Error(message);
@@ -86,6 +93,7 @@ function searchOptions(v, pattern) {
       recycleDirs: v['recycle-dir'],
       historyDirs: v['history-dir'],
       claudeDir: v['claude-dir'],
+      antigravityDirs: v['antigravity-dir'],
       repos: v.repo,
     },
   };
@@ -99,6 +107,7 @@ function carryOver(v) {
   for (const d of v['recycle-dir'] || []) out.push('--recycle-dir', fmt.arg(d));
   for (const d of v['history-dir'] || []) out.push('--history-dir', fmt.arg(d));
   if (v['claude-dir']) out.push('--claude-dir', fmt.arg(v['claude-dir']));
+  for (const d of v['antigravity-dir'] || []) out.push('--antigravity-dir', fmt.arg(d));
   for (const d of v.repo || []) out.push('--repo', fmt.arg(d));
   if (v['no-discover']) out.push('--no-discover');
   return out.join(' ');
@@ -215,6 +224,79 @@ async function cmdRestore(rest, v) {
   return 0;
 }
 
+/** A folder as given, made absolute unless it already is; a Windows path stays one anywhere. */
+function absoluteFolder(folder) {
+  const trimmed = folder.replace(/[\\/]+$/, '');
+  return isWindowsPath(folder) || folder.startsWith('/') ? trimmed : path.resolve(trimmed);
+}
+
+function planJson(folder, plan) {
+  return {
+    folder,
+    files: plan.map(({ rel, copy }) => ({
+      path: rel.join('/'),
+      from: toJson(copy),
+    })),
+  };
+}
+
+async function cmdRebuild(rest, v) {
+  if (!rest[0]) throw usageError(t('Give the folder to rebuild, as it was: solarljos rebuild C:\\work\\project --to <dir>'));
+  const dryRun = !!v['dry-run'];
+  if (!dryRun && !v.to) throw usageError(t('Say where to put it with --to <folder>, or look first with --dry-run.'));
+  const folder = absoluteFolder(rest[0]);
+  if (!v.json) note(t('Collecting every copy of anything below {0}...', folder));
+  const { results, locations } = await search({ ...searchOptions(v, ''), under: folder });
+  const plan = planRebuild(results, folder);
+  const sep = isWindowsPath(folder) ? '\\' : '/';
+
+  if (dryRun) {
+    if (v.json) {
+      print(JSON.stringify(planJson(folder, plan), null, 2));
+      return plan.length ? 0 : 1;
+    }
+    if (!plan.length) {
+      print(t('Nothing found below {0}.', folder));
+      return 1;
+    }
+    print('');
+    print(fmt.table([t('WHEN'), t('FROM'), t('SIZE'), t('FILE')],
+      plan.map(({ rel, copy }) => [fmt.when(copy.time), t(copy.kind), fmt.size(copy.size), rel.join(sep)])));
+    print('');
+    print(t('{0} file(s) would be written. Nothing was written.', plan.length));
+    return 0;
+  }
+
+  if (!plan.length) {
+    if (v.json) print(JSON.stringify({ folder, root: null, written: [], failed: [] }, null, 2));
+    else print(t('Nothing found below {0}.', folder));
+    return 1;
+  }
+  const { root, written, failed } = await rebuild(plan, folder, v.to, await sourceRoots(locations), git);
+  if (v.json) {
+    print(JSON.stringify({
+      folder, root,
+      written: written.map((w) => ({ path: w.rel.join('/'), target: w.target, from: toJson(w.copy) })),
+      failed: failed.map((f) => ({ path: f.rel.join('/'), error: f.error })),
+    }, null, 2));
+    return failed.length ? 1 : 0;
+  }
+  const byKind = new Map();
+  for (const w of written) byKind.set(w.copy.kind, (byKind.get(w.copy.kind) || 0) + 1);
+  print('');
+  print(t('Rebuilt {0} of {1} file(s) below {2}', written.length, plan.length, folder));
+  print(t('into {0}', root));
+  print('');
+  for (const [kind, n] of [...byKind].sort((a, b) => b[1] - a[1])) print(`  ${String(n).padStart(5)}  ${t(kind)}`);
+  if (failed.length) {
+    print('');
+    print(t('Could not read {0} file(s):', failed.length));
+    for (const f of failed) print(`  ${f.rel.join(sep)}  (${f.error})`);
+    return 1;
+  }
+  return 0;
+}
+
 async function cmdSources(v) {
   const groups = await describeAll(searchOptions(v, ''));
   for (const g of groups) {
@@ -249,6 +331,7 @@ async function main(argv) {
       case 'find': return await cmdFind(rest[0], v);
       case 'show': return await cmdShow(rest, v);
       case 'restore': return await cmdRestore(rest, v);
+      case 'rebuild': return await cmdRebuild(rest, v);
       case 'sources': return await cmdSources(v);
       default: throw usageError(t('Unknown command: {0}', command));
     }

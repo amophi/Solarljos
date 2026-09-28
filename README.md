@@ -19,6 +19,21 @@ To read one:      solarljos show budget.xlsx <id>
 To get one back:  solarljos restore budget.xlsx <id> --to <folder>
 ```
 
+When a whole folder is gone, `rebuild` brings back everything that was below it, taking the
+newest surviving copy of each file from whichever source holds it:
+
+```
+$ solarljos rebuild C:\work\app --to D:\recovered
+
+Rebuilt 57 of 57 file(s) below C:\work\app
+into D:\recovered\app
+
+     30  git commit
+     14  claude backup
+      9  antigravity write
+      4  local history
+```
+
 ## Why another recovery tool
 
 Classic undelete tools read the disk sector by sector and rebuild files from what the file
@@ -42,6 +57,7 @@ agent's own records usually hold what was there.
 | Recycle Bin | `<drive>:\$Recycle.Bin\<account>\` | Deleted files and whole deleted folders, with their original paths and deletion times. Files inside a deleted folder are found individually |
 | Editor Local History | `<app data>/<editor>/User/History/` | A copy of a file on every save. VS Code and every editor built on it -- Cursor, Windsurf, Antigravity, VSCodium -- are found automatically |
 | Claude Code | `~/.claude/` | Byte-exact backups taken before Claude changed a file; the full content of files Claude wrote; the file as it was before each edit, and after it; files Claude read in full |
+| Antigravity | `~/.gemini/antigravity-ide/` | The full content of files its agent wrote; files it read in full, rebuilt to the byte and checked against the size it recorded |
 | git | repositories under the current folder | Files deleted from disk but still in the index; every committed version, including commits thrown away by `reset --hard` that only the reflog still names; with `--containing`, staged content that was never committed |
 
 `solarljos sources` shows what each source can see on the machine it runs on.
@@ -54,9 +70,10 @@ A recovery tool that writes can destroy what it is trying to recover, so this on
   commands do not refresh the index, and `git fsck --lost-found`, which writes into `.git`,
   is never used. The tests check that a repository's `.git` is byte-for-byte unchanged after a
   search.
-- `restore` is the only command that writes, and only under the folder given with `--to`.
-  It refuses a folder inside any location it searches, and it never replaces a file: a name
-  that is taken becomes `name (recovered 2).ext`.
+- `restore` and `rebuild` are the only commands that write, and only under the folder given
+  with `--to`. They refuse a folder inside any location they search, and never replace a
+  file: a name that is taken becomes `name (recovered 2).ext`, and a rebuilt folder always
+  goes into a new folder of its own. `rebuild --dry-run` shows the plan and writes nothing.
 - There is no cache, no settings file and no log. IDs are derived from content, so `show` and
   `restore` search again rather than remember anything.
 
@@ -81,6 +98,7 @@ node bin/solarljos.js --help
 solarljos find <name>                     list every surviving copy, newest first
 solarljos show <name> <id>                print one copy
 solarljos restore <name> <id> --to <dir>  write one copy into <dir>
+solarljos rebuild <folder> --to <dir>     bring back everything below a folder
 solarljos sources                         show what can be searched on this machine
 ```
 
@@ -93,10 +111,11 @@ it is a glob over the whole name (`*.docx`); with a slash it is matched against 
 | `--containing <text>` | Only copies whose text contains it. With no `<name>`, copies whose file name was lost are offered too |
 | `--deleted-only` | Only copies whose original path no longer exists |
 | `--since <when>` | Only copies from then on: `2026-09-01`, `7d`, `12h` |
-| `--source <ids>` | Search only some sources: `recycle`, `history`, `claude`, `git` |
+| `--source <ids>` | Search only some sources: `recycle`, `history`, `claude`, `antigravity`, `git` |
 | `--limit <n>` / `--all` | Rows to show; 30 by default |
 | `--json` | Machine-readable output |
-| `--to <dir>` | Where `restore` writes |
+| `--to <dir>` | Where `restore` and `rebuild` write |
+| `--dry-run` | `rebuild` only: list what would be written, and write nothing |
 
 Every location can also be given by hand, which is how a drive taken out of another machine
 is searched:
@@ -106,6 +125,7 @@ is searched:
 | `--recycle-dir <dir>` | A `$Recycle.Bin` folder, or one account's folder inside it |
 | `--history-dir <dir>` | An editor's `User/History` folder |
 | `--claude-dir <dir>` | A Claude Code folder, normally `~/.claude` |
+| `--antigravity-dir <dir>` | An Antigravity data folder, normally `~/.gemini/antigravity-ide` |
 | `--repo <dir>` | Where to look for git repositories; the current folder by default |
 | `--no-discover` | Search only what was given, not this machine's usual places |
 
@@ -118,6 +138,20 @@ is searched:
   the source says how many. The newest sighting is shown.
 - An **ID** is derived from the path and the content, so it stays the same between runs. The
   first few characters are enough.
+
+### Rebuilding a folder
+
+`rebuild <folder>` searches every source for anything whose original path was below that
+folder -- the folder as it was, which is usually one that no longer exists -- and takes, for each
+file, the newest copy found. Between copies from the same moment, bytes that were on disk win
+over text an agent saw, and an edit rebuilt by applying it comes last. A file as it was before
+a change is dated a millisecond before that change, so the state after it always counts as
+newer.
+
+The result goes into a new folder named after the old one inside `--to`; a second rebuild
+goes beside it as `name (recovered 2)`. A copy that cannot be read is reported at the end and
+the rest are still written. `--deleted-only` limits it to files that are missing today, which
+is how a folder that was only partly deleted is filled in.
 
 ## How each source is read
 
@@ -167,6 +201,25 @@ A search reads all transcripts, but only lines that can carry a file and contain
 of the name are parsed. On the machine this was written on, 1,126 transcripts totalling
 725 MB took about three seconds.
 
+### Antigravity
+
+One folder per conversation, `brain/<conversation>/.system_generated/logs/`, holding
+`transcript_full.jsonl` with one step per line. Two kinds of step hold a whole file:
+
+- A `PLANNER_RESPONSE` whose `tool_calls` include `write_to_file`: `TargetFile` and the full
+  `CodeContent`.
+- A `VIEW_FILE` step: a header with `File Path`, `Total Lines`, `Total Bytes` and
+  `Showing lines <a> to <b>`, then every line as `<n>: <line>`.
+
+A read counts only when it covered the whole file, and only when the text rebuilt from it --
+numbers stripped, lines joined -- has exactly the byte count in its header. Measured on this
+machine: of 113 whole-file reads, 105 rebuilt to the byte and the other 8 are left out; of the
+reads whose file has not changed since, all 57 matched the file on disk exactly.
+
+`transcript.jsonl`, beside the full one, cuts long fields short. It is read only when the full
+transcript is missing, and steps it marks as cut are skipped. Edits (`replace_file_content`)
+carry only the lines they change, so they give no whole file.
+
 ### git
 
 - `git ls-files --deleted`: deleted from disk, still in the index; read back as `:<path>`.
@@ -183,6 +236,7 @@ same bytes found elsewhere merge into one row.
 
 - Raw disk recovery is not part of this; see *Later*.
 - Volume Shadow Copies, File History, OneDrive and Office's autosave are not searched yet.
+- Antigravity's `conversations/*.db` files are not read; its transcripts hold the same steps.
 - The Recycle Bin is read on Windows only; macOS and Linux trash folders are not yet.
 - Copies larger than 32 MB are listed but not compared, so they are never merged as duplicates.
 

@@ -1,7 +1,7 @@
 {
   "name": "solarljos",
-  "version": "0.1.0",
-  "description": "Find deleted files in the places copies survive: the Recycle Bin, editor Local History, Claude Code transcripts and backups, and git.",
+  "version": "0.2.0",
+  "description": "Find deleted files in the places copies survive: the Recycle Bin, editor Local History, Claude Code and Antigravity records, and git.",
   "license": "MIT",
   "author": "amophi",
   "homepage": "https://github.com/amophi/Solarljos#readme",
@@ -19,6 +19,7 @@
     "recycle bin",
     "local history",
     "claude code",
+    "antigravity",
     "git"
   ],
   "bin": {

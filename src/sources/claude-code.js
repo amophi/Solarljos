@@ -65,25 +65,29 @@ function applyEdit(original, oldString, newString, all) {
   return original.slice(0, at) + newString + original.slice(at + oldString.length);
 }
 
-/** Pulls every file-carrying record out of one transcript event. */
+/**
+ * Pulls every file-carrying record out of one transcript event. A file as it was before a change
+ * is stamped a millisecond before the event, so that "newest" means the state after it.
+ */
 function* recordsOf(o) {
   const time = o.timestamp ? Date.parse(o.timestamp) || null : null;
+  const before = time == null ? null : time - 1;
   const r = o.toolUseResult;
   if (r && typeof r === 'object' && !Array.isArray(r)) {
     if ((r.type === 'create' || r.type === 'update') && typeof r.filePath === 'string' && typeof r.content === 'string') {
       yield { kind: 'claude write', path: r.filePath, text: r.content, time };
       if (typeof r.originalFile === 'string') {
-        yield { kind: 'claude, before a write', path: r.filePath, text: r.originalFile, time };
+        yield { kind: 'claude, before a write', path: r.filePath, text: r.originalFile, time: before };
       }
     } else if (typeof r.filePath === 'string' && typeof r.oldString === 'string' && typeof r.newString === 'string') {
       if (typeof r.originalFile === 'string') {
-        yield { kind: 'claude, before an edit', path: r.filePath, text: r.originalFile, time };
+        yield { kind: 'claude, before an edit', path: r.filePath, text: r.originalFile, time: before };
         const after = applyEdit(r.originalFile, r.oldString, r.newString, r.replaceAll === true);
         if (after !== null) yield { kind: 'claude, after an edit', path: r.filePath, text: after, time };
       }
     } else if (typeof r.filePath === 'string' && Array.isArray(r.edits) && typeof r.originalFile === 'string') {
       // MultiEdit, from older versions: several edits applied in order.
-      yield { kind: 'claude, before an edit', path: r.filePath, text: r.originalFile, time };
+      yield { kind: 'claude, before an edit', path: r.filePath, text: r.originalFile, time: before };
       let after = r.originalFile;
       for (const e of r.edits) {
         after = e ? applyEdit(after, e.old_string, e.new_string, e.replace_all === true) : null;

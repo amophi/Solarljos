@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+
+- `rebuild <folder> --to <dir>` brings back everything that was below a folder, taking the
+  newest surviving copy of each file from any source and recreating the tree in a new folder.
+  `--dry-run` shows the plan without writing; `--deleted-only` fills in only what is missing.
+- Antigravity is a source. Files its agent wrote come back whole; files it read in full are
+  rebuilt from its numbered view and kept only when they match the byte count it recorded.
+  On the machine this was written on, 105 of 113 whole-file reads rebuilt exactly, and all 57
+  whose file was unchanged matched the file on disk.
+- A file as it was before a Claude Code write or edit is dated a millisecond before that
+  change, so the state after the change is the newer one wherever copies are compared.
+
 ## 0.1.0 (unreleased)
 
 First version.

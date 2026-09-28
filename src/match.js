@@ -1,6 +1,6 @@
 'use strict';
 
-const { baseName } = require('./paths');
+const { baseName, pathKey } = require('./paths');
 
 // What a search pattern means, kept deliberately small:
 //
@@ -50,4 +50,21 @@ function compile(pattern) {
   };
 }
 
-module.exports = { compile };
+/**
+ * Everything below a folder, for rebuilding it. Unlike a pattern this is a true prefix: the
+ * folder's own path, then a separator. Its last segment is the literal, since every path below
+ * it contains that name.
+ */
+function under(folder) {
+  // pathKey writes both kinds of path with forward slashes.
+  const prefix = pathKey(String(folder)).replace(/[\\/]+$/, '');
+  return {
+    pattern: folder,
+    everything: false,
+    folder: prefix,
+    literal: baseName(prefix).toLowerCase(),
+    test: (p) => typeof p === 'string' && p.length > 0 && pathKey(p).startsWith(prefix + '/'),
+  };
+}
+
+module.exports = { compile, under };

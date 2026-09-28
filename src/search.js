@@ -2,18 +2,19 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
-const { compile } = require('./match');
+const { compile, under } = require('./match');
 const { resolveLocations } = require('./locations');
 const { pathKey, isWindowsPath } = require('./paths');
 const { HASH_LIMIT, blobHash, load, asText } = require('./content');
 
+const git = require('./sources/git');
 const SOURCES = [
   require('./sources/recycle-bin'),
   require('./sources/editor-history'),
   require('./sources/claude-code'),
-  require('./sources/git'),
+  require('./sources/antigravity'),
+  git,
 ];
-const git = SOURCES[3];
 
 function selectSources(ids) {
   if (!ids || !ids.length) return SOURCES;
@@ -89,6 +90,7 @@ function idOf(key) {
 /**
  * @param {object} o
  * @param {string} [o.pattern]       name or path pattern; may be empty when `containing` is set
+ * @param {string} [o.under]         instead of a pattern: everything below this folder
  * @param {string} [o.containing]    only copies whose text contains this, any case
  * @param {string[]} [o.sources]     source ids to search; all by default
  * @param {boolean} [o.deletedOnly]  only copies whose original path is gone
@@ -96,7 +98,7 @@ function idOf(key) {
  * @param {object} [o.locations]     passed to resolveLocations
  */
 async function search(o) {
-  const matcher = compile(o.pattern);
+  const matcher = o.under ? under(o.under) : compile(o.pattern);
   const containing = o.containing ? String(o.containing).toLowerCase() : null;
   const ctx = {
     matcher,

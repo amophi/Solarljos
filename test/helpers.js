@@ -53,7 +53,25 @@ function infoV1(original, size, ms) {
 
 /** Locations for search(): exactly these, nothing discovered. */
 function only(locations) {
-  return { discover: false, recycleDirs: [], historyDirs: [], repos: [], ...locations };
+  return { discover: false, recycleDirs: [], historyDirs: [], antigravityDirs: [], repos: [], ...locations };
+}
+
+/** A VIEW_FILE step's content, as Antigravity writes it for a read of lines `from` to `to`. */
+function viewContent(filePath, text, { from = 1, to, bytes } = {}) {
+  const lines = text.split('\n');
+  const last = to == null ? lines.length : to;
+  return [
+    'Created At: 2026-09-20T01:00:00Z',
+    'Completed At: 2026-09-20T01:00:01Z',
+    'File Path: `file:///' + filePath.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (m, d) => d.toLowerCase() + '%3A') + '`',
+    `Total Lines: ${lines.length}`,
+    `Total Bytes: ${bytes == null ? Buffer.byteLength(text, 'utf8') : bytes}`,
+    `Showing lines ${from} to ${last}`,
+    'The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.',
+    ...lines.slice(from - 1, last).map((l, i) => `${from + i}: ${l}`),
+    'The above content shows the entire, complete file contents of the requested file.',
+    '',
+  ].join('\n');
 }
 
 /** Every file under a folder with its size, mtime and content hash, to prove nothing changed. */
@@ -75,4 +93,4 @@ function snapshot(dir) {
   return out;
 }
 
-module.exports = { workDir, cleanup, write, infoV1, infoV2, only, snapshot };
+module.exports = { workDir, cleanup, write, infoV1, infoV2, only, snapshot, viewContent };

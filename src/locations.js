@@ -60,12 +60,28 @@ function discoverClaudeDir() {
   return isDir(dir) ? dir : null;
 }
 
+/** Antigravity's data folders: ~/.gemini/antigravity-ide and any sibling of that kind with a brain. */
+function discoverAntigravityDirs() {
+  const base = path.join(os.homedir(), '.gemini');
+  let names;
+  try {
+    names = fs.readdirSync(base);
+  } catch (_) {
+    return [];
+  }
+  return names
+    .filter((n) => n.toLowerCase().startsWith('antigravity'))
+    .map((n) => path.join(base, n))
+    .filter((d) => isDir(path.join(d, 'brain')));
+}
+
 /**
  * @param {object} o
  * @param {boolean} o.discover     add this machine's usual places
  * @param {string[]} o.recycleDirs
  * @param {string[]} o.historyDirs
  * @param {string} o.claudeDir
+ * @param {string[]} o.antigravityDirs
  * @param {string[]} o.repos       folders to look for git repositories in
  */
 function resolveLocations(o) {
@@ -73,15 +89,23 @@ function resolveLocations(o) {
   const recycle = [...(o.recycleDirs || [])].map((p) => path.resolve(p));
   const history = (o.historyDirs || []).map((p) => ({ label: path.resolve(p), dir: path.resolve(p) }));
   let claude = o.claudeDir ? path.resolve(o.claudeDir) : null;
+  const antigravity = (o.antigravityDirs || []).map((p) => path.resolve(p));
   const repos = (o.repos || []).map((p) => path.resolve(p));
 
   if (discover) {
     recycle.push(...discoverRecycleRoots());
     history.push(...discoverHistoryRoots());
     if (!claude) claude = discoverClaudeDir();
+    antigravity.push(...discoverAntigravityDirs());
     if (!repos.length) repos.push(process.cwd());
   }
-  return { recycle: dedupe(recycle), history: dedupeBy(history, (h) => h.dir), claude, repos: dedupe(repos) };
+  return {
+    recycle: dedupe(recycle),
+    history: dedupeBy(history, (h) => h.dir),
+    claude,
+    antigravity: dedupe(antigravity),
+    repos: dedupe(repos),
+  };
 }
 
 function dedupe(list) {
