@@ -8,6 +8,7 @@
 const { search, sourceRoots, describeAll, locate, git, SOURCES } = require('./search');
 const { restore, planRebuild, rebuild } = require('./restore');
 const { load, looksBinary, asText } = require('./content');
+const { absoluteFolder } = require('./paths');
 
 /** Every source, as { id, label }. */
 const sources = SOURCES.map((s) => ({ id: s.id, label: s.label }));
@@ -33,13 +34,16 @@ async function restoreCopy(copy, destDir, locations) {
 
 /**
  * Finds every copy of anything below `folder` and picks the one to write for each path.
- * @param {string} folder   the folder as it was, usually one that no longer exists
+ * @param {string} folder   the folder as it was, usually one that no longer exists; taken as the
+ *   command line takes it: "C:" is the drive's root, and a relative folder is made absolute
  * @param {object} [options] as for search(), without a pattern
- * @returns {Promise<{ plan: { rel: string[], copy: object }[], locations: object, perSource: object[] }>}
+ * @returns {Promise<{ folder: string, plan: { rel: string[], copy: object }[], locations: object, perSource: object[] }>}
+ *   `folder` as it was understood
  */
 async function planFolder(folder, options = {}) {
-  const { results, locations, perSource } = await search({ ...options, pattern: undefined, under: folder });
-  return { plan: planRebuild(results, folder), locations, perSource };
+  const at = absoluteFolder(folder);
+  const { results, locations, perSource } = await search({ ...options, pattern: undefined, under: at });
+  return { folder: at, plan: planRebuild(results, at), locations, perSource };
 }
 
 /**
@@ -47,7 +51,7 @@ async function planFolder(folder, options = {}) {
  * @returns {Promise<{ root: string, written: object[], failed: object[] }>}
  */
 async function rebuildFolder(plan, folder, destDir, locations) {
-  return rebuild(plan, folder, destDir, await sourceRoots(locations || locate({})), git);
+  return rebuild(plan, absoluteFolder(folder), destDir, await sourceRoots(locations || locate({})), git);
 }
 
 module.exports = {

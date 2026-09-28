@@ -31,9 +31,25 @@ function table(header, rows) {
     .join('\n');
 }
 
-/** Quotes an argument for a command line the user can paste back. */
-function arg(s) {
-  return /^[A-Za-z0-9._\-/\\:]+$/.test(s) ? s : '"' + String(s).replace(/"/g, '\\"') + '"';
+/**
+ * Quotes an argument for a command line the user can paste back, in the shells usual where this
+ * runs. On Windows, PowerShell and cmd both take a path such as trash=E:\ or \\?\GLOBALROOT\...
+ * as it is, so it is left bare. Anything else goes in double quotes, with a run of backslashes
+ * doubled where it ends at a quote, the closing one included: a program on Windows reads \" as a
+ * quote character, so "D:\My Files\" would run on into the next argument. PowerShell expands $
+ * and ` inside double quotes ("E:\$Recycle.Bin" becomes "E:\.Bin"), so a value holding either
+ * goes in single quotes instead, which PowerShell takes as they are and cmd, alas, does not.
+ * Elsewhere a value goes in single quotes, which a POSIX shell takes as they are, backslashes too.
+ */
+function arg(s, platform = process.platform) {
+  const v = String(s);
+  if (platform === 'win32') {
+    if (/^[A-Za-z0-9._\-/\\:=?]+$/.test(v)) return v;
+    if (/[$`]/.test(v)) return "'" + v.replace(/'/g, "''") + "'";
+    return '"' + v.replace(/(\\*)"/g, '$1$1\\"').replace(/\\+$/, (m) => m + m) + '"';
+  }
+  if (/^[A-Za-z0-9._\-/:=,@%+]+$/.test(v)) return v;
+  return "'" + v.replace(/'/g, "'\\''") + "'";
 }
 
 module.exports = { size, when, table, arg };

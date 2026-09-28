@@ -1,7 +1,7 @@
 {
   "name": "solarljos",
-  "version": "0.2.0",
-  "description": "Find deleted files in the places copies survive: the Recycle Bin, editor Local History, Claude Code and Antigravity records, and git.",
+  "version": "0.3.0",
+  "description": "Find deleted files in the places copies survive: the Recycle Bin, shadow copies, editor and IDE history, unsaved buffers, Notepad tabs, Hancom autosaves, Claude Code and Antigravity records, git, and the Linux trash.",
   "license": "MIT",
   "author": "amophi",
   "homepage": "https://github.com/amophi/Solarljos#readme",
@@ -17,10 +17,16 @@
     "undelete",
     "deleted files",
     "recycle bin",
+    "shadow copy",
     "local history",
+    "jetbrains",
+    "android studio",
+    "notepad",
+    "hancom",
     "claude code",
     "antigravity",
-    "git"
+    "git",
+    "trash"
   ],
   "main": "src/index.js",
   "bin": {
@@ -28,6 +34,7 @@
   },
   "files": [
     "bin",
+    "docs",
     "src"
   ],
   "engines": {

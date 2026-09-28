@@ -181,44 +181,53 @@ async function scanTranscript(file, session, ctx, resolve, out, seenBackups) {
   }
 }
 
+/** The Claude Code folders to read: ~/.claude, one from another machine, or several. */
+const foldersOf = (loc) => [].concat(loc.claude || []);
+
 async function scan(ctx) {
-  const dir = ctx.locations.claude;
-  if (!dir) return [];
-  const projectsDir = path.join(dir, 'projects');
-  const fileHistoryDir = path.join(dir, 'file-history');
-  const resolve = backupResolver(fileHistoryDir);
   const out = [];
   const seenBackups = new Set();
-  const transcripts = walk(projectsDir, '.jsonl');
+  // Each folder's transcripts name the backups in that folder's file-history, and no other.
+  const transcripts = [];
+  for (const dir of foldersOf(ctx.locations)) {
+    const projectsDir = path.join(dir, 'projects');
+    const resolve = backupResolver(path.join(dir, 'file-history'));
+    for (const file of walk(projectsDir, '.jsonl')) transcripts.push({ file, projectsDir, resolve });
+  }
   for (let i = 0; i < transcripts.length; i++) {
-    await scanTranscript(transcripts[i], sessionOf(transcripts[i], projectsDir), ctx, resolve, out, seenBackups);
+    const { file, projectsDir, resolve } = transcripts[i];
+    await scanTranscript(file, sessionOf(file, projectsDir), ctx, resolve, out, seenBackups);
     if (ctx.progress) ctx.progress(i + 1, transcripts.length);
   }
   // A search by content alone also offers backups no transcript names any more. Those that
   // match a named copy are merged away later, by content.
   if (ctx.unnamed) {
-    for (const f of walk(fileHistoryDir)) {
-      let st;
-      try {
-        st = fs.statSync(f);
-      } catch (_) {
-        continue;
+    for (const dir of foldersOf(ctx.locations)) {
+      for (const f of walk(path.join(dir, 'file-history'))) {
+        let st;
+        try {
+          st = fs.statSync(f);
+        } catch (_) {
+          continue;
+        }
+        out.push({
+          source: 'claude', kind: 'claude backup, name unknown', path: null,
+          time: st.mtimeMs, size: st.size, file: f, origin: f,
+        });
       }
-      out.push({
-        source: 'claude', kind: 'claude backup, name unknown', path: null,
-        time: st.mtimeMs, size: st.size, file: f, origin: f,
-      });
     }
   }
   return out;
 }
 
 function describe(ctx) {
-  const dir = ctx.locations.claude;
-  if (!dir) return [t('No Claude Code folder found.')];
-  const transcripts = walk(path.join(dir, 'projects'), '.jsonl').length;
-  const backups = walk(path.join(dir, 'file-history')).length;
-  return [t('{0}: {1} transcript(s), {2} backup(s)', dir, transcripts, backups)];
+  const dirs = foldersOf(ctx.locations);
+  if (!dirs.length) return [t('No Claude Code folder found.')];
+  return dirs.map((dir) => {
+    const transcripts = walk(path.join(dir, 'projects'), '.jsonl').length;
+    const backups = walk(path.join(dir, 'file-history')).length;
+    return t('{0}: {1} transcript(s), {2} backup(s)', dir, transcripts, backups);
+  });
 }
 
 module.exports = {
@@ -226,6 +235,6 @@ module.exports = {
   label: 'Claude Code',
   scan,
   describe,
-  roots: (loc) => (loc.claude ? [loc.claude] : []),
+  roots: foldersOf,
   _internal: { recordsOf, applyEdit, sessionOf },
 };

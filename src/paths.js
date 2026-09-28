@@ -22,9 +22,36 @@ function pathKey(p) {
   return isWindowsPath(n) ? n.replace(/\\/g, '/').toLowerCase() : n;
 }
 
+/**
+ * A path with its separators written "/". An absolute POSIX path separates with "/" alone: there
+ * a backslash is an ordinary character, and a Linux file can be called x\y.txt -- a name the Linux
+ * trash and git both hand over whole. Anything else, a Windows path or a URI kept as it is, takes
+ * either separator.
+ */
+function slashed(p) {
+  const s = String(p);
+  return s.startsWith('/') ? s : s.replace(/\\/g, '/');
+}
+
+/** A path's segments, separated as slashed() says. */
+function splitPath(p) {
+  return slashed(p).split('/').filter(Boolean);
+}
+
 function baseName(p) {
-  const parts = String(p).split(/[\\/]/).filter(Boolean);
+  const parts = splitPath(p);
   return parts.length ? parts[parts.length - 1] : String(p);
+}
+
+/**
+ * A folder as given, made absolute unless it already is; a Windows path stays one anywhere, and a
+ * POSIX one too. A trailing separator is dropped, except from a drive root: "C:" alone would mean
+ * the current folder on drive C, and a folder to rebuild is never that, so it becomes "C:\".
+ */
+function absoluteFolder(folder) {
+  const s = String(folder);
+  const trimmed = /^[a-zA-Z]:[\\/]*$/.test(s) ? s.slice(0, 2) + '\\' : s.replace(/(.)[\\/]+$/, '$1');
+  return isWindowsPath(trimmed) || trimmed.startsWith('/') ? trimmed : path.resolve(trimmed);
 }
 
 /** Whether `child` is `parent` itself or somewhere below it. Both are resolved first. */
@@ -53,4 +80,4 @@ function fileUriToPath(uri) {
   return p;
 }
 
-module.exports = { isWindowsPath, pathKey, baseName, isInside, fileUriToPath };
+module.exports = { isWindowsPath, pathKey, slashed, splitPath, baseName, absoluteFolder, isInside, fileUriToPath };

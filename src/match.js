@@ -1,6 +1,6 @@
 'use strict';
 
-const { baseName, pathKey } = require('./paths');
+const { baseName, pathKey, slashed } = require('./paths');
 
 // What a search pattern means, kept deliberately small:
 //
@@ -23,8 +23,11 @@ function globToRe(glob) {
 }
 
 // NFC, so that a name written in decomposed form (as macOS does, notably with Hangul) matches
-// the same name typed in composed form.
+// the same name typed in composed form. A backslash in a pattern is always a separator, so that
+// src\app finds /proj/src/app.js; in a path it is one only where slashed() says so, since in an
+// absolute POSIX path it is part of a name: /d/x\y.txt is the file "x\y.txt", not y.txt in x.
 const norm = (p) => p.normalize('NFC').replace(/\\/g, '/').toLowerCase();
+const normPath = (p) => slashed(p).normalize('NFC').toLowerCase();
 const nameOf = (p) => baseName(p).normalize('NFC').toLowerCase();
 
 function compile(pattern) {
@@ -35,10 +38,10 @@ function compile(pattern) {
 
   let test;
   if (!wild) {
-    test = onPath ? (p) => norm(p).includes(lower) : (p) => nameOf(p).includes(lower);
+    test = onPath ? (p) => normPath(p).includes(lower) : (p) => nameOf(p).includes(lower);
   } else if (onPath) {
     const re = new RegExp('(^|/)' + globToRe(lower.replace(/^\/+/, '')) + '$');
-    test = (p) => re.test(norm(p));
+    test = (p) => re.test(normPath(p));
   } else {
     const re = new RegExp('^' + globToRe(lower) + '$');
     test = (p) => re.test(nameOf(p));
@@ -56,7 +59,8 @@ function compile(pattern) {
 /**
  * Everything below a folder, for rebuilding it. Unlike a pattern this is a true prefix: the
  * folder's own path, then a separator. Its last segment is the literal, since every path below
- * it contains that name.
+ * it contains that name -- cut at a backslash too, even where one is part of the name: a
+ * transcript writes a backslash doubled, and the literal must still be found in the line.
  */
 function under(folder) {
   // pathKey writes both kinds of path with forward slashes.
@@ -65,7 +69,7 @@ function under(folder) {
     pattern: folder,
     everything: false,
     folder: prefix,
-    literal: baseName(prefix).toLowerCase(),
+    literal: prefix.split(/[\\/]/).pop().toLowerCase(),
     test: (p) => typeof p === 'string' && p.length > 0 && pathKey(p).startsWith(prefix + '/'),
   };
 }

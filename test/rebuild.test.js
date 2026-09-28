@@ -101,6 +101,22 @@ test('a copy that cannot be read is reported, and the rest still comes back', as
   assert.deepStrictEqual(r.failed.map((f) => f.rel[0]), ['broken.txt']);
 });
 
+test('a path that was a file in one copy and a folder in another brings back both', async () => {
+  const s = makeSources();
+  // As git history often has it: a script "bin", later replaced by a folder bin/.
+  const plan = planRebuild([
+    { path: 'C:\\work\\proj\\bin', time: 1, kind: 'git commit', text: 'the old script' },
+    { path: 'C:\\work\\proj\\bin\\cli.js', time: 2, kind: 'git commit', text: 'cli' },
+    { path: 'C:\\work\\proj\\bin\\util.js', time: 2, kind: 'git commit', text: 'util' },
+  ], PROJ);
+  assert.deepStrictEqual(plan.map((p) => p.rel.join('/')), ['bin', 'bin/cli.js', 'bin/util.js'], 'the file sorts first');
+  const r = await rebuild(plan, PROJ, path.join(s.root, 'out'), [], git);
+  assert.deepStrictEqual(r.failed, []);
+  assert.strictEqual(fs.readFileSync(path.join(r.root, 'bin', 'cli.js'), 'utf8'), 'cli');
+  assert.strictEqual(fs.readFileSync(path.join(r.root, 'bin', 'util.js'), 'utf8'), 'util');
+  assert.strictEqual(fs.readFileSync(path.join(r.root, 'bin (recovered 2)'), 'utf8'), 'the old script');
+});
+
 function cli(args, s) {
   const r = spawnSync(process.execPath, [BIN, ...args, '--no-discover',
     '--history-dir', s.history, '--recycle-dir', s.recycle, '--claude-dir', s.claudeDir], { cwd: s.root, encoding: 'utf8' });
@@ -131,4 +147,13 @@ test('rebuild without --to is a usage error; an empty folder finds nothing', () 
   assert.strictEqual(cli(['rebuild', 'C:\\nothing\\here', '--dry-run'], s).code, 1);
   const json = JSON.parse(cli(['rebuild', PROJ, '--dry-run', '--json'], s).out);
   assert.strictEqual(json.files.length, 4);
+});
+
+test('a bare drive is its root, on every system', () => {
+  const s = makeSources();
+  for (const drive of ['C:', 'c:\\', 'C:/']) {
+    const json = JSON.parse(cli(['rebuild', drive, '--dry-run', '--json'], s).out);
+    assert.strictEqual(json.folder, drive.slice(0, 2) + '\\', drive);
+    assert.ok(json.files.some((f) => f.path === 'work/proj/src/main.js'), drive);
+  }
 });

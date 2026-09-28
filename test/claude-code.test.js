@@ -106,6 +106,27 @@ test('a search by content alone also offers backups whose name was lost', async 
   assert.strictEqual(results[0].kind, 'claude backup, name unknown');
 });
 
+test('several Claude Code folders are all read, each resolving its own backups', async () => {
+  const here = makeClaude();
+  const other = workDir('claude-other');
+  dirs.push(other);
+  write(path.join(other, 'projects', 'q', '99999999-2222-3333-4444-555555555555.jsonl'), JSON.stringify({
+    type: 'file-history-snapshot',
+    snapshot: { trackedFileBackups: { [P]: { backupFileName: 'aaaa@v1', backupTime: '2026-09-20T00:00:00Z' } } },
+  }) + '\n');
+  // The same backup name, with other content: only this folder's file-history holds the one it names.
+  write(path.join(other, 'file-history', '99999999-2222-3333-4444-555555555555', 'aaaa@v1'), 'from the other machine');
+  const { results } = await search({
+    pattern: 'app.js', sources: ['claude'], locations: only({ claudeDir: here, dirs: { claude: [other] } }),
+  });
+  const backups = await Promise.all(results.filter((r) => r.kind === 'claude backup').map(async (r) => (await load(r, git)).toString()));
+  assert.deepStrictEqual(backups.sort(), ['console.log("backup")', 'from the other machine']);
+  const claude = require('../src/sources/claude-code');
+  const lines = claude.describe({ locations: { claude: [here, other] } });
+  assert.deepStrictEqual(lines, [`${here}: 2 transcript(s), 3 backup(s)`, `${other}: 1 transcript(s), 1 backup(s)`]);
+  assert.deepStrictEqual(claude.roots({ claude: [here, other] }), [here, other]);
+});
+
 test('a named backup is not offered a second time as a nameless one', async () => {
   const claudeDir = makeClaude();
   const { results } = await search({ containing: 'backup', sources: ['claude'], locations: only({ claudeDir }) });

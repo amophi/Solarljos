@@ -2,43 +2,46 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const path = require('path');
+const { t } = require('./i18n');
 const { compile, under } = require('./match');
 const { resolveLocations } = require('./locations');
-const { pathKey, isWindowsPath } = require('./paths');
+const { pathKey, isWindowsPath, absoluteFolder } = require('./paths');
 const { HASH_LIMIT, blobHash, load, asText } = require('./content');
+const { better } = require('./quality');
 
 /**
  * A source that cannot even be loaded -- a bug in one module -- should cost that one source,
- * not the whole search. It stays listed, and says why it found nothing.
+ * not the whole search. It stays listed under its own id, so --source and --location still know
+ * it, says why it found nothing, and its places are still kept from being written into.
  */
-function source(file) {
+function source(file, id) {
   try {
     return require(file);
   } catch (e) {
-    const id = file.replace(/^.*\//, '');
     return {
       id, label: id, broken: e.message,
-      scan: async () => { throw new Error(`could not be loaded: ${e.message.split('\n')[0]}`); },
-      describe: () => [`Could not be loaded: ${e.message.split('\n')[0]}`],
-      roots: (loc) => loc[id] || [],
+      scan: async () => { throw new Error(t('could not be loaded: {0}', e.message.split('\n')[0])); },
+      describe: () => [t('Could not be loaded: {0}', e.message.split('\n')[0])],
+      roots: (loc) => [].concat(loc[id] || []).map((x) => (x && x.dir) || x).filter((x) => typeof x === 'string'),
     };
   }
 }
 
 const git = require('./sources/git');
 const SOURCES = [
-  source('./sources/recycle-bin'),
-  source('./sources/editor-history'),
-  source('./sources/claude-code'),
-  source('./sources/antigravity'),
+  source('./sources/recycle-bin', 'recycle'),
+  source('./sources/editor-history', 'history'),
+  source('./sources/claude-code', 'claude'),
+  source('./sources/antigravity', 'antigravity'),
   git,
-  source('./sources/jetbrains'),
-  source('./sources/eclipse-history'),
-  source('./sources/notepad'),
-  source('./sources/editor-backups'),
-  source('./sources/hancom'),
-  source('./sources/trash'),
-  source('./sources/vss'),
+  source('./sources/jetbrains', 'jetbrains'),
+  source('./sources/eclipse-history', 'eclipse-history'),
+  source('./sources/notepad', 'notepad'),
+  source('./sources/editor-backups', 'editor-backups'),
+  source('./sources/hancom', 'hancom'),
+  source('./sources/trash', 'trash'),
+  source('./sources/vss', 'vss'),
 ];
 
 // A source can look for its own places (`discover`), and can ask to run after the others
@@ -47,8 +50,29 @@ const SOURCES = [
 const DISCOVERERS = Object.fromEntries(
   SOURCES.filter((s) => typeof s.discover === 'function').map((s) => [s.id, s.discover]));
 
-/** Every source's places, the ones given and, unless turned off, the ones found here. */
+function usageError(message) {
+  const e = new Error(message);
+  e.usage = true;
+  return e;
+}
+
+/**
+ * Every source's places, the ones given and, unless turned off, the ones found here. A place
+ * for a source that does not exist -- a typo, "VSS", or a file name such as recycle-bin -- would
+ * search nothing and say nothing, so it is refused. "repos" is the older name for git's places.
+ */
 function locate(o = {}) {
+  const dirs = o.dirs || {};
+  const known = [...SOURCES.map((s) => s.id), 'repos'];
+  const unknown = Object.keys(dirs).filter((id) => !known.includes(id));
+  if (unknown.length) {
+    throw usageError(t('Unknown source in --location: {0}. Known: {1}', unknown.join(', '), known.join(', ')));
+  }
+  for (const id of Object.keys(dirs)) {
+    if ([].concat(dirs[id] || []).some((p) => typeof p === 'string' && !p.trim())) {
+      throw usageError(t('Give a place after {0}= in --location, for example notepad=D:\\old\\TabState.', id));
+    }
+  }
   return resolveLocations({ ...o, discoverers: DISCOVERERS });
 }
 
@@ -57,9 +81,7 @@ function selectSources(ids) {
   const wanted = new Set(ids);
   const unknown = [...wanted].filter((id) => !SOURCES.some((s) => s.id === id));
   if (unknown.length) {
-    const e = new Error(`Unknown source: ${unknown.join(', ')}. Known: ${SOURCES.map((s) => s.id).join(', ')}`);
-    e.usage = true;
-    throw e;
+    throw usageError(t('Unknown source: {0}. Known: {1}', unknown.join(', '), SOURCES.map((s) => s.id).join(', ')));
   }
   return SOURCES.filter((s) => wanted.has(s.id));
 }
@@ -85,13 +107,14 @@ function dedupeKey(c) {
 }
 
 /**
- * The same content under the same name is one result, however many places hold it; the
- * newest sighting represents it. A copy whose name is lost is dropped when the same content
- * was also found under a name.
+ * The same content under the same name is one result, however many places hold it. The
+ * sighting that represents it is chosen as rebuild chooses between copies (quality.js): a saved
+ * copy over a draft, then the newest. A copy whose name is lost is dropped when the same
+ * content was also found under a name.
  *
  * `draft` marks text that was never saved -- an editor's unsaved buffer, say. The same bytes
  * found anywhere else prove they were saved once, so a merged result is a draft only when
- * every copy of it is.
+ * every copy of it is. The same goes for `inexact`.
  */
 function dedupe(list) {
   const byKey = new Map();
@@ -103,8 +126,11 @@ function dedupe(list) {
       continue;
     }
     const seen = prev.seen.includes(c.kind) ? prev.seen : [...prev.seen, c.kind];
-    const merged = (c.time || 0) > (prev.time || 0) ? { ...c, key } : prev;
-    byKey.set(key, { ...merged, copies: prev.copies + 1, seen, draft: !!(prev.draft && c.draft) });
+    const merged = better(c, prev) ? { ...c, key } : prev;
+    byKey.set(key, {
+      ...merged, copies: prev.copies + 1, seen,
+      draft: !!(prev.draft && c.draft), inexact: !!(prev.inexact && c.inexact),
+    });
   }
   const named = new Set();
   for (const c of byKey.values()) if (c.path && c.hash) named.add(c.hash);
@@ -116,19 +142,100 @@ function dedupe(list) {
  * cannot: on Windows /home/a would be read as C:\home\a, and on Linux C:\a as a relative name.
  */
 function checkable(p) {
-  return process.platform === 'win32' ? isWindowsPath(p) : p.startsWith('/');
+  if (process.platform === 'win32') return isWindowsPath(p);
+  return p.startsWith('/');
 }
 
-function stateOf(c) {
-  if (c.gone) return 'no content';
-  if (!c.path) return '';
-  if (!checkable(c.path)) return '';
+// A path on a network share is not looked up either: a share that is down makes every look at a
+// file on it wait for the network to give up, once for every copy found there. Its state is left
+// unknown. What counts as one, without running anything to ask:
+//
+//   Windows  a \\server\share path, and a path on a drive letter mapped to a share, whose root
+//            resolves to \\server\share. Each drive letter is asked once per search, at its root;
+//            one that does not answer at all -- a share that is down, a disk not plugged in --
+//            leaves its paths unknown too, since whether a file is gone cannot be told there.
+//   Linux    a path on a network mount, by its type in /proc/self/mounts, read once per search:
+//            NFS, SMB, AFS, Ceph and the like, 9p over the network, a disk served by NBD or Ceph,
+//            the FUSE clients of a network (sshfs, rclone, gvfs's shares, ...) and a FUSE mount
+//            that does not name its daemon, as davfs2 does not. Other FUSE mounts are looked up:
+//            an encrypted home (gocryptfs, encfs) or a pooled disk (mergerfs) is local, and
+//            leaving it out would leave every copy in it unknown. A path reached through a link
+//            onto a network mount is not recognised: telling would mean resolving the link, which
+//            is the wait.
+//   macOS    every path is looked up: nothing tells a network mount from a local one there
+//            without asking the mount itself.
+const NET_FS = new RegExp('^(nfs4?|cifs|smb3|smbfs|ncpfs|afs|ceph|glusterfs|lustre|gpfs|fuse'
+  + '|fuse\\.(sshfs|rclone|s3fs|gcsfuse|goofys|juicefs|ceph-fuse|glusterfs|gvfsd-fuse|davfs2?|blobfuse2?|onedriver|curlftpfs))$');
+
+/** /proc/self/mounts, as trash.js reads it: a Map of mount point to mount, the last one at a point on top. */
+function linuxMounts() {
+  const out = new Map();
+  let text;
   try {
-    fs.statSync(c.path);
-    return 'exists';
+    text = fs.readFileSync('/proc/self/mounts', 'latin1');
   } catch (_) {
-    return 'deleted';
+    return out;
   }
+  // \040-style escapes stand for bytes; the bytes together are UTF-8.
+  const unescape = (s) => Buffer.from(s.replace(/\\([0-7]{3})/g, (m, o) => String.fromCharCode(parseInt(o, 8))), 'latin1').toString('utf8');
+  for (const line of text.split('\n')) {
+    const f = line.split(' ');
+    if (f.length >= 3) out.set(unescape(f[1]), { source: unescape(f[0]), fstype: f[2], options: f[3] || '' });
+  }
+  return out;
+}
+
+/** The mount a POSIX path lies on: the nearest folder above it, or itself, that is a mount point. */
+function mountOf(p, mounts) {
+  for (let at = p; ; at = path.posix.dirname(at)) {
+    if (mounts.has(at)) return mounts.get(at);
+    if (at === path.posix.dirname(at)) return null;
+  }
+}
+
+/** Whether a Linux mount is one of the network kinds above. */
+function onNetwork(m) {
+  if (NET_FS.test(m.fstype)) return true;
+  if (m.fstype === '9p') return /(^|,)trans=(tcp|rdma)(,|$)/.test(m.options);
+  return /^\/dev\/(nbd|rbd)\d/.test(m.source);
+}
+
+/** Tells, for one search, each copy's state: whether its original path exists, is gone, or cannot be told. */
+function stateChecker() {
+  const drives = new Map();
+  let mounts = null;
+  const unreachable = (p) => {
+    if (p.startsWith('\\\\')) return true;
+    if (process.platform === 'win32') {
+      const letter = p[0].toUpperCase();
+      if (!drives.has(letter)) {
+        let local = false;
+        try {
+          local = !fs.realpathSync.native(letter + ':\\').startsWith('\\\\');
+        } catch (_) {
+          local = false;
+        }
+        drives.set(letter, local);
+      }
+      return !drives.get(letter);
+    }
+    if (process.platform === 'linux') {
+      if (!mounts) mounts = linuxMounts();
+      const m = mountOf(p, mounts);
+      return !!m && onNetwork(m);
+    }
+    return false;
+  };
+  return (c) => {
+    if (c.gone) return 'no content';
+    if (!c.path || !checkable(c.path) || unreachable(c.path)) return '';
+    try {
+      fs.statSync(c.path);
+      return 'exists';
+    } catch (_) {
+      return 'deleted';
+    }
+  };
 }
 
 function idOf(key) {
@@ -150,7 +257,7 @@ function idOf(key) {
  */
 async function search(o) {
   const report = typeof o.onProgress === 'function' ? o.onProgress : () => {};
-  const matcher = o.under ? under(o.under) : compile(o.pattern);
+  const matcher = o.under ? under(absoluteFolder(o.under)) : compile(o.pattern);
   const containing = o.containing ? String(o.containing).toLowerCase() : null;
   const ctx = {
     matcher,
@@ -205,6 +312,7 @@ async function search(o) {
 
   for (const c of all) c.hash = hashOf(c);
   let results = dedupe(all);
+  const stateOf = stateChecker();
   for (const c of results) {
     c.state = stateOf(c);
     c.id = idOf(c.key);
@@ -238,4 +346,4 @@ async function describeAll(o) {
   return out;
 }
 
-module.exports = { search, sourceRoots, describeAll, locate, git, SOURCES, _internal: { dedupe } };
+module.exports = { search, sourceRoots, describeAll, locate, git, SOURCES, _internal: { dedupe, source, mountOf, onNetwork } };

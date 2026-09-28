@@ -1,12 +1,11 @@
 'use strict';
 
-const path = require('path');
 const { parseArgs } = require('util');
 const { t } = require('./i18n');
-const { search, sourceRoots, describeAll, git } = require('./search');
+const { search, sourceRoots, describeAll, locate, git } = require('./search');
 const { restore, planRebuild, rebuild } = require('./restore');
 const { load, looksBinary } = require('./content');
-const { isWindowsPath } = require('./paths');
+const { isWindowsPath, absoluteFolder } = require('./paths');
 const fmt = require('./format');
 const pkg = require('../package.json');
 
@@ -32,7 +31,8 @@ const OPTIONS = {
   version: { type: 'boolean', short: 'v' },
 };
 
-const HELP = () => t(`solarljos {0} -- find deleted files in the places copies survive
+// Raw, so that the backslashes of the Windows paths in the examples are printed as written.
+const HELP = () => t(String.raw`solarljos {0} -- find deleted files in the places copies survive
 
 Usage
   solarljos find <name>                    list every surviving copy, newest first
@@ -49,19 +49,26 @@ Options
                         whose file name was lost
   --deleted-only        only copies whose original path no longer exists
   --since <when>        only copies from then on: 2026-09-01, 7d, 12h
-  --source <ids>        search only these: recycle, history, claude, antigravity, git
+  --source <ids>        search only these (comma-separated): recycle, history, claude,
+                        antigravity, git, jetbrains, eclipse-history, notepad,
+                        editor-backups, hancom, trash, vss
   --limit <n>           rows to show (default 30); --all shows every row
-  --json                machine-readable output
-  --to <dir>            restore, rebuild: where to write; never inside a searched location
+  --json                find, rebuild: machine-readable output
+  --binary              show: print a copy even when it looks binary
+  --to <dir>            restore, rebuild: where to write; not where sources keep records
   --dry-run             rebuild: list what would be written, write nothing
 
 Locations (added to the ones found on this machine unless --no-discover)
   --recycle-dir <dir>       a $Recycle.Bin folder, or one account's folder inside it
   --history-dir <dir>       an editor's User/History folder
-  --claude-dir <dir>        a Claude Code config folder (normally ~/.claude)
-  --antigravity-dir <dir>   an Antigravity data folder (normally ~/.gemini/antigravity-ide)
-  --location <id>=<place>   a place for any other source, e.g. jetbrains=D:\old\LocalHistory
-  --repo <dir>              look for git repositories here (default: the current folder)
+  --claude-dir <dir>        a Claude Code config folder, such as ~/.claude from another machine
+  --antigravity-dir <dir>   an Antigravity data folder (normally ~/.gemini/antigravity-ide),
+                            its brain folder, or one conversation's folder
+  --location <id>=<place>   a place for any source, repeatable, for example
+                            jetbrains=D:\old\AndroidStudio2026.1   notepad=D:\old\Users\me
+                            vss=walk=C:\Users\me\Projects   trash=E:\   git=D:\code
+  --repo <dir>              look for git repositories here instead of the current folder;
+                            --location git=<dir> is the same
   --no-discover             search only the locations given
 
 Nothing is ever written except by restore and rebuild, and only under --to.`, pkg.version);
@@ -72,25 +79,43 @@ function usageError(message) {
   return e;
 }
 
+/**
+ * A date alone is midnight where the user is, as every time shown is local. Date.parse reads
+ * 2026-09-01 as midnight UTC, which east of Greenwich drops the first hours of the day; a date
+ * with a time and no zone it already reads as local.
+ */
 function parseSince(s) {
-  const rel = /^(\d+)\s*([dhm])$/i.exec(s.trim());
+  const text = s.trim();
+  const rel = /^(\d+)\s*([dhm])$/i.exec(text);
   if (rel) {
     const unit = { d: 86400000, h: 3600000, m: 60000 }[rel[2].toLowerCase()];
     return Date.now() - Number(rel[1]) * unit;
   }
-  const ms = Date.parse(s);
-  if (Number.isNaN(ms)) throw usageError(t('Could not read --since {0}. Use a date like 2026-09-01, or 7d / 12h.', s));
+  const bad = () => usageError(t('Could not read --since {0}. Use a date like 2026-09-01, or 7d / 12h.', s));
+  const day = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(text);
+  if (day) {
+    const [y, m, d] = [Number(day[1]), Number(day[2]), Number(day[3] || 1)];
+    const at = new Date(y, m - 1, d);
+    // new Date() rolls 2026-02-30 over into March; a day that does not exist is a mistake.
+    if (at.getFullYear() !== y || at.getMonth() !== m - 1 || at.getDate() !== d) throw bad();
+    return at.getTime();
+  }
+  const ms = Date.parse(text);
+  if (Number.isNaN(ms)) throw bad();
   return ms;
 }
 
-/** --location <id>=<place>, repeatable, grouped by source id. */
+/** --location <id>=<place>, repeatable, grouped by source id. Which ids exist, search.js knows. */
 function ownDirs(v) {
-  const dirs = {};
+  // No prototype: an id such as "constructor" is a key like any other, and is refused as unknown.
+  const dirs = Object.create(null);
   for (const entry of v.location || []) {
     const at = entry.indexOf('=');
     if (at <= 0) throw usageError(t('Write --location as <source>=<place>, for example notepad=D:\\old\\TabState.'));
     const id = entry.slice(0, at).trim();
-    (dirs[id] = dirs[id] || []).push(entry.slice(at + 1).trim());
+    const place = entry.slice(at + 1).trim();
+    if (!place) throw usageError(t('Give a place after {0}= in --location, for example notepad=D:\\old\\TabState.', id));
+    (dirs[id] = dirs[id] || []).push(place);
   }
   return dirs;
 }
@@ -133,7 +158,17 @@ const print = (s = '') => process.stdout.write(s + '\n');
 const note = (s = '') => process.stderr.write(s + '\n');
 
 function kindLabel(c) {
-  return t(c.kind) + (c.draft ? ' ' + t('(never saved)') : '') + (c.copies > 1 ? ` x${c.copies}` : '');
+  const kind = t(c.kind);
+  // Most draft kinds already say so; the rest get it spelled out.
+  const draft = c.draft && !/never saved|unsaved/i.test(c.kind) ? ' ' + t('(never saved)') : '';
+  return kind + draft + (c.copies > 1 ? ` x${c.copies}` : '');
+}
+
+/** The original path, or the name alone when that is all a source knows. */
+function shownPath(c) {
+  if (c.path) return c.path;
+  if (c.name) return t('{0} (folder unknown)', c.name);
+  return t('(name unknown)');
 }
 
 function toJson(c) {
@@ -145,6 +180,7 @@ function toJson(c) {
     copies: c.copies,
     source: c.source,
     path: c.path,
+    name: c.name || null,
     size: c.size,
     state: c.state,
     draft: !!c.draft,
@@ -181,7 +217,7 @@ async function cmdFind(pattern, v) {
   const limit = v.all ? Infinity : Math.max(1, Number(v.limit) || 30);
   const shown = results.slice(0, limit);
   const rows = shown.map((c) => [
-    c.id, fmt.when(c.time), kindLabel(c), fmt.size(c.size), t(c.state || '-'), c.path || t('(name unknown)'),
+    c.id, fmt.when(c.time), kindLabel(c), fmt.size(c.size), t(c.state || '-'), shownPath(c),
   ]);
   print(fmt.table([t('ID'), t('WHEN'), t('FOUND IN'), t('SIZE'), t('STATE'), t('PATH')], rows));
   if (shown.length < results.length) {
@@ -222,8 +258,9 @@ async function cmdShow(rest, v) {
     throw new Error(t('That looks like a binary file ({0}). Restore it, or add --binary to print it anyway.', fmt.size(buf.length)));
   }
   note(`${c.id}  ${t(c.kind)}  ${fmt.when(c.time)}  ${fmt.size(c.size)}`);
-  note(t('was   {0}', c.path || t('(name unknown)')));
+  note(t('was   {0}', shownPath(c)));
   note(t('from  {0}', c.origin));
+  if (c.note) note(t('note  {0}', c.note));
   note('');
   process.stdout.write(buf);
   if (buf.length && buf[buf.length - 1] !== 0x0a) process.stdout.write('\n');
@@ -239,12 +276,6 @@ async function cmdRestore(rest, v) {
   const target = await restore(c, v.to, await sourceRoots(locations), git);
   print(t('Restored {0} to {1}', c.id, target));
   return 0;
-}
-
-/** A folder as given, made absolute unless it already is; a Windows path stays one anywhere. */
-function absoluteFolder(folder) {
-  const trimmed = folder.replace(/[\\/]+$/, '');
-  return isWindowsPath(folder) || folder.startsWith('/') ? trimmed : path.resolve(trimmed);
 }
 
 function planJson(folder, plan) {
@@ -263,13 +294,22 @@ async function cmdRebuild(rest, v) {
   if (!dryRun && !v.to) throw usageError(t('Say where to put it with --to <folder>, or look first with --dry-run.'));
   const folder = absoluteFolder(rest[0]);
   if (!v.json) note(t('Collecting every copy of anything below {0}...', folder));
-  const { results, locations } = await search({ ...searchOptions(v, ''), under: folder });
+  const { results, locations, perSource } = await search({ ...searchOptions(v, ''), under: folder });
   const plan = planRebuild(results, folder);
   const sep = isWindowsPath(folder) ? '\\' : '/';
 
+  // What the sources had to say -- a part they could not read, a folder they would not walk --
+  // matters most when little or nothing turned up.
+  if (!v.json) {
+    for (const s of perSource) {
+      if (s.error) print(`  ! ${t(s.label)}: ${t('failed: {0}', s.error)}`);
+      for (const n of s.notes || []) print(`  ! ${t(s.label)}: ${n}`);
+    }
+  }
+
   if (dryRun) {
     if (v.json) {
-      print(JSON.stringify(planJson(folder, plan), null, 2));
+      print(JSON.stringify({ ...planJson(folder, plan), sources: perSource }, null, 2));
       return plan.length ? 0 : 1;
     }
     if (!plan.length) {
@@ -285,7 +325,7 @@ async function cmdRebuild(rest, v) {
   }
 
   if (!plan.length) {
-    if (v.json) print(JSON.stringify({ folder, root: null, written: [], failed: [] }, null, 2));
+    if (v.json) print(JSON.stringify({ folder, root: null, written: [], failed: [], sources: perSource }, null, 2));
     else print(t('Nothing found below {0}.', folder));
     return 1;
   }
@@ -295,6 +335,7 @@ async function cmdRebuild(rest, v) {
       folder, root,
       written: written.map((w) => ({ path: w.rel.join('/'), target: w.target, from: toJson(w.copy) })),
       failed: failed.map((f) => ({ path: f.rel.join('/'), error: f.error })),
+      sources: perSource,
     }, null, 2));
     return failed.length ? 1 : 0;
   }
@@ -307,7 +348,7 @@ async function cmdRebuild(rest, v) {
   for (const [kind, n] of [...byKind].sort((a, b) => b[1] - a[1])) print(`  ${String(n).padStart(5)}  ${t(kind)}`);
   if (failed.length) {
     print('');
-    print(t('Could not read {0} file(s):', failed.length));
+    print(t('Could not read or write {0} file(s):', failed.length));
     for (const f of failed) print(`  ${f.rel.join(sep)}  (${f.error})`);
     return 1;
   }
@@ -344,6 +385,8 @@ async function main(argv) {
     return 0;
   }
   try {
+    // A mistyped --location is refused before anything is announced or searched.
+    if (v.location) locate({ discover: false, dirs: ownDirs(v) });
     switch (command) {
       case 'find': return await cmdFind(rest[0], v);
       case 'show': return await cmdShow(rest, v);
@@ -362,4 +405,4 @@ async function main(argv) {
   }
 }
 
-module.exports = { main };
+module.exports = { main, _internal: { parseSince, ownDirs } };

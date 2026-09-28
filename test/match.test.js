@@ -2,8 +2,9 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
+const path = require('path');
 const { compile } = require('../src/match');
-const { fileUriToPath, pathKey, isInside } = require('../src/paths');
+const { fileUriToPath, pathKey, isInside, absoluteFolder, splitPath, baseName } = require('../src/paths');
 
 test('a plain word matches inside the file name, in any case', () => {
   const m = compile('Report');
@@ -59,6 +60,35 @@ test('file URIs become paths; other schemes are kept', () => {
   assert.strictEqual(fileUriToPath('file://server/share/a.js'), '\\\\server\\share\\a.js');
   assert.strictEqual(fileUriToPath('vscode-remote://ssh-remote%2Bbox/home/a.js'), 'vscode-remote://ssh-remote%2Bbox/home/a.js');
   assert.strictEqual(fileUriToPath('file:///c%3A/%ED%95%9C%EA%B8%80.txt'), 'C:\\한글.txt');
+});
+
+test('a folder is made absolute as the kind of path it is, whatever system this runs on', () => {
+  assert.strictEqual(absoluteFolder('C:'), 'C:\\', 'a bare drive is its root, not the current folder on it');
+  assert.strictEqual(absoluteFolder('d:/'), 'd:\\');
+  assert.strictEqual(absoluteFolder('C:\\work\\proj\\'), 'C:\\work\\proj');
+  assert.strictEqual(absoluteFolder('\\\\nas\\share\\'), '\\\\nas\\share');
+  assert.strictEqual(absoluteFolder('/home/a/'), '/home/a', 'a POSIX path stays one on Windows too');
+  assert.strictEqual(absoluteFolder('/'), '/');
+  assert.strictEqual(absoluteFolder('proj'), path.resolve('proj'));
+});
+
+test('in an absolute POSIX path a backslash is part of a name; anywhere else it separates', () => {
+  // A Linux file can be called x\y.txt, and that is not y.txt in a folder x.
+  const linux = '/mnt/d/docs/x\\y.txt';
+  assert.deepStrictEqual(splitPath(linux), ['mnt', 'd', 'docs', 'x\\y.txt']);
+  assert.strictEqual(baseName(linux), 'x\\y.txt');
+  assert.ok(compile('x*').test(linux));
+  assert.ok(compile('y.txt').test(linux), 'the name does hold "y.txt"');
+  assert.ok(!compile('y.*').test(linux));
+  assert.ok(!compile('x/y.txt').test(linux));
+  assert.ok(!compile('docs/*/y.txt').test(linux));
+  // A Windows path, a UNC path and a URI kept as it is take either separator, as a pattern does.
+  assert.deepStrictEqual(splitPath('C:\\a/b\\c.txt'), ['C:', 'a', 'b', 'c.txt']);
+  assert.strictEqual(baseName('\\\\nas\\share\\y.txt'), 'y.txt');
+  assert.strictEqual(baseName('vscode-remote://wsl%2Bu/home\\y.txt'), 'y.txt');
+  assert.ok(compile('y.*').test('C:\\docs\\x\\y.txt'));
+  assert.ok(compile('x/y.txt').test('C:\\docs\\x\\y.txt'));
+  assert.ok(compile('x\\y.txt').test('/mnt/d/docs/x/y.txt'));
 });
 
 test('Windows paths compare without case; others with it', () => {

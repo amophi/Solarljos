@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { workDir, cleanup, write, infoV2, snapshot } = require('./helpers');
+const fmt = require('../src/format');
 
 const BIN = path.join(__dirname, '..', 'bin', 'solarljos.js');
 const dirs = [];
@@ -22,9 +23,9 @@ function fixtures() {
   return { root, recycle: path.join(root, 'sources', '$Recycle.Bin') };
 }
 
-function cli(args, f) {
+function cli(args, f, env) {
   const r = spawnSync(process.execPath, [BIN, ...args, '--no-discover', '--recycle-dir', f.recycle], {
-    cwd: f.root, encoding: 'utf8',
+    cwd: f.root, encoding: 'utf8', env: { ...process.env, ...env },
   });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
@@ -103,6 +104,88 @@ test('an unknown ID is an error, not a guess', () => {
 
 test('--help and --version', () => {
   const f = fixtures();
-  assert.match(cli(['--help'], f).out, /solarljos find <name>/);
+  const help = cli(['--help'], f).out;
+  assert.match(help, /solarljos find <name>/);
+  assert.ok(help.includes('notepad=D:\\old\\Users\\me'), 'the examples keep their backslashes');
+  assert.ok(help.includes('trash=E:\\   git=D:\\code'));
   assert.match(cli(['--version'], f).out, /^\d+\.\d+\.\d+/);
+});
+
+test('a --location for a source that does not exist is a usage error, whatever its name', () => {
+  const f = fixtures();
+  for (const id of ['jetbrain', 'VSS', 'recycle-bin', 'constructor', '__proto__', 'toString']) {
+    const r = cli(['find', 'budget', '--location', `${id}=D:\\old`], f);
+    assert.strictEqual(r.code, 2, id);
+    assert.match(r.err, new RegExp(`^Unknown source in --location: ${id}\\. Known: recycle, .*, vss, repos$`, 'm'), id);
+  }
+  const empty = cli(['find', 'budget', '--location', 'notepad='], f);
+  assert.strictEqual(empty.code, 2);
+  assert.match(empty.err, /Give a place after notepad= in --location/);
+});
+
+test('--since with a date alone means midnight where the user is, as the times shown are local', () => {
+  const f = fixtures();
+  const bin = path.join(f.recycle, 'S-1-5-21-9-9-9-1001');
+  // Seoul is UTC+9 all year: 03:00 on 1 September there is 18:00 UTC on 31 August.
+  write(path.join(bin, '$IEARLY1.txt'), infoV2('C:\\Users\\alice\\early.txt', 1, Date.UTC(2026, 7, 31, 18)));
+  write(path.join(bin, '$REARLY1.txt'), 'e');
+  write(path.join(bin, '$ILATE01.txt'), infoV2('C:\\Users\\alice\\the-day-before.txt', 1, Date.UTC(2026, 7, 31, 14)));
+  write(path.join(bin, '$RLATE01.txt'), 'l');
+  const r = cli(['find', '*.txt', '--since', '2026-09-01', '--json'], f, { TZ: 'Asia/Seoul' });
+  assert.strictEqual(r.code, 0, r.err);
+  assert.deepStrictEqual(JSON.parse(r.out).results.map((c) => c.path).sort(),
+    ['C:\\Users\\alice\\budget.txt', 'C:\\Users\\alice\\early.txt']);
+  assert.strictEqual(cli(['find', 'x', '--since', '2026-02-30'], f).code, 2, 'a day that does not exist');
+  const { parseSince } = require('../src/cli')._internal;
+  assert.strictEqual(parseSince('2026-09-01'), new Date(2026, 8, 1).getTime());
+  assert.strictEqual(parseSince('2026-09'), new Date(2026, 8, 1).getTime());
+  assert.strictEqual(parseSince('2026-09-01T00:00:00Z'), Date.UTC(2026, 8, 1), 'a zone given is kept');
+});
+
+test('arguments are quoted for the shells of the system they are shown on', () => {
+  const win = (s) => fmt.arg(s, 'win32');
+  assert.strictEqual(win('trash=E:\\'), 'trash=E:\\', 'bare, so no quote can follow the backslash');
+  assert.strictEqual(win('vss=\\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy5=C:\\'),
+    'vss=\\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy5=C:\\');
+  assert.strictEqual(win('D:\\My Files\\'), '"D:\\My Files\\\\"');
+  assert.strictEqual(win('say "hi\\"'), '"say \\"hi\\\\\\""');
+  assert.strictEqual(win('E:\\$Recycle.Bin'), "'E:\\$Recycle.Bin'", 'PowerShell would expand $Recycle');
+  assert.strictEqual(win("it's $5"), "'it''s $5'");
+  const posix = (s) => fmt.arg(s, 'linux');
+  assert.strictEqual(posix('trash=/mnt/e'), 'trash=/mnt/e');
+  assert.strictEqual(posix('C:\\a'), "'C:\\a'");
+  assert.strictEqual(posix('/mnt/e/$Recycle.Bin'), "'/mnt/e/$Recycle.Bin'");
+  assert.strictEqual(posix("it's"), "'it'\\''s'");
+});
+
+test('quoted arguments reach the program as given, through this system\'s shell', () => {
+  const root = workDir('cli-args');
+  dirs.push(root);
+  const echo = write(path.join(root, 'echo.js'), 'process.stdout.write(JSON.stringify(process.argv.slice(2)))');
+  const values = ['trash=E:\\', 'D:\\My Files\\', 'next', 'a b', '*.docx', 'x,y', '/home/a b/', "it's", 'say "hi"'];
+  // PowerShell takes $ in single quotes, and cmd, which spawn uses on Windows, does not.
+  if (process.platform !== 'win32') values.push('/mnt/e/$Recycle.Bin', 'back\\slash', '~/x');
+  const line = [process.execPath, echo, ...values].map((v) => fmt.arg(v)).join(' ');
+  const r = spawnSync(line, { shell: true, encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.deepStrictEqual(JSON.parse(r.stdout), values);
+});
+
+test('a mistyped --location is refused before a search is announced', () => {
+  const f = fixtures();
+  const r = cli(['find', 'budget', '--location', 'nosuch=' + f.root], f);
+  assert.strictEqual(r.code, 2);
+  assert.match(r.err, /Unknown source in --location: nosuch/);
+  assert.doesNotMatch(r.err, /Searching/);
+});
+
+test('rebuild says what the sources noted, above all when nothing turned up', () => {
+  const f = fixtures();
+  // A folder with no Linux trash in it: the trash source says so.
+  const r = cli(['rebuild', path.join(f.root, 'nothing-here'), '--dry-run', '--location', 'trash=' + f.root], f);
+  assert.strictEqual(r.code, 1);
+  assert.match(r.out, /! Trash \(Linux\): .+/);
+  assert.match(r.out, /Nothing found below/);
+  const json = JSON.parse(cli(['rebuild', path.join(f.root, 'nothing-here'), '--dry-run', '--json', '--location', 'trash=' + f.root], f).out);
+  assert.ok(json.sources.find((s) => s.id === 'trash').notes.length >= 1);
 });

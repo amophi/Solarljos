@@ -4,10 +4,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { t } = require('./i18n');
 
-// A found copy keeps its content in one of three ways:
+// A found copy keeps its content in one of four ways:
 //   file     a path to a file on disk that holds the bytes (Recycle Bin, Local History, backups)
 //   text     the content itself, as a transcript recorded it
-//   gitBlob  { repo, sha } -- an object inside a git repository
+//   buffer   the bytes themselves, when a source had to decode them to check them
+//   gitBlob  { repo, sha } -- an object inside a git repository; sha is what cat-file is asked
+//            for: a bare object id (git's stored form) or "<id> <path>" (as checkout writes it)
 // A folder (a whole deleted directory in the Recycle Bin) has `dir` instead.
 
 // Copies larger than this are listed but not hashed, so they are never merged as duplicates.

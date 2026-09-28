@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { pathKey } = require('./paths');
 
 // Where each source looks. Every location can be given explicitly, which is also how a
 // drive from another machine is searched. Unless discovery is turned off, the usual places
@@ -75,6 +76,19 @@ function discoverAntigravityDirs() {
     .filter((d) => isDir(path.join(d, 'brain')));
 }
 
+/** This machine's own places for the older sources, and the folder git looks in by default. */
+const THIS_MACHINE = {
+  recycle: discoverRecycleRoots,
+  history: discoverHistoryRoots,
+  claude: () => [].concat(discoverClaudeDir() || []),
+  antigravity: discoverAntigravityDirs,
+  cwd: () => process.cwd(),
+};
+
+// The older sources, whose places come from their own options as well as from --location. "git"
+// and "repos", its older name, are one: the folders to look for repositories in.
+const OLDER = new Set(['recycle', 'history', 'claude', 'antigravity', 'git', 'repos']);
+
 /**
  * @param {object} o
  * @param {boolean} o.discover     add this machine's usual places
@@ -83,31 +97,39 @@ function discoverAntigravityDirs() {
  * @param {string} o.claudeDir
  * @param {string[]} o.antigravityDirs
  * @param {string[]} o.repos       folders to look for git repositories in
- * @param {object} o.dirs          { <source id>: [places] } for sources that find their own places
+ * @param {object} o.dirs          { <source id>: [places] }, as --location gives them
  * @param {object} o.discoverers   { <source id>: () => places }, supplied by search.js
+ * @param {object} [o.machine]     for tests: stands in for THIS_MACHINE
  */
 function resolveLocations(o) {
   const discover = o.discover !== false;
-  const recycle = [...(o.recycleDirs || [])].map((p) => path.resolve(p));
-  const history = (o.historyDirs || []).map((p) => ({ label: path.resolve(p), dir: path.resolve(p) }));
-  let claude = o.claudeDir ? path.resolve(o.claudeDir) : null;
-  const antigravity = (o.antigravityDirs || []).map((p) => path.resolve(p));
-  const repos = (o.repos || []).map((p) => path.resolve(p));
+  const machine = { ...THIS_MACHINE, ...(o.machine || {}) };
+  const given = o.dirs || {};
+  const abs = (list) => [].concat(list || []).map((p) => path.resolve(p));
+
+  // --location adds to an older source's places as its own option does: a place given either
+  // way is searched, and so is every one found on this machine.
+  const recycle = [...abs(o.recycleDirs), ...abs(given.recycle)];
+  const history = [...abs(o.historyDirs), ...abs(given.history)].map((p) => ({ label: p, dir: p }));
+  const claude = [...abs(o.claudeDir), ...abs(given.claude)];
+  const antigravity = [...abs(o.antigravityDirs), ...abs(given.antigravity)];
+  // The current folder is where git looks when it is given nowhere else to, not a place found on
+  // this machine: --repo and --location git= both replace it.
+  const repos = [...abs(o.repos), ...abs(given.git), ...abs(given.repos)];
 
   if (discover) {
-    recycle.push(...discoverRecycleRoots());
-    history.push(...discoverHistoryRoots());
-    if (!claude) claude = discoverClaudeDir();
-    antigravity.push(...discoverAntigravityDirs());
-    if (!repos.length) repos.push(process.cwd());
+    recycle.push(...machine.recycle());
+    history.push(...machine.history());
+    claude.push(...machine.claude());
+    antigravity.push(...machine.antigravity());
+    if (!repos.length) repos.push(machine.cwd());
   }
 
   // Newer sources find their own places. Their entries are kept as given, since some are
   // more than a folder (a snapshot and the drive it belongs to, say); each source reads its own.
   const own = {};
-  const ids = new Set([...Object.keys(o.dirs || {}), ...Object.keys(o.discoverers || {})]);
+  const ids = new Set([...Object.keys(given), ...Object.keys(o.discoverers || {})].filter((id) => !OLDER.has(id)));
   for (const id of ids) {
-    const given = (o.dirs && o.dirs[id]) || [];
     let found = [];
     if (discover && o.discoverers && typeof o.discoverers[id] === 'function') {
       try {
@@ -116,15 +138,15 @@ function resolveLocations(o) {
         found = [];
       }
     }
-    own[id] = dedupe([...given, ...found]);
+    own[id] = dedupe([...(given[id] || []), ...found]);
   }
 
   return {
-    recycle: dedupe(recycle),
-    history: dedupeBy(history, (h) => h.dir),
-    claude,
-    antigravity: dedupe(antigravity),
-    repos: dedupe(repos),
+    recycle: dedupeBy(recycle, pathKey),
+    history: dedupeBy(history, (h) => pathKey(h.dir)),
+    claude: dedupeBy(claude, pathKey),
+    antigravity: dedupeBy(antigravity, pathKey),
+    repos: dedupeBy(repos, pathKey),
     ...own,
   };
 }
@@ -138,4 +160,4 @@ function dedupeBy(list, key) {
   return list.filter((x) => (seen.has(key(x)) ? false : seen.add(key(x))));
 }
 
-module.exports = { resolveLocations };
+module.exports = { resolveLocations, editorDataBase };

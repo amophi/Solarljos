@@ -45,6 +45,19 @@ test('reads and restores one copy', async () => {
   assert.strictEqual(fs.readFileSync(target, 'utf8'), 'alpha');
 });
 
+test('a folder is taken as the command line takes it: a bare drive is its root', async () => {
+  const s = makeSources();
+  for (const drive of ['C:', 'C:\\', 'c:/']) {
+    const { folder, plan } = await api.planFolder(drive, { locations: s.locations });
+    assert.strictEqual(folder, drive.slice(0, 2) + '\\');
+    assert.deepStrictEqual(plan.map((p) => p.rel.join('/')), ['app/a.txt', 'app/sub/b.txt'], drive);
+  }
+  const { folder } = await api.planFolder('C:\\app\\', { locations: s.locations });
+  assert.strictEqual(folder, 'C:\\app');
+  const { results } = await api.search({ under: 'C:', locations: s.locations });
+  assert.strictEqual(results.length, 2, 'search takes it the same way');
+});
+
 test('plans and rebuilds a folder', async () => {
   const s = makeSources();
   const { plan, locations } = await api.planFolder('C:\\app', { locations: s.locations });
