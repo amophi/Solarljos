@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.4.0 (2026-09-30)
 
 Old photos and videos, and a graphical front end in one Windows program: three new sources, a
 search by type, two new tiers for copies that are not simply the file, and restores that stream.

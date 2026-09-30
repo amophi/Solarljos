@@ -550,7 +550,8 @@ it, with that node.exe's signature taken off first, since it would no longer ver
 the exe -- its version, every source, a search and a restore on a made-up Linux trash, and the
 front end serving its page, started with `--no-open` -- and only then writes
 `dist/Solarljos.exe.sha256`. Built with Node 26.10.0 in two folders of different names, it came
-out with the same SHA-256 both times, and with no part of either folder's path in it.
+out with the same SHA-256 both times, and with no part of either folder's path in it; the exe
+GitHub's Windows runner built from the same commit in CI had that SHA-256 too.
 
 ## Using it from code
 
