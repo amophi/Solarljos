@@ -57,7 +57,8 @@
 // a new 100 MB program and the front end reading the thumbnail cache before it printed its
 // address, and in 1.7 s the next. For 0.5.0, with the translations -- 54 modules (2,769,774 bytes,
 // the 17 catalogs among them) and 21 page files (17 of them the page's language tables) -- the exe
-// is 109,127,680 bytes, made and tried in 11.4 s. The exe names no certificate table, and its checksum is what
+// is 109,127,680 bytes, made and tried in 11.4 s; for 0.7.0, with the page's font (23 page files),
+// 111,206,400 bytes, in 11.0 s. The exe names no certificate table, and its checksum is what
 // CheckSumMappedFile computes (which gives the one shipped in node.exe 24.20 and 26.10). The
 // configuration names every file relative to the project: the blob keeps the main script's name
 // as given, and an absolute one put the builder's folder, user name included, into the program.

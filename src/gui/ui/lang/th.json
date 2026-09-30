@@ -59,7 +59,6 @@
   "a11y.progressValue": "{source}: {done} จาก {total}",
   "a11y.searchDone": "ค้นหาเสร็จสิ้น: พบสำเนา {count} รายการ",
   "a11y.planDone": "เสร็จสิ้น: พบ {count} ไฟล์",
-  "home.title": "คุณทำอะไรหาย",
   "home.file.title": "ไฟล์",
   "home.file.body": "เอกสาร สเปรดชีต หรือโค้ด ค้นหาตามชื่อ",
   "home.media.title": "รูปถ่ายหรือวิดีโอ",

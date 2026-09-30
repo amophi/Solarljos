@@ -67,7 +67,6 @@
     "many": "Terminé : {count} de fichiers trouvés.",
     "other": "Terminé : {count} fichiers trouvés."
   },
-  "home.title": "Qu’avez-vous perdu ?",
   "home.file.title": "Un fichier",
   "home.file.body": "Un document, une feuille de calcul, un morceau de code. Recherchez-le par son nom.",
   "home.media.title": "Des photos ou des vidéos",

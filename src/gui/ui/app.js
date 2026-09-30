@@ -2032,6 +2032,7 @@
     const r = currentRoute();
     // Any other fragment (#main, from the skip link) is not a route.
     if (r === null && location.hash && location.hash !== '#') return;
+    closeRail();
     show(own(ROUTES, r || '') ? r || '' : '');
   }
 
@@ -2159,29 +2160,22 @@
   }
 
   /**
-   * Marks the part of the page in sight in the frame -- its tab selected, the one of the row
-   * that Tab stops on; the start's link current on the start -- and sends each part's link to the
-   * view it was left on.
+   * Marks the part of the page in sight in the rail -- its link current, and the start's on the
+   * start -- and sends each part's link to the view it was left on.
    */
   function updateNav() {
     const section = active !== null ? ROUTES[active].section : '';
-    const tabs = $$('[role="tab"][data-route]');
-    const chosen = tabs.find((a) => a.getAttribute('data-route') === section) || null;
     for (const a of $$('[data-route]')) {
       const s = a.getAttribute('data-route');
-      if (a.getAttribute('role') === 'tab') {
-        a.setAttribute('aria-selected', String(a === chosen));
-        a.setAttribute('tabindex', a === (chosen || tabs[0]) ? '0' : '-1');
-      } else if (s === section) a.setAttribute('aria-current', 'page');
+      if (s === section) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
       if (own(lastOf, s)) a.setAttribute('href', '#/' + lastOf[s]);
     }
-    revealTab();
   }
 
   function setTitle() {
     const slot = active !== null ? slots.get(active) : null;
-    const h1 = slot ? $('h1', slot.box) : null;
+    const h1 = slot && active !== '' ? $('h1', slot.box) : null;
     document.title = h1 ? tr('app.pageTitle', { page: h1.textContent }) : tr('app.name');
   }
 
@@ -2247,7 +2241,7 @@
     const tip = (iconName, key) => h('li', {}, icon(iconName), h('span', { text: tr(key) }));
     const el = h('section', { class: 'home' },
       h('header', { class: 'home-head' },
-        h('h1', { text: tr('home.title') }),
+        h('h1', { class: 'wordmark', text: tr('app.name') }),
         h('p', { class: 'home-desc', text: tr('home.good.copies') })),
       h('ul', { class: 'cards choices' },
         card('#/find', 'search', tr('home.file.title'), tr('home.file.body')),
@@ -5079,68 +5073,68 @@
     stoppedOverlay(tr('quit.done.title'), writing ? tr('quit.done.writing') : tr('quit.done.body'), false);
   }
 
-  // ---- the frame: the tabs, the theme and the language -------------------------------------
+  // ---- the frame: the rail, the theme and the language --------------------------------------
 
-  /**
-   * Brings the tab of the part in sight into the row of tabs, which scrolls sideways in a narrow
-   * window; the page itself does not move.
-   */
-  function revealTab(tab) {
-    const row = $('.tabs-nav');
-    const shown = tab || (row && $('[aria-selected="true"]', row));
-    if (!row || !shown) return;
-    const r = shown.getBoundingClientRect();
-    const box = row.getBoundingClientRect();
-    if (r.left < box.left) row.scrollLeft -= box.left - r.left + 24;
-    else if (r.right > box.right) row.scrollLeft += r.right - box.right + 24;
+  // The rail shows its words in a window this wide or more, and only its icons in a narrower one,
+  // where its button shows the words over the page; in a wide window the button takes them away.
+  const WIDE_RAIL = '(min-width: 1008px)';
+  let railWish = null; // null: as the width says; 'compact' in a wide window, 'open' in a narrow one
+
+  function syncRail() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    const wide = window.matchMedia(WIDE_RAIL).matches;
+    const mode = wide ? (railWish === 'compact' ? 'compact' : 'expanded') : railWish === 'open' ? 'overlay' : 'compact';
+    app.setAttribute('data-rail', mode);
+    const toggle = document.getElementById('rail-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', String(mode !== 'compact'));
+    // A rail of icons says what each is when it is pointed at.
+    for (const el of $$('.rail [data-route], .rail .quit')) {
+      const label = $('.label', el);
+      if (mode === 'compact' && label) el.setAttribute('title', label.textContent);
+      else el.removeAttribute('title');
+    }
+  }
+
+  function closeRail() {
+    if (railWish !== 'open') return;
+    railWish = null;
+    syncRail();
+  }
+
+  function toggleRail() {
+    if (window.matchMedia(WIDE_RAIL).matches) railWish = railWish === 'compact' ? null : 'compact';
+    else railWish = railWish === 'open' ? null : 'open';
+    syncRail();
   }
 
   /**
-   * The tabs beside the sun and the tools when they fit there, in a row of their own below them
-   * when they do not: how wide they are depends on the language, so it is measured.
+   * The rail's keys: Up and Down, Home and End move between its parts, as down a list, where
+   * Tab moves too; Ctrl+1 to Ctrl+5 open each part from anywhere but a dialog, in the view it was
+   * left on, focus included.
    */
-  function fitTopbar() {
-    const bar = document.getElementById('topbar');
-    const row = document.getElementById('tabs-nav');
-    if (!bar || !row) return;
-    bar.classList.remove('stacked');
-    if (row.scrollWidth > row.clientWidth + 1) bar.classList.add('stacked');
-    revealTab();
-  }
-
-  /**
-   * The row of tabs as a tablist: Left and Right (as they move on screen), Home and End go along
-   * it, and Enter or Space opens the part a tab is for, in the view as it was left, focus
-   * included. Ctrl+1 to Ctrl+5 open each part from anywhere but a dialog.
-   */
-  function tabKeys() {
-    const list = $('[role="tablist"]', document.getElementById('topbar'));
-    if (!list) return;
-    const tabs = () => $$('[role="tab"]', list);
-    list.addEventListener('keydown', (e) => {
-      const all = tabs();
-      const at = all.indexOf(document.activeElement);
-      if (at < 0 || e.altKey || e.ctrlKey || e.metaKey) return;
-      if (e.key === ' ') {
+  function railKeys() {
+    const links = () => $$('.rail-nav a[data-route]');
+    const nav = document.getElementById('rail-nav');
+    if (nav) {
+      nav.addEventListener('keydown', (e) => {
+        const all = links();
+        const at = all.indexOf(document.activeElement);
+        if (at < 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: all.length - 1 }[e.key];
+        if (to === undefined) return;
         e.preventDefault();
-        all[at].click();
-        return;
-      }
-      const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: all.length - 1 }[logicalKey(e.key)];
-      if (to === undefined) return;
-      e.preventDefault();
-      const next = all[(to + all.length) % all.length];
-      next.focus();
-      revealTab(next);
-    });
+        all[(to + all.length) % all.length].focus();
+      });
+    }
     document.addEventListener('keydown', (e) => {
       if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
       const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
-      const all = tabs();
+      const all = links();
       if (!m || Number(m[1]) > all.length || document.querySelector('dialog[open]')) return;
       e.preventDefault();
-      const tab = all[Number(m[1]) - 1];
-      if (tab.getAttribute('aria-selected') !== 'true') tab.click();
+      const link = all[Number(m[1]) - 1];
+      if (link.getAttribute('aria-current') !== 'page') link.click();
     });
   }
 
@@ -5189,7 +5183,7 @@
     if (sel) sel.value = lang;
     applyTheme(theme);
     setTitle();
-    fitTopbar();
+    syncRail();
   }
 
   /** The picker: each language the page has a table for, in its own name. None with only English. */
@@ -5269,13 +5263,23 @@
     if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
     const pick = document.getElementById('lang');
     if (pick) pick.addEventListener('change', () => chooseLanguage(pick.value, false));
-    tabKeys();
-    let fitting = 0;
-    window.addEventListener('resize', () => {
-      cancelAnimationFrame(fitting);
-      fitting = requestAnimationFrame(fitTopbar);
+    const toggle = document.getElementById('rail-toggle');
+    if (toggle) toggle.addEventListener('click', toggleRail);
+    window.matchMedia(WIDE_RAIL).addEventListener('change', () => {
+      railWish = null;
+      syncRail();
     });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTopbar, () => {});
+    // The words shown over the page go at Esc, or at a click beside them.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && railWish === 'open') {
+        closeRail();
+        if (toggle) toggle.focus();
+      }
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (railWish === 'open' && !e.target.closest('.rail')) closeRail();
+    });
+    railKeys();
     window.addEventListener('hashchange', () => route());
     // The browser's own menu over a picture or a video offers "Save image as" and "Save video as",
     // which write to Downloads past every check (see the top of this file).

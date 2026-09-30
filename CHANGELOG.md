@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.0 (2026-09-30)
+
+The rail is back at the side, in 0.6.0's colours, and the page has a font of its own.
+
+- The parts are a rail down the start of the window again, as in 0.5.0, in SoundVisualizer's
+  colours: the cards' shade, each part an icon and its words, the chosen one bold on a blue tint
+  with its icon in blue. The language, the theme switch and Quit sit at its foot. It is as wide
+  as its longest words, from 256 to 320 pixels, so no language's parts take two lines; in a
+  window narrower than 1,008 pixels it shows only its icons, and its menu button shows the words
+  over the page (Esc or a click beside them closes them) or, in a wide window, folds them away.
+  0.6.0's top bar of text tabs is gone. It mirrors in Arabic.
+- The parts are links again, marked as the current page, which every screen reader knows. Tab
+  moves along them, and so do Up, Down, Home and End; Ctrl+1 to Ctrl+5 still switch parts.
+- The start's heading is the name, Solarljos, large, in place of "What did you lose?". The
+  window's title there is just the name. The `home.title` string is gone from every language.
+- Type in Pretendard 1.3.9, one variable font file (2,057,688 bytes) that the page carries in
+  `src/gui/ui/fonts/`, unchanged from its release, with its SIL Open Font License beside it. It
+  draws Latin, Greek, Cyrillic, Vietnamese and every Korean syllable. Its kana and CJK
+  punctuation are not used, so Japanese and Chinese stay in their own Windows fonts, as Thai,
+  Hindi and Arabic do. The exe is 2 MB larger; nothing is loaded from anywhere else.
+
 ## 0.6.0 (2026-09-30)
 
 The page in the look of the author's SoundVisualizer app, made for a PC window.

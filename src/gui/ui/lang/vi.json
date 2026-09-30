@@ -59,7 +59,6 @@
   "a11y.progressValue": "{source}: {done} trên {total}",
   "a11y.searchDone": "Đã tìm xong: tìm thấy {count} bản sao.",
   "a11y.planDone": "Xong: tìm thấy {count} tệp.",
-  "home.title": "Bạn bị mất gì?",
   "home.file.title": "Một tệp",
   "home.file.body": "Một tài liệu, một bảng tính, một đoạn mã. Tìm theo tên.",
   "home.media.title": "Ảnh hoặc video",

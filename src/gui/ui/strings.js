@@ -126,7 +126,6 @@
     'a11y.planDone': { one: 'Done: 1 file found.', other: 'Done: {count} files found.' },
 
     // ---- start ----
-    'home.title': 'What did you lose?',
     'home.file.title': 'A file',
     'home.file.body': 'A document, a spreadsheet, a piece of code. Search by its name.',
     'home.media.title': 'Photos or videos',

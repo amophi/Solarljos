@@ -59,7 +59,6 @@
   "a11y.progressValue": "{source}: {total}개 중 {done}개",
   "a11y.searchDone": "검색 완료: 사본 {count}개를 찾았어요.",
   "a11y.planDone": "완료: 파일 {count}개를 찾았어요.",
-  "home.title": "무엇을 잃어버렸나요?",
   "home.file.title": "파일",
   "home.file.body": "문서, 스프레드시트, 코드 등. 이름으로 찾아요.",
   "home.media.title": "사진이나 동영상",

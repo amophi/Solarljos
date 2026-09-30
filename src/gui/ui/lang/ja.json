@@ -63,7 +63,6 @@
   "a11y.planDone": {
     "other": "完了しました。ファイルが {count} 個見つかりました。"
   },
-  "home.title": "何をなくしましたか?",
   "home.file.title": "ファイル",
   "home.file.body": "文書、スプレッドシート、コードなど。名前で検索します。",
   "home.media.title": "写真やビデオ",

@@ -65,7 +65,6 @@
     "one": "Listo: se encontró 1 archivo.",
     "other": "Listo: se encontraron {count} archivos."
   },
-  "home.title": "¿Qué has perdido?",
   "home.file.title": "Un archivo",
   "home.file.body": "Un documento, una hoja de cálculo, un fragmento de código. Búscalo por su nombre.",
   "home.media.title": "Fotos o vídeos",

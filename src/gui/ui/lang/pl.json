@@ -69,7 +69,6 @@
     "many": "Gotowe: znaleziono {count} plików.",
     "other": "Gotowe: znaleziono {count} plików."
   },
-  "home.title": "Co zostało utracone?",
   "home.file.title": "Plik",
   "home.file.body": "Dokument, arkusz kalkulacyjny, fragment kodu. Wyszukiwanie według nazwy.",
   "home.media.title": "Zdjęcia lub filmy",

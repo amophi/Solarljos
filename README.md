@@ -522,14 +522,16 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
   in the browser: a reload starts again from what the server still has.
 - **How it looks.** Dark by default, in the look of the author's SoundVisualizer app, made for a
   PC window:
-  - A bar at the top holds the name, the parts as bold text tabs with a short bar under the chosen
-    one, and the language, a light/dark switch and Quit. The tabs take a row of their own when the
-    window is too narrow for one line, and scroll sideways if they still do not fit.
+  - A rail down the side of the window holds the name and each part as an icon with its words, the
+    chosen one on a blue tint. The language, a light/dark switch and Quit sit at its foot. It is
+    as wide as its longest words, and in a narrow window it shows only its icons; its menu button
+    shows the words over the page, or folds them away in a wide one.
+  - The start shows the name, Solarljos, large, over the three things it finds.
   - Cards are rounded and darker than the page. On/off options are switch rows you can click
     anywhere on, and options that only matter when another is on open with a short animation.
     Check boxes are kept where several things are chosen at once.
   - Every control shows where the mouse is and has a focus ring. Ctrl+1 to Ctrl+5 switch parts,
-    and the arrow keys move along the tabs.
+    and the Up and Down keys move along the rail as Tab does.
   - A form's main action is a large button, and the rest are regular PC size. A copy's tier is a
     pill with an icon and its name in words, never a colour alone. A copy is previewed in a pane
     beside its results.
@@ -537,7 +539,9 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
     kept by Solarljos, not by the browser.
   - In a high-contrast theme the system's colours are used and every box keeps a border, and
     motion is dropped when the system asks.
-  - Segoe UI Variable, with each language's own font where Segoe UI has no letters for it.
+  - Type in [Pretendard](https://github.com/orioncactus/pretendard), which the program carries,
+    for Latin, Greek, Cyrillic and Korean letters, and each language's own Windows font for the
+    rest (Japanese, Chinese, Thai, Hindi, Arabic).
   - The layout mirrors in Arabic. Every text colour was measured against every background
   it is shown on, light and dark, at 4.5:1 or more, and every mark of where a control is and what
   state it is in at 3:1 or more; the values are at the top of
@@ -826,9 +830,13 @@ and tries `Solarljos.exe` on every push.
   window of its own for what would not be seen. Every program is a stand-in, but for one cmd.exe
   on Windows, run with the command line such a window gets in a console that is hidden.
 
-On Windows 11 with Node 24.20, `npm test` ran 631 tests: 622 passed, and 9 were skipped, which
+On Windows 11 with Node 24.20, `npm test` ran 632 tests: 623 passed, and 9 were skipped, which
 need Linux or what Windows does not give without privileges.
 
 ## License
 
 MIT
+
+The page's font, Pretendard 1.3.9 (`src/gui/ui/fonts/PretendardVariable.woff2`, unchanged from its
+release), is © 2021 Kil Hyung-jin and licensed under the SIL Open Font License 1.1, whose text is
+beside it in `src/gui/ui/fonts/Pretendard-OFL.txt`.

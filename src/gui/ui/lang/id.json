@@ -59,7 +59,6 @@
   "a11y.progressValue": "{source}: {done} dari {total}",
   "a11y.searchDone": "Pencarian selesai: {count} salinan ditemukan.",
   "a11y.planDone": "Selesai: {count} file ditemukan.",
-  "home.title": "Apa yang hilang?",
   "home.file.title": "Sebuah file",
   "home.file.body": "Dokumen, lembar kerja, potongan kode. Cari menurut namanya.",
   "home.media.title": "Foto atau video",

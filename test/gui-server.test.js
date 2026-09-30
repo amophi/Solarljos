@@ -597,6 +597,7 @@ test('offers the languages the page has, and speaks the one the page says it is 
       'index.html': Buffer.from('<!doctype html><title>t</title>'),
       'lang/ko.json': Buffer.from(JSON.stringify({ 'meta.lang': 'ko', 'nav.find': '파일 찾기' })),
       'lang/de.json': Buffer.from('{ not json'),
+      'fonts/PretendardVariable.woff2': Buffer.from('wOF2'),
     };
     const s = await session({ assets: (rel) => files[rel] || null });
     const info = json(await s.get('/api/info'));
@@ -607,6 +608,9 @@ test('offers the languages the page has, and speaks the one the page says it is 
     assert.deepStrictEqual([table.status, table.headers['content-type'], json(table)['nav.find']], [200, 'application/json; charset=utf-8', '파일 찾기']);
     assert.strictEqual(table.headers['cache-control'], 'no-store');
     assert.strictEqual((await s.get('/lang/fr.json')).status, 404);
+    // So is the font that style.css asks for.
+    const font = await s.get('/fonts/PretendardVariable.woff2');
+    assert.deepStrictEqual([font.status, font.headers['content-type']], [200, 'font/woff2']);
     assert.strictEqual((await request(s.origin, '/lang/ko.json')).status, 403, 'not without the cookie');
 
     const told = await s.post('/api/lang', { lang: 'ko' });

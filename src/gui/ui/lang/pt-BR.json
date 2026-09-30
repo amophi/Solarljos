@@ -65,7 +65,6 @@
     "one": "Concluído: {count} arquivo encontrado.",
     "other": "Concluído: {count} arquivos encontrados."
   },
-  "home.title": "O que você perdeu?",
   "home.file.title": "Um arquivo",
   "home.file.body": "Um documento, uma planilha, um trecho de código. Pesquise pelo nome.",
   "home.media.title": "Fotos ou vídeos",

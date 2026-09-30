@@ -87,7 +87,10 @@ test('the page loads nothing from anywhere else, and asks its own server by rela
     assert.ok(!/(?:src|href|action)\s*=\s*["']?\/\//i.test(text), `${name} has a protocol-relative reference`);
   }
   assert.ok(!/@import/i.test(css), 'style.css imports');
-  for (const m of css.matchAll(/url\(\s*([^)]*)\)/gi)) assert.match(m[1], /^["']?data:/, `style.css loads ${m[1]}`);
+  // Besides what is written into it, style.css loads one file: the font beside it, by a relative name.
+  const cssRefs = [...css.matchAll(/url\(\s*([^)]*)\)/gi)].map((m) => m[1].trim().replace(/^["']|["']$/g, '')).filter((r) => !r.startsWith('data:'));
+  assert.deepStrictEqual(cssRefs, ['fonts/PretendardVariable.woff2']);
+  for (const r of cssRefs) assert.ok(fs.existsSync(path.join(UI, ...r.split('/'))), r);
   // What index.html loads is the files beside it, by the names the built program keeps them under.
   const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((r) => !r.startsWith('#') && !r.startsWith('data:'));
   assert.deepStrictEqual(refs.sort(), ['app.js', 'strings.js', 'style.css']);

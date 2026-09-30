@@ -67,7 +67,6 @@
     "many": "Fatto: trovati {count} di file.",
     "other": "Fatto: trovati {count} file."
   },
-  "home.title": "Cosa hai perso?",
   "home.file.title": "Un file",
   "home.file.body": "Un documento, un foglio di calcolo, un pezzo di codice. Cercalo per nome.",
   "home.media.title": "Foto o video",

@@ -34,10 +34,11 @@ test('the tree bundles into one script that runs as the command line does', () =
     }
   }
   assert.ok(modules.includes('src/gui/server.js'));
-  // The page's four files, and a table for every language the page has one for.
+  // The page's four files, its font and the font's licence, and a table for every language the page has one for.
   const tables = fs.readdirSync(path.join(ROOT, 'src/gui/ui/lang')).filter((n) => n.endsWith('.json')).map((n) => `lang/${n}`);
   assert.ok(tables.includes('lang/ko.json'), 'the Korean table is there');
-  assert.deepStrictEqual(pages.map((p) => p.key).sort(), ['app.js', 'index.html', 'strings.js', 'style.css', ...tables].sort());
+  assert.deepStrictEqual(pages.map((p) => p.key).sort(),
+    ['app.js', 'index.html', 'strings.js', 'style.css', 'fonts/Pretendard-OFL.txt', 'fonts/PretendardVariable.woff2', ...tables].sort());
   assert.strictEqual(bundle().code, code, 'the same tree bundles to the same bytes');
 
   const run = (...args) => execFileSync(process.execPath, [file, ...args], { cwd: dir, encoding: 'utf8', timeout: 60000 });

@@ -63,7 +63,6 @@
   "a11y.planDone": {
     "other": "完成：找到 {count} 个文件。"
   },
-  "home.title": "你丢失了什么？",
   "home.file.title": "一个文件",
   "home.file.body": "文档、电子表格或一段代码。按名称搜索。",
   "home.media.title": "照片或视频",

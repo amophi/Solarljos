@@ -1,18 +1,20 @@
 /*
   Solarljos's page, in the manner of the SoundVisualizer app, made for a PC window: dark first,
   on a slate background with darker cards (20-pixel corners, 24 pixels inside, 16 between), one
-  blue for what is chosen, on or to be done, and a warm sun for the mark alone. A row of bold text
-  tabs at the top, the chosen one in the text's colour with a short bar under it; settings as
-  rows with a switch at the end; the one action of a form or a dialog as a large rounded button.
+  blue for what is chosen, on or to be done, and a warm sun for the mark alone. A rail at the
+  start of the window in the cards' colour, each part an icon and its words, the chosen one on a
+  blue tint with its icon in blue; settings as rows with a switch at the end; the one action of a
+  form or a dialog as a large rounded button.
   A light theme is the same page in daylight colours; which one is shown is kept by the server for
   the run (api/theme), never by the browser.
 
   Measures: radii of 20 for cards, 14 for the large buttons, 10 for buttons, boxes and chips,
-  6 for check boxes; buttons 40 pixels high (the large ones 56). Type on the system's font --
-  Segoe UI Variable on Windows 11, Segoe UI before it -- 15 pixels for text, 13 for what explains
-  it, 16 bold for the name of a setting, 18 bold for a card's title, 20 bold for the tabs, 28 for a
-  view's heading and 36 Black for the start's; each language's own font where Segoe UI has no
-  letters for it (:lang below), and more room between lines for Thai and Hindi.
+  6 for check boxes; buttons 40 pixels high (the large ones 56), the rail's 48. Type in
+  Pretendard, which the page carries (fonts/, under the SIL Open Font License), for Latin, Greek,
+  Cyrillic and Korean letters, and each language's own font on the system for the rest (:lang
+  below): 15 pixels for text, 13 for what explains it, 16 semibold for the rail and the name of a
+  setting, 18 bold for a card's title, 28 for a view's heading and 52 ExtraBold for the name on
+  the start; more room between lines for Thai and Hindi.
 
   CONTRAST -- every text colour measured on every background it is shown on, translucent ones
   laid over what is under them, in both themes (WCAG 2.2: 1.4.3, 4.5:1; 1.4.11, 3:1). The colours
@@ -34,7 +36,7 @@
                       of a check box 4.19:1, a switch that is off 3.75:1, a chosen chip 3.07:1
   A copy's quality is always said in words beside its colour and icon, never by colour alone.
   In a high-contrast theme (forced colors) the system's colours are used and every box keeps a
-  border; motion is dropped when the system asks. Nothing is loaded from anywhere, and the layout
+  border; motion is dropped when the system asks. Nothing is loaded from anywhere else, and the layout
   follows the page's direction: every side is logical (start, end), so Arabic reads from the
   right. The few physical sides left draw a glyph -- a check mark -- that does not turn.
 */
@@ -180,16 +182,23 @@
   --shadow-float: 0 8px 24px rgb(0 0 0 / 0.14);
 }
 
+/* Pretendard, one variable file with every weight. Only its Latin, Greek, Cyrillic and Korean
+   are used: the kana and the CJK punctuation it also has are left to each language's own font,
+   so that Japanese and Chinese are drawn in one hand. It is the page's own file, so the words
+   wait for it rather than showing in another font first. */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: block;
+  src: url("fonts/PretendardVariable.woff2") format("woff2");
+  unicode-range: U+0000-2FFF, U+3130-318F, U+AC00-D7A3;
+}
+
 :root {
-  --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", "Malgun Gothic",
-    "Apple SD Gothic Neo", "Yu Gothic UI", "Microsoft YaHei UI", "Microsoft JhengHei UI", "Leelawadee UI", "Nirmala UI",
-    "Noto Sans", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Helvetica Neue",
+  --font: "Pretendard Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue",
     "Malgun Gothic", "Apple SD Gothic Neo", "Yu Gothic UI", "Microsoft YaHei UI", "Microsoft JhengHei UI", "Leelawadee UI",
     "Nirmala UI", "Noto Sans", sans-serif;
-  /* The start's title is Segoe UI Black, which Segoe UI Variable does not have. */
-  --font-black: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", "Malgun Gothic", "Apple SD Gothic Neo", "Yu Gothic UI",
-    "Microsoft YaHei UI", "Microsoft JhengHei UI", "Leelawadee UI", "Nirmala UI", "Noto Sans", sans-serif;
   --mono: "Cascadia Mono", Consolas, ui-monospace, "Malgun Gothic", "Yu Gothic UI", "Microsoft YaHei UI", monospace;
   --leading: 1.53;
 
@@ -205,27 +214,14 @@
   interpolate-size: allow-keywords;
 }
 
-/* Each language's own letters, where Segoe UI has none, and the Han letters as that language draws them. */
-:lang(ko) { --font: "Segoe UI Variable Text", "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --font-black: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
-:lang(ja) { --font: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Meiryo UI", Meiryo, "Hiragino Sans", "Noto Sans JP", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", "Yu Gothic UI", "Meiryo UI", Meiryo, "Hiragino Sans", "Noto Sans JP", sans-serif;
-  --font-black: "Segoe UI", "Yu Gothic UI", "Meiryo UI", Meiryo, "Hiragino Sans", "Noto Sans JP", sans-serif; }
-:lang(zh-CN), :lang(zh-Hans) { --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
-  --font-black: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; }
-:lang(zh-TW), :lang(zh-Hant) { --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
-  --font-black: "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; }
-:lang(th) { --font: "Segoe UI Variable Text", "Segoe UI", "Leelawadee UI", Leelawadee, Tahoma, "Noto Sans Thai", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", "Leelawadee UI", Leelawadee, Tahoma, "Noto Sans Thai", sans-serif;
-  --font-black: "Segoe UI", "Leelawadee UI", Leelawadee, Tahoma, "Noto Sans Thai", sans-serif; --leading: 1.65; }
-:lang(hi) { --font: "Segoe UI Variable Text", "Segoe UI", "Nirmala UI", Mangal, "Noto Sans Devanagari", sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", "Nirmala UI", Mangal, "Noto Sans Devanagari", sans-serif;
-  --font-black: "Segoe UI", "Nirmala UI", Mangal, "Noto Sans Devanagari", sans-serif; --leading: 1.65; }
-:lang(ar) { --font: "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif; --font-display: "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
-  --font-black: "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif; --leading: 1.6; }
+/* Each language's own letters, where Pretendard has none, and the Han letters as that language draws them. */
+:lang(ko) { --font: "Pretendard Variable", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+:lang(ja) { --font: "Pretendard Variable", "Yu Gothic UI", "Meiryo UI", Meiryo, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+:lang(zh-CN), :lang(zh-Hans) { --font: "Pretendard Variable", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; }
+:lang(zh-TW), :lang(zh-Hant) { --font: "Pretendard Variable", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; }
+:lang(th) { --font: "Pretendard Variable", "Leelawadee UI", Leelawadee, Tahoma, "Noto Sans Thai", sans-serif; --leading: 1.65; }
+:lang(hi) { --font: "Pretendard Variable", "Nirmala UI", Mangal, "Noto Sans Devanagari", sans-serif; --leading: 1.65; }
+:lang(ar) { --font: "Pretendard Variable", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif; --leading: 1.6; }
 :lang(ko), :lang(ja), :lang(zh) { --leading: 1.6; }
 /* Korean puts spaces between its words: a line breaks there, not between the syllables of one. */
 :lang(ko) { word-break: keep-all; }
@@ -253,8 +249,8 @@ a { color: var(--accent-text); text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 h1, h2, h3 { margin: 0; }
-h1 { font: 700 1.75rem/1.3 var(--font-display); letter-spacing: -0.01em; }
-h2 { font: 700 1.125rem/1.45 var(--font-display); }
+h1 { font: 700 1.75rem/1.3 var(--font); letter-spacing: -0.02em; }
+h2 { font: 700 1.125rem/1.45 var(--font); letter-spacing: -0.01em; }
 /* A heading is given focus so that a screen reader starts there; it is not a control, and shows no ring. */
 h1:focus, h2:focus, h1:focus-visible, h2:focus-visible { outline: none; }
 p { margin: 8px 0; }
@@ -292,59 +288,86 @@ strong { font-weight: 700; }
 }
 .skip:focus { top: 8px; }
 
-/* ---- the frame: one bar at the top ---- */
+/* ---- the frame: the rail at the start, the page beside it ---- */
 
-.app { min-height: 100vh; }
-.topbar {
-  display: flex; align-items: center; gap: 0 32px;
-  padding: 0 24px; background: var(--bg);
+/* The rail as wide as its longest words, from 256 to 320 pixels; 72, its icons, when folded. */
+.app { display: grid; grid-template-columns: fit-content(320px) minmax(0, 1fr); min-height: 100vh; }
+.app[data-rail="compact"], .app[data-rail="overlay"] { grid-template-columns: 72px minmax(0, 1fr); }
+@media (max-width: 1007px) { .app:not([data-rail]) { grid-template-columns: 72px minmax(0, 1fr); } }
+
+.rail {
+  position: sticky; top: 0; height: 100vh; min-width: 256px;
+  display: flex; flex-direction: column; gap: 4px; padding: 12px;
+  background: var(--card); border-inline-end: 1px solid var(--divider);
+  overflow: hidden auto; overscroll-behavior: contain;
 }
-.brand {
-  display: inline-flex; align-items: center; gap: 10px; flex: none;
-  min-height: 44px; padding: 0 10px; margin-inline-start: -10px; margin-block-end: 11px; border-radius: var(--r-control);
-  color: var(--text); font: 700 1.0625rem/1.2 var(--font-display); text-decoration: none; white-space: nowrap;
+.app[data-rail="overlay"] .rail {
+  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 40; max-width: min(320px, 100vw); box-shadow: var(--shadow);
 }
-.brand:hover { background: var(--hover); }
+.app[data-rail="overlay"]::after { content: ""; position: fixed; inset: 0; z-index: 35; background: var(--scrim); }
+.rail-top { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+.rail-toggle, .rail .nav a, .rail-item, .brand, .lang-pick {
+  position: relative; display: flex; align-items: center; gap: 14px;
+  min-height: 48px; padding: 0 14px; border: 0; border-radius: var(--r-big);
+  background: transparent; color: var(--text); font: 600 1rem/1.3 var(--font); text-decoration: none; text-align: start; cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.rail .icon { width: 22px; height: 22px; }
+.rail-toggle { width: 48px; flex: none; justify-content: center; padding: 0; color: var(--text-2); }
+.rail-toggle:hover, .rail .nav a:hover, .rail-item:hover, .brand:hover, .lang-pick:hover { background: var(--hover); }
+.rail-toggle:active, .rail .nav a:active, .rail-item:active, .brand:active { background: var(--press); }
+.rail-toggle:hover, .rail-item:hover { color: var(--text); }
+.brand { flex: 1 1 auto; min-width: 0; gap: 10px; padding-inline: 10px; font: 800 1.25rem/1.2 var(--font); letter-spacing: -0.02em; }
 .brand .logo { width: 28px; height: 28px; flex: none; }
 .logo-sun { fill: var(--sun); stroke: none; }
 .logo-rays { fill: none; stroke: var(--sun-rays); stroke-width: 1.8; stroke-linecap: round; }
+.rail .label { min-width: 0; overflow-wrap: anywhere; }
 
-/* The tabs: bold words, the chosen one in the text's colour with a short bar under it that keeps
-   its room when it is not there, so that the row does not move. */
-.tabs-nav { flex: 1 1 auto; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; }
-.tab-row { display: flex; gap: 24px; width: max-content; padding: 24px 4px; }
-.top-tab {
-  display: inline-flex; flex-direction: column; align-items: center; gap: 8px;
-  color: var(--text-2); font: 700 1.25rem/1.4 var(--font-display); text-decoration: none; white-space: nowrap;
-  border-radius: var(--r-box); cursor: pointer; transition: color 0.12s ease;
-}
-.top-tab::after { content: ""; width: 40px; height: 3px; border-radius: 1.5px; background: transparent; }
-.top-tab:hover { color: var(--tab-hover); }
-.top-tab[aria-selected="true"] { color: var(--text); }
-.top-tab[aria-selected="true"]::after { background: var(--text); }
-.top-tab:focus-visible { outline-offset: 4px; }
+/* The parts: their words a step below the text's colour, the chosen one in it, bold, on a blue
+   tint with its icon in blue. */
+.rail-nav { display: flex; flex-direction: column; }
+.nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.nav li { margin: 0; }
+.nav-more { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider); }
+.rail .nav a { color: var(--tab-hover); }
+.rail .nav a .icon { color: var(--text-2); transition: color 0.12s ease; }
+.rail .nav a:hover { color: var(--text); }
+.rail .nav a[aria-current="page"] { background: var(--accent-soft); color: var(--text); font-weight: 700; }
+.rail .nav a[aria-current="page"] .icon { color: var(--accent-text); }
 
-.topbar-tools { display: flex; align-items: center; gap: 4px; flex: none; margin-block-end: 11px; margin-inline-start: auto; }
-.lang-box { align-items: center; }
-.lang-icon { position: absolute; inset-inline-start: 12px; top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--text-2); pointer-events: none; }
-.lang-select {
-  min-height: 40px; max-width: 14rem; padding-block: 0; padding-inline: 38px 34px;
-  border: 0; border-radius: var(--r-control); background: var(--card); color: var(--text); font-weight: 600;
-}
-.lang-select:hover { background: var(--card-hover); }
+/* At its foot: the language and the theme side by side, and Quit. */
+.rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding-top: 16px; }
+/* How wide the language's name is does not widen the rail. */
+.foot-row { display: flex; gap: 4px; contain: inline-size; }
+.rail-item { color: var(--text-2); }
+.theme-toggle { width: 48px; flex: none; justify-content: center; padding: 0; }
 .theme-toggle .icon-moon { display: none; }
 :root[data-theme="light"] .theme-toggle .icon-sun { display: none; }
 :root[data-theme="light"] .theme-toggle .icon-moon { display: block; }
-.btn.quit { color: var(--text-2); }
-.btn.quit:hover:not(:disabled) { color: var(--text); }
+.lang-pick { flex: 1 1 auto; min-width: 0; gap: 10px; padding-inline: 14px 0; color: var(--text-2); cursor: default; }
+.lang-pick .select-box { flex: 1 1 auto; min-width: 0; }
+.lang-select {
+  width: 100%; min-height: 48px; padding-block: 0; padding-inline: 0 36px;
+  border: 0; border-radius: 0; background: transparent; color: var(--text); font: 600 0.9375rem/1.3 var(--font);
+}
+.lang-select:hover { background: transparent; }
+.lang-pick:has(.lang-select:focus-visible) { outline: 2px solid var(--focus); outline-offset: 0; }
+.lang-select:focus-visible { outline: none; }
+.lang-pick .select-box::after { inset-inline-end: 14px; }
 
-/* Where the tabs do not fit beside the rest: the sun and the tools above, the tabs in a row of their own. */
-.topbar.stacked { flex-wrap: wrap; padding-top: 12px; }
-.topbar.stacked .brand, .topbar.stacked .topbar-tools { margin-block-end: 0; }
-.topbar.stacked .tabs-nav { order: 3; flex: 1 0 100%; margin-inline: -4px; }
-.topbar.stacked .tab-row { padding-block: 16px 20px; }
+/* A rail of icons: the words kept for assistive technology and the tooltip. */
+.app[data-rail="compact"] .rail { min-width: 0; width: 72px; }
+.app[data-rail="compact"] .rail .label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.app[data-rail="compact"] .rail-top, .app[data-rail="compact"] .foot-row { flex-direction: column; align-items: stretch; }
+.app[data-rail="compact"] .rail .nav a, .app[data-rail="compact"] .rail-item, .app[data-rail="compact"] .brand,
+.app[data-rail="compact"] .lang-pick { flex: none; justify-content: center; padding: 0; width: 48px; }
+.app[data-rail="compact"] .lang-pick .select-box { position: absolute; inset: 0; opacity: 0; }
+.app[data-rail="compact"] .lang-select { height: 100%; cursor: pointer; }
+.app[data-rail="compact"] .lang-pick .select-box::after { display: none; }
 
-main { display: block; min-width: 0; padding: 8px 24px 96px; }
+main { grid-column: 2; display: block; min-width: 0; padding: 40px 40px 96px; }
 main:focus { outline: none; }
 .view { max-width: 1120px; margin-inline: auto; }
 /* The photos fill the window, and so does a list with its preview beside it. */
@@ -583,7 +606,7 @@ details.more, details.expander {
 details.expander { background: var(--card); }
 details.more > summary, details.expander > summary {
   display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 16px 24px;
-  border-radius: var(--r-card); cursor: pointer; list-style: none; font: 700 1.125rem/1.45 var(--font-display);
+  border-radius: var(--r-card); cursor: pointer; list-style: none; font: 700 1.125rem/1.45 var(--font);
 }
 details.more > summary::-webkit-details-marker, details.expander > summary::-webkit-details-marker { display: none; }
 details.more:has(> summary:hover) { background: var(--track-press); }
@@ -694,7 +717,7 @@ details.notes[open] > ul { margin: 4px 0 8px; padding: 12px 16px 12px 32px; padd
 /* ---- the start ---- */
 
 .home-head { margin: 16px 0 32px; }
-.home-head h1 { font: 900 2.25rem/3rem var(--font-black); letter-spacing: -0.01em; margin-bottom: 12px; }
+.home-head .wordmark { font: 800 3.25rem/1.15 var(--font); letter-spacing: -0.035em; margin-bottom: 16px; }
 .home-desc { margin: 0; max-width: 46rem; color: var(--text-2); font-size: 1rem; line-height: 1.625; }
 .choices {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--gap);
@@ -714,7 +737,7 @@ details.notes[open] > ul { margin: 4px 0 8px; padding: 12px 16px 12px 32px; padd
 }
 .choice-icon .icon { width: 28px; height: 28px; }
 .choice-text { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-width: 0; }
-.card-title { font: 700 1.125rem/1.45 var(--font-display); }
+.card-title { font: 700 1.125rem/1.45 var(--font); }
 .card-body { color: var(--text-2); line-height: 1.55; }
 .choice-go { width: 20px; height: 20px; color: var(--text-2); align-self: flex-end; margin-top: -36px; }
 .last { margin: 0 0 24px; display: grid; gap: 4px; }
@@ -880,7 +903,7 @@ td.found-cell { min-width: 8rem; }
   }
 }
 .preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.preview-title { margin: 0; font: 700 1.125rem/1.45 var(--font-display); overflow-wrap: anywhere; }
+.preview-title { margin: 0; font: 700 1.125rem/1.45 var(--font); overflow-wrap: anywhere; }
 .preview-title:focus { outline: none; }
 .preview > .badges { margin: 0; }
 .preview > .hint { margin-top: 8px; }
@@ -976,7 +999,7 @@ dl.legend { grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr); al
 .month { margin: 0; }
 .month-title {
   position: sticky; top: 0; z-index: 2; margin: 0 0 8px; padding: 12px 0 8px;
-  background: var(--bg); font: 700 1.0625rem/1.5 var(--font-display);
+  background: var(--bg); font: 700 1.0625rem/1.5 var(--font);
 }
 .month > .hint { margin: 0 0 12px; }
 .grid { margin-bottom: 16px; }
@@ -1121,10 +1144,9 @@ dl.legend { grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr); al
   .choice-go { align-self: center; margin-top: 0; }
 }
 @media (max-width: 700px) {
-  .topbar { padding: 0 16px; }
-  main { padding: 8px 16px 96px; }
+  main { padding: 24px 16px 96px; }
   h1 { font-size: 1.5rem; }
-  .home-head h1 { font-size: 1.875rem; line-height: 2.5rem; }
+  .home-head .wordmark { font-size: 2.5rem; }
   .input, .input.wide { width: 100%; }
   .search-form { padding: 20px; }
   .panel { padding: 20px; }
@@ -1136,9 +1158,6 @@ dl.legend { grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr); al
   .file-badges { grid-column: 2; justify-content: flex-start; }
   .state-page { grid-template-columns: minmax(0, 1fr); }
   .result-list > .table-wrap, .versions > .table-wrap { overflow-x: auto; }
-  .lang-select { max-width: 9rem; }
-  .btn.quit > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .btn.quit { width: 40px; padding: 0; }
 }
 /* Where the list of every copy is narrower than its columns, it scrolls sideways (and its heading
    then stays with it rather than with the window). */
@@ -1158,7 +1177,9 @@ dl.legend { grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr); al
   .radios .radio input:checked + label { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
   .badge, .callout, .panel, .file-card, .card.choice, .tree, .tile .frame, .segmented, .selection-bar,
   details.more, details.expander, .preview-pane, .dialog, .input, select, .lang-select, .btn { border: 1px solid CanvasText; }
-  .top-tab[aria-selected="true"]::after, .tab[aria-selected="true"]::after { forced-color-adjust: none; background: Highlight; }
+  .tab[aria-selected="true"]::after { forced-color-adjust: none; background: Highlight; }
+  .rail { border-inline-end: 1px solid CanvasText; }
+  .rail .nav a[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px; }
   .btn.seg[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
   .tile[aria-selected="true"] .frame { outline: 3px solid Highlight; outline-offset: 2px; }
   .tile .pick { opacity: 1; }
