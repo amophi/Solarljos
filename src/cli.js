@@ -569,7 +569,8 @@ async function main(argv, deps = {}) {
   // Given arguments where nothing it prints would be seen -- typed in a console, which a GUI
   // program does not print in -- Solarljos.exe says so in a console window, and does nothing.
   if (sea && d.platform === 'win32' && command !== 'gui' && d.writesNowhere(1)) {
-    await d.tell(commandLineHelp(path.basename(d.execPath)));
+    // Only ever Solarljos.exe, so its name is read as Windows reads a path, on any system the tests run on.
+    await d.tell(commandLineHelp(path.win32.basename(d.execPath)));
     return 2;
   }
   let parsed;
