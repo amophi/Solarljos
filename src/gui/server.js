@@ -75,9 +75,12 @@ const { t } = i18n;
 //   can be fetched by page -- the rest of a large search, or all of it again after a reload.
 //   One search or plan runs at a time. One that is stopped is told so through its AbortSignal and
 //   is answered as stopped at once; search() gives up at its next step -- the next source, the
-//   next copy looked into -- and what it found is dropped. A source in the middle of a long read
-//   finishes that read first, so the next search waits for the stopped one to settle before it
-//   starts: two never run side by side over the sources' shared state.
+//   next file a source reports, the next copy looked into -- and what it found is dropped; the
+//   git program it waits on is ended. A source in the middle of one long read finishes that read
+//   first, so the next search waits for the stopped one to settle before it starts: two never
+//   run side by side over the sources' shared state. Measured on Windows, a photo search stopped
+//   while git read this PC's repositories: the next one started 0.8 to 1.0 s later (from 5.9 to
+//   18 s before git's programs were ended).
 //   The server keeps the last finished search of each view the page has (a search by name, one
 //   for photos and videos: `view.mode` in the request), and the last finished plan, so one kind
 //   of search does not wipe the other's results. `view` is the page's own picture of its form,

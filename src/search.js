@@ -153,9 +153,10 @@ async function typeByName(c, name, always) {
  * are looked at where that is cheap, so that a camcorder's clip in the Recycle Bin is not taken
  * for text, but not in git, where a TypeScript project's history would all be read. A smaller
  * copy's bytes are of its own format and say nothing about its name, so it passes for either.
- * `stop` is called before each copy, to throw when the search is to end.
+ * `stop` is called before each copy, to throw when the search is to end; `signal`, the search's,
+ * ends the git programs that read the copies to tell.
  */
-async function keepTypes(list, types, stop = () => {}) {
+async function keepTypes(list, types, stop = () => {}, signal = null) {
   const wanted = new Set(types);
   const mustRead = (c) => {
     const name = c.path || c.name;
@@ -164,7 +165,7 @@ async function keepTypes(list, types, stop = () => {}) {
     return !!other && !isDerived(c) && wanted.has(other) && !wanted.has(usual);
   };
   // Git objects to be told by their bytes are read in one call per repository, not one each.
-  await git.preload(list.filter((c) => !c.isDir && !c.gone && mustRead(c)));
+  await git.preload(list.filter((c) => !c.isDir && !c.gone && mustRead(c)), signal);
   const kept = [];
   for (const c of list) {
     stop();
@@ -462,13 +463,19 @@ async function search(o) {
     if (s.followUp) ctx.prior = all.slice();
     report({ type: 'source-start', id: s.id, label: s.label });
     // Sources that go through many files say how far they are; the rest just start and finish.
-    ctx.progress = (done, total) => report({ type: 'source-progress', id: s.id, done, total });
+    // A stopped search ends there, at the next file of the source it is in, not after all of them.
+    ctx.progress = (done, total) => {
+      stop();
+      report({ type: 'source-progress', id: s.id, done, total });
+    };
     try {
       const found = await s.scan(ctx);
       all = all.concat(found);
       perSource.push({ id: s.id, label: s.label, count: found.length, notes: ctx.notes.slice(notesBefore) });
       report({ type: 'source-done', id: s.id, label: s.label, count: found.length });
     } catch (e) {
+      // Stopped: the search ends, rather than the source being counted as failed.
+      if (signal && signal.aborted) throw signal.reason;
       perSource.push({ id: s.id, label: s.label, count: 0, error: e.message, notes: ctx.notes.slice(notesBefore) });
       report({ type: 'source-done', id: s.id, label: s.label, count: 0, error: e.message });
     }
@@ -478,7 +485,7 @@ async function search(o) {
   report({ type: 'filtering' });
 
   if (containing) {
-    await git.preload(all);
+    await git.preload(all, signal);
     const kept = [];
     for (const c of all) {
       stop();
@@ -492,7 +499,7 @@ async function search(o) {
     }
     all = kept;
   }
-  if (types) all = await keepTypes(all, types, stop);
+  if (types) all = await keepTypes(all, types, stop, signal);
 
   for (const c of all) {
     stop();

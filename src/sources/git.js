@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { AsyncLocalStorage } = require('async_hooks');
 const { t } = require('../i18n');
 const { HASH_LIMIT, blobHash } = require('../content');
 const { pathKey } = require('../paths');
@@ -222,12 +223,22 @@ function gitPath() {
   return located.file;
 }
 
+// The AbortSignal of the search a scan or a preload belongs to. Every git program they start is
+// given it, so that stopping the search ends the program at once: a `git log --all` of a large
+// repository takes seconds, and the search after a stopped one waits for it to settle.
+const stopping = new AsyncLocalStorage();
+
 /** Runs git. With `onData` the output is handed over as it comes instead of being kept. */
 function run(args, { cwd, input, buffer = false, allowFail = false, onData } = {}) {
   return new Promise((resolve, reject) => {
+    const signal = stopping.getStore() || null;
+    if (signal && signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
     let child;
     try {
-      child = spawn(gitPath(), [...CONFIG, ...args], { cwd, env: env(), windowsHide: true });
+      child = spawn(gitPath(), [...CONFIG, ...args], { cwd, env: env(), windowsHide: true, ...(signal ? { signal } : {}) });
     } catch (e) {
       reject(e);
       return;
@@ -237,8 +248,15 @@ function run(args, { cwd, input, buffer = false, allowFail = false, onData } = {
     child.stdout.on('data', (d) => (onData ? onData(d) : out.push(d)));
     child.stderr.on('data', (d) => err.push(d));
     // A folder that is gone makes the spawn fail as a missing program would.
-    child.on('error', (e) => reject(e.code === 'ENOENT' && cwd && !isDir(cwd) ? new Error(t('{0} is not a folder', cwd)) : e));
+    child.on('error', (e) => {
+      if (signal && signal.aborted) reject(signal.reason);
+      else reject(e.code === 'ENOENT' && cwd && !isDir(cwd) ? new Error(t('{0} is not a folder', cwd)) : e);
+    });
     child.on('close', (code) => {
+      if (signal && signal.aborted) {
+        reject(signal.reason);
+        return;
+      }
       const data = Buffer.concat(out);
       if (code !== 0 && !allowFail) {
         const e = new Error(Buffer.concat(err).toString().trim() || `git exited with code ${code}`);
@@ -261,7 +279,9 @@ function gitVersion() {
   if (!version || version.file !== file) {
     version = {
       file,
-      v: run(['version']).then((out) => {
+      // Asked outside any search, since the answer is kept: a search stopped while it was asked
+      // would otherwise leave git taken for an old one for the rest of the run.
+      v: stopping.exit(() => run(['version'])).then((out) => {
         const m = /(\d+)\.(\d+)/.exec(out);
         return m ? [Number(m[1]), Number(m[2])] : [0, 0];
       }, () => [0, 0]),
@@ -882,6 +902,8 @@ async function scanRepo(repo, ctx, checked) {
   const out = [];
   let unconverted = 0;
   for (const r of found) {
+    // A Git LFS object is hashed as it is read, which can take a while for each.
+    if (ctx.signal) ctx.signal.throwIfAborted();
     const base = { source: 'git', kind: r.kind, path: r.path, time: r.time, origin: `${repo} ${r.rev}` };
     const pointer = pointers.get(r.obj.sha);
     if (pointer && follows(r)) {
@@ -970,7 +992,11 @@ async function scanRepo(repo, ctx, checked) {
   return out;
 }
 
-async function scan(ctx) {
+function scan(ctx) {
+  return stopping.run(ctx.signal || null, () => scanRepos(ctx));
+}
+
+async function scanRepos(ctx) {
   let repos;
   try {
     repos = await discoverRepos(repoRoots(ctx.locations), ctx.notes);
@@ -986,9 +1012,12 @@ async function scan(ctx) {
   // Git LFS objects checked in this search, so one kept by many commits is hashed once.
   const checked = new Map();
   for (let i = 0; i < repos.length; i++) {
+    if (ctx.signal) ctx.signal.throwIfAborted();
     try {
       out.push(...(await scanRepo(repos[i], ctx, checked)));
     } catch (e) {
+      // A stopped search ends here, not at the next repository.
+      if (ctx.signal && ctx.signal.aborted) throw ctx.signal.reason;
       ctx.notes.push(t('Skipped {0}: {1}', repos[i], e.message.split('\n')[0]));
     }
     if (ctx.progress) ctx.progress(i + 1, repos.length);
@@ -1021,7 +1050,12 @@ async function readBlob(repo, sha) {
 }
 
 /** Loads many blobs in one or two git calls per repository, for a search by content or a rebuild. */
-async function preload(candidates) {
+/** Reads the git copies among `candidates` in one call per repository; `signal` ends the reading. */
+function preload(candidates, signal) {
+  return stopping.run(signal || null, () => preloadAll(candidates));
+}
+
+async function preloadAll(candidates) {
   const byRepo = new Map();
   for (const c of candidates) {
     if (!c.gitBlob || c.buffer || (c.size || 0) > HASH_LIMIT || c.gitBlob.sha.startsWith('lfs:')) continue;
@@ -1033,7 +1067,9 @@ async function preload(candidates) {
     try {
       info = await openRepo(repo);
       await refusePartial(info);
-    } catch (_) {
+    } catch (e) {
+      const signal = stopping.getStore();
+      if (signal && signal.aborted) throw signal.reason;
       continue; // each copy is then read on its own, and fails on its own
     }
     const shas = [...new Set(list.map((c) => c.gitBlob.sha))];
@@ -1099,5 +1135,5 @@ module.exports = {
   preload,
   roots: () => [],
   gitDirs,
-  _internal: { pathspecs, discoverRepos, parsePointer, splitter, catObjects, parseLog, fitsLine, openRepo, objectDirs, gitPath, env },
+  _internal: { pathspecs, discoverRepos, parsePointer, splitter, catObjects, parseLog, fitsLine, openRepo, objectDirs, gitPath, env, run, stopping },
 };

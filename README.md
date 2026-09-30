@@ -567,7 +567,7 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
   they are reached.
 - **What it keeps.** The last search of each kind -- by name, and for photos and videos -- the
   last folder plan, and the language the page chose, in memory; a reload asks for them again. One
-  search runs at a time, and Stop ends it.
+  search runs at a time, and Stop ends it: within about a second, so the next search can start.
 - **When it stops.** 3 s after its page is closed; 30 s after, when a search was running or the
   page went without saying goodbye, so that a reload keeps it running; 10 minutes after starting
   when no window connected; and when *Quit* is pressed. Never in the middle of a restore or a
@@ -832,7 +832,7 @@ and tries `Solarljos.exe` on every push.
   window of its own for what would not be seen. Every program is a stand-in, but for one cmd.exe
   on Windows, run with the command line such a window gets in a console that is hidden.
 
-On Windows 11 with Node 24.20, `npm test` ran 633 tests: 624 passed, and 9 were skipped, which
+On Windows 11 with Node 24.20, `npm test` ran 635 tests: 626 passed, and 9 were skipped, which
 need Linux or what Windows does not give without privileges.
 
 ## License

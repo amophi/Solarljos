@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.2 (2026-10-01)
+
+- A search started right after one was stopped no longer sits at "Waiting". The stopped search
+  went on until the git program it was waiting for ended, and the new one waited for it: on this
+  PC, 6 to 18 seconds when a photo search was stopped while git read the repositories, which
+  took 21 of its 25 seconds. Now git's programs are given the search's AbortSignal and ended at
+  once, a repository's failure no longer hides the stop (the next repository was read instead),
+  and every source stops at the next file it reports. The next search starts 0.8 to 1.0 s after
+  the stop.
+- A source stopped halfway is no longer counted as failed; the search just ends.
+
 ## 0.7.1 (2026-10-01)
 
 - The browser no longer offers to translate the page. Edge asked "Translate this page from

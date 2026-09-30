@@ -980,3 +980,35 @@ test('git log -z --raw is read without quoting, odd names stay whole, and skippe
   assert.strictEqual(fitsLine(' lead.txt'), false);
   assert.strictEqual(fitsLine('cr\r'), false);
 });
+
+test('a stopped search ends the git program it is waiting on, and starts none after', { skip: !hasGit }, async () => {
+  const { run, stopping } = require('../src/sources/git')._internal;
+  const reason = new Error('stopped');
+  // Stopped while git runs: the program is ended, and the call gives the search's reason.
+  const ac = new AbortController();
+  await assert.rejects(stopping.run(ac.signal, () => {
+    const p = run(['rev-parse', '--git-dir'], { cwd: repo });
+    ac.abort(reason);
+    return p;
+  }), (e) => e === reason);
+  // Stopped before: nothing is started.
+  await assert.rejects(stopping.run(ac.signal, () => run(['rev-parse', '--git-dir'], { cwd: repo })), (e) => e === reason);
+  // Outside a search, git runs as ever.
+  assert.match(await run(['rev-parse', '--git-dir'], { cwd: repo }), /\.git/);
+});
+
+test('a search stopped in the middle of its repositories goes on to no other', { skip: !hasGit }, async () => {
+  const reason = new Error('stopped');
+  const ac = new AbortController();
+  const ticks = [];
+  await assert.rejects(find({
+    pattern: '*.txt', signal: ac.signal,
+    onProgress: (e) => {
+      if (e.type !== 'source-progress') return;
+      ticks.push(e.done);
+      ac.abort(reason);
+    },
+  }, [repo, eolRepo, crlfRepo]), (e) => e === reason);
+  // One repository read, stopped after it: not the three, nor a note that the others were skipped.
+  assert.deepStrictEqual(ticks, [1]);
+});
