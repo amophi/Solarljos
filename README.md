@@ -554,7 +554,9 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
   origin leave to read it.
 - **How copies are shown.** A copy's type is told from its bytes, never its name. Pictures and
   videos a browser can show are shown; text, and an `.html` or `.svg` copy with it, is shown as
-  its text, and nothing in it runs; anything else only as bytes. No reply is cached. Nothing is
+  its text, and nothing in it runs; anything else only as bytes. No reply is cached. The page
+  tells the browser not to offer its own translation, which would send the names and folders of
+  the files found to a translation service; the page has its own 18 languages. Nothing is
   downloaded: the video player has no Download item, the browser's own menu is not offered over a
   picture, Ctrl+S is blocked, and a copy asked for as a page of its own is refused, since a
   download goes to the Downloads folder on the Windows drive, past every check a restore makes.
@@ -830,7 +832,7 @@ and tries `Solarljos.exe` on every push.
   window of its own for what would not be seen. Every program is a stand-in, but for one cmd.exe
   on Windows, run with the command line such a window gets in a console that is hidden.
 
-On Windows 11 with Node 24.20, `npm test` ran 632 tests: 623 passed, and 9 were skipped, which
+On Windows 11 with Node 24.20, `npm test` ran 633 tests: 624 passed, and 9 were skipped, which
 need Linux or what Windows does not give without privileges.
 
 ## License

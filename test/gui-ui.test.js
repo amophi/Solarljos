@@ -107,6 +107,13 @@ test('the page loads nothing from anywhere else, and asks its own server by rela
   assert.match(code, /fetch\(`lang\/\$\{enc\(code\)\}\.json`/);
 });
 
+test('the browser is told not to translate the page, which would send its words away', () => {
+  assert.match(html, /<html\b[^>]*\stranslate="no"/);
+  assert.match(html, /<meta name="google" content="notranslate">/);
+  // app.js changes the language and the direction of <html>, and leaves the rest of it alone.
+  assert.ok(!/documentElement\.(?:removeAttribute|setAttribute)\(\s*['"]translate/.test(app));
+});
+
 test('nothing runs inline, and recovered content is never parsed as HTML', () => {
   for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
     assert.match(m[1], /\bsrc="/, 'a script without src');

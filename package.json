@@ -1,6 +1,6 @@
 {
   "name": "solarljos",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Finds files you have lost, deleted or saved over, in the copies Windows and your programs keep on their own, and brings back the ones you choose into a folder you choose, changing nothing else on the computer.",
   "license": "MIT",
   "author": "amophi",

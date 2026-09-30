@@ -14,10 +14,17 @@
   each an icon and its words (Up and Down move between them, and Ctrl+1 to Ctrl+5 go to each
   from anywhere); and at its foot the language, the light or dark theme and Quit. In a narrow
   window it keeps only its icons; the button at its top shows the words over the page.
+
+  The browser is told never to translate the page (translate="no", and the "notranslate" meta
+  that Chrome and Edge read). The page speaks the language chosen in it already, and a browser's
+  translation sends the words on the page -- the names and folders of the files found, too -- to
+  a translation service on the internet. Without it Edge offers to, since the page comes in
+  English until app.js puts the chosen language in.
 -->
-<html lang="en" dir="ltr" data-theme="dark">
+<html lang="en" dir="ltr" data-theme="dark" translate="no">
 <head>
 <meta charset="utf-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="same-origin">
 <meta name="color-scheme" content="dark light">

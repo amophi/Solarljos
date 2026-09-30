@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 (2026-10-01)
+
+- The browser no longer offers to translate the page. Edge asked "Translate this page from
+  English?" each time the window opened, because the page comes in English until it puts the
+  chosen language in. The page has its own 18 languages, and the browser's translation would
+  send the words on it, the names and folders of the files found among them, to a translation
+  service. `index.html` now says `translate="no"` and carries the `notranslate` meta that Chrome
+  and Edge read.
+
 ## 0.7.0 (2026-09-30)
 
 The rail is back at the side, in 0.6.0's colours, and the page has a font of its own.
