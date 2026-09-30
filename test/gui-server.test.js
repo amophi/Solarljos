@@ -641,6 +641,21 @@ test('offers the languages the page has, and speaks the one the page says it is 
   }
 });
 
+test('keeps the theme the page says it is in, for a reload, and starts each run dark', async () => {
+  const s = await session();
+  assert.strictEqual(json(await s.get('/api/info')).theme, 'dark');
+  const told = await s.post('/api/theme', { theme: 'light' });
+  assert.deepStrictEqual([told.status, json(told)], [200, { theme: 'light' }]);
+  assert.strictEqual(json(await s.get('/api/info')).theme, 'light', 'a reload starts in it');
+  for (const body of [{}, { theme: 5 }, { theme: '' }, { theme: 'blue' }]) {
+    assert.strictEqual((await s.post('/api/theme', body)).status, 400, JSON.stringify(body));
+  }
+  assert.strictEqual(json(await s.get('/api/info')).theme, 'light', 'a refused one changes nothing');
+  assert.strictEqual((await s.get('/api/theme')).status, 405);
+  assert.strictEqual((await s.post('/api/theme', { theme: 'dark' }, { headers: { 'X-Solarljos': '' } })).status, 403, 'not from the page');
+  assert.strictEqual(json(await (await session()).get('/api/info')).theme, 'dark');
+});
+
 /** A JPEG whose Exif block holds a small picture, as a camera writes it. */
 function exifJpeg({ orientation = 1, thumb = Buffer.from([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]), big = false, rest = 5000 } = {}) {
   const tiff = Buffer.alloc(56 + thumb.length);

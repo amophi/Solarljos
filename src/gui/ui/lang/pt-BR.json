@@ -821,5 +821,7 @@
   "help.browser.save": "Para guardar uma cópia, use Restaurar. A página deixa de fora o “Salvar imagem como” e o “Salvar vídeo como” do próprio navegador, o botão de download do reprodutor de vídeo e o Ctrl+S, já que um download do navegador vai para a sua pasta Downloads na unidade do Windows, sem passar pelas verificações que o Restaurar faz sobre onde grava.",
   "help.keys.title": "Teclado",
   "help.keys.body": "Tab passa de um controle para outro. Na grade de fotos e na lista da pasta, as teclas de seta movem o foco, a Barra de espaços seleciona e Enter abre. Esc fecha uma visualização ou uma caixa de diálogo.",
-  "help.version": "Versão {version}"
+  "help.version": "Versão {version}",
+  "theme.toLight": "Mudar para o tema claro",
+  "theme.toDark": "Mudar para o tema escuro"
 }

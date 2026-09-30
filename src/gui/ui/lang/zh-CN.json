@@ -765,5 +765,7 @@
   "help.browser.save": "要保留副本，请使用“恢复”。此页面不提供浏览器自带的“将图像另存为”“将视频另存为”、视频播放器的“下载”以及 Ctrl+S，因为浏览器下载的内容会进入 Windows 驱动器上的“下载”文件夹，绕过“恢复”对写入位置所做的检查。",
   "help.keys.title": "键盘",
   "help.keys.body": "Tab 键用于在控件之间移动。在照片网格和文件夹列表中，方向键用于移动，空格键用于选择，Enter 键用于打开。Esc 键用于关闭预览或对话框。",
-  "help.version": "版本 {version}"
+  "help.version": "版本 {version}",
+  "theme.toLight": "切换到浅色主题",
+  "theme.toDark": "切换到深色主题"
 }

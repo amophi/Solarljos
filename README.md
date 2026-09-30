@@ -518,18 +518,27 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
   folder*, *What is searched* and *Help* each keep their last view while another is shown: what
   a form held, the results with their filters, sort, selection and how many of them are shown,
   where the view was scrolled to, and the preview that was open. A search keeps running, and its
-  results keep coming in, while its part is hidden. A link in the rail goes back to its part's
-  last view; results have *New search*, and a form has *Back to the results*. None of it is kept
+  results keep coming in, while its part is hidden. A tab goes back to its part's last view; results have *New search*, and a form has *Back to the results*. None of it is kept
   in the browser: a reload starts again from what the server still has.
-- **How it looks.** In the manner of a Windows 11 app: a rail of places on the left (on the right
-  in Arabic), each with an icon, which keeps only its icons in a window narrower than 1008 pixels
-  and shows its words from the menu button at its top; Segoe UI Variable, and each language's own
-  font where Segoe UI has no letters for it; an 8-pixel rhythm and one calm accent colour, for
-  what is chosen and for the one action that matters on each view. A copy's tier is a pill with
-  an icon and its name in words, never a colour alone. A copy is previewed in a pane beside its
-  results, and messages are bars with an icon, as in Windows' InfoBar. Light and dark follow
-  the system; in a high-contrast theme the system's colours are used and every box keeps a border;
-  motion is dropped when the system asks. Every text colour was measured against every background
+- **How it looks.** Dark by default, in the look of the author's SoundVisualizer app, made for a
+  PC window:
+  - A bar at the top holds the name, the parts as bold text tabs with a short bar under the chosen
+    one, and the language, a light/dark switch and Quit. The tabs take a row of their own when the
+    window is too narrow for one line, and scroll sideways if they still do not fit.
+  - Cards are rounded and darker than the page. On/off options are switch rows you can click
+    anywhere on, and options that only matter when another is on open with a short animation.
+    Check boxes are kept where several things are chosen at once.
+  - Every control shows where the mouse is and has a focus ring. Ctrl+1 to Ctrl+5 switch parts,
+    and the arrow keys move along the tabs.
+  - A form's main action is a large button, and the rest are regular PC size. A copy's tier is a
+    pill with an icon and its name in words, never a colour alone. A copy is previewed in a pane
+    beside its results.
+  - The light theme uses the same design on light surfaces. The choice lasts for the run and is
+    kept by Solarljos, not by the browser.
+  - In a high-contrast theme the system's colours are used and every box keeps a border, and
+    motion is dropped when the system asks.
+  - Segoe UI Variable, with each language's own font where Segoe UI has no letters for it.
+  - The layout mirrors in Arabic. Every text colour was measured against every background
   it is shown on, light and dark, at 4.5:1 or more, and every mark of where a control is and what
   state it is in at 3:1 or more; the values are at the top of
   [src/gui/ui/style.css](src/gui/ui/style.css).

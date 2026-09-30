@@ -765,5 +765,7 @@
   "help.browser.save": "若要保留副本，請使用「復原」。此頁面不提供瀏覽器本身的「將影像另存為」「將影片另存為」、影片播放程式的「下載」以及 Ctrl+S，因為瀏覽器下載的內容會進入 Windows 磁碟機上的「下載」資料夾，繞過「復原」對寫入位置所做的檢查。",
   "help.keys.title": "鍵盤",
   "help.keys.body": "Tab 鍵用於在控制項之間移動。在相片格狀檢視和資料夾清單中，方向鍵用於移動，空白鍵用於選取，Enter 鍵用於開啟。Esc 鍵用於關閉預覽或對話方塊。",
-  "help.version": "版本 {version}"
+  "help.version": "版本 {version}",
+  "theme.toLight": "切換為淺色佈景主題",
+  "theme.toDark": "切換為深色佈景主題"
 }

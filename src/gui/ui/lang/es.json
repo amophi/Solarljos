@@ -821,5 +821,7 @@
   "help.browser.save": "Para conservar una copia, usa Restaurar. La página omite las opciones “Guardar imagen como” y “Guardar vídeo como” del propio navegador, el botón Descargar del reproductor de vídeo y Ctrl+S, ya que una descarga del navegador va a tu carpeta Descargas en la unidad de Windows, sin pasar por las comprobaciones que hace Restaurar sobre dónde escribe.",
   "help.keys.title": "Teclado",
   "help.keys.body": "Tab pasa de un control a otro. En la cuadrícula de fotos y en la lista de la carpeta, las teclas de flecha sirven para desplazarse, la Barra espaciadora selecciona y Entrar abre. Esc cierra una vista previa o un cuadro de diálogo.",
-  "help.version": "Versión {version}"
+  "help.version": "Versión {version}",
+  "theme.toLight": "Cambiar al tema claro",
+  "theme.toDark": "Cambiar al tema oscuro"
 }

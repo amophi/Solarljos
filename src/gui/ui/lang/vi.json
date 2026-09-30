@@ -677,5 +677,7 @@
   "help.browser.save": "Để giữ một bản sao, hãy dùng Khôi phục. Trang này bỏ đi các lệnh “Lưu hình ảnh thành”, “Lưu video thành” của trình duyệt, nút Tải xuống của trình phát video và Ctrl+S, vì tệp tải xuống qua trình duyệt sẽ vào thư mục Tải xuống trên ổ đĩa Windows, bỏ qua các bước kiểm tra mà Khôi phục thực hiện đối với nơi ghi.",
   "help.keys.title": "Bàn phím",
   "help.keys.body": "Tab để di chuyển giữa các điều khiển. Trong lưới ảnh và danh sách thư mục, các phím mũi tên để di chuyển, Space để chọn và Enter để mở. Esc để đóng bản xem trước hoặc hộp thoại.",
-  "help.version": "Phiên bản {version}"
+  "help.version": "Phiên bản {version}",
+  "theme.toLight": "Chuyển sang chủ đề sáng",
+  "theme.toDark": "Chuyển sang chủ đề tối"
 }

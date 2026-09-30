@@ -145,7 +145,8 @@ const { t } = i18n;
 // relative names (index.html, app.js, lang/ko.json, ...). The API, all JSON, all below /api:
 //   GET  info                     version, platform, elevated, how the window was opened, TYPES,
 //                                 lang (the page's language, when one is set), locale (the
-//                                 library's), languages ([{ code, name }] the page has), ...
+//                                 library's), languages ([{ code, name }] the page has), theme
+//                                 ('dark' or 'light'), ...
 //   GET  sources                  { sources: [{ id, label, media, needsAdmin }], elevated }
 //   GET  sources/describe?ids=    { sources: [{ id, label, lines }] }, what each source sees
 //   GET  drives                   { drives: [{ root, letter, answering, network, free, total, system, error }],
@@ -169,6 +170,8 @@ const { t } = i18n;
 //   POST rebuild                  { plan: <job>, to, exclude: [rel], include: [rel] } -> 202 { job }
 //   POST lang                     { lang: <code> } -> { lang, locale }: the page's language, kept,
 //                                 and the one the library now speaks
+//   POST theme                    { theme: 'dark' | 'light' } -> { theme }: the page's theme, kept in
+//                                 memory for a reload, as the language is
 //   POST bye, POST quit
 // A copy in a reply is plain fields (uiCopy): uid, id, kind, kindLabel, source, path, name, ext,
 // time (ms), size, state, copies, seen, isDir, gone, draft, inexact, unverified, derived, tier
@@ -862,6 +865,7 @@ async function start(opts = {}) {
   // says another (see the top of this file).
   const languages = pageLanguages(assets);
   let pageLang = null;
+  let pageTheme = 'dark'; // the page's theme, as it last said (POST api/theme)
   if (opts.lang !== undefined && opts.lang !== null) {
     if (typeof i18n.setLocale === 'function') i18n.setLocale(opts.lang);
     pageLang = localeOf(String(opts.lang));
@@ -1762,6 +1766,7 @@ async function start(opts = {}) {
         frozen,
         writing,
         lang: pageLang,
+        theme: pageTheme,
         locale: localeNow(),
         languages,
       });
@@ -1801,7 +1806,7 @@ async function start(opts = {}) {
     }
     if (m === 'GET' && (r = /^\/api\/copy\/([0-9a-f]{32})\/thumb$/.exec(p))) return serveThumb(req, res, r[1]);
     if (m !== 'POST') {
-      if (m === 'HEAD' || !/^\/api\/(search|plan|cancel|check-folder|restore|rebuild|lang|bye|quit)$/.test(p)) {
+      if (m === 'HEAD' || !/^\/api\/(search|plan|cancel|check-folder|restore|rebuild|lang|theme|bye|quit)$/.test(p)) {
         return refuse(req, res, 404, t('Not found.'));
       }
       return refuse(req, res, 405, t('Not allowed.'), { Allow: 'POST' });
@@ -1894,6 +1899,11 @@ async function start(opts = {}) {
         const job = newJob('rebuild', { plan: plan.id, folder: plan.folder, to: folder.path, files: items.length }, []);
         runRebuild(job, plan, items, folder.path);
         return reply(req, res, 202, { job: snapshot(job) });
+      }
+      case '/api/theme': {
+        if (body.theme !== 'dark' && body.theme !== 'light') throw fail(400, t('{0} must be text.', 'theme'));
+        pageTheme = body.theme;
+        return reply(req, res, 200, { theme: pageTheme });
       }
       case '/api/lang': {
         // The language the page is shown in: the library speaks it too from now on, as far as

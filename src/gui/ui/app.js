@@ -1331,6 +1331,7 @@
     arc: ['M12 3.5a8.5 8.5 0 0 1 8.5 8.5'],
     minus: ['M7 12h10'],
     chevron: ['M9.5 6l6 6-6 6'],
+    down: ['M6 9.5l6 6 6-6'],
     close: ['M6.5 6.5l11 11', 'M17.5 6.5l-11 11'],
     copy: ['M9 9h10v11H9z', 'M5.5 15.5V4.5h10'],
     play: ['M8.5 5.8v12.4l10-6.2z'],
@@ -1433,6 +1434,22 @@
     return { el, input };
   }
 
+  /**
+   * An on/off choice as a switch, as SoundVisualizer's settings are: its words and, below them,
+   * what it does, with the switch at the end of the row, and the whole row to click. `compact`:
+   * one line, in a toolbar.
+   */
+  function switchLine(label, checked, hint, compact) {
+    const id = nextId('sw');
+    const input = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id, checked: !!checked });
+    const hintId = hint ? `${id}-hint` : null;
+    if (hintId) input.setAttribute('aria-describedby', hintId);
+    const text = h('div', { class: 'switch-text' }, h('label', { for: id, class: 'switch-label', text: label }),
+      hint ? h('p', { class: 'hint', id: hintId, text: hint }) : null);
+    const el = h('div', { class: compact ? 'switch-row compact' : 'switch-row' }, text, input);
+    return { el, input, text };
+  }
+
   /** A group of radio buttons; `choices` is [[value, label]]. */
   function radioGroup(legend, choices, selected, hint) {
     const name = nextId('radio');
@@ -1519,7 +1536,7 @@
     return dlg;
   }
 
-  function confirmDialog({ title, body, ok, cancel }) {
+  function confirmDialog({ title, body, ok, cancel, danger }) {
     return new Promise((resolve) => {
       const titleId = nextId('dlg');
       let result = false;
@@ -1528,9 +1545,9 @@
       const okBtn = button(ok, () => {
         result = true;
         dlg.close();
-      }, 'btn primary');
+      }, danger ? 'btn danger' : 'btn primary');
       dlg.append(
-        h('div', { class: 'dialog-body' }, h('h2', { id: titleId, text: title }), body ? h('p', { text: body }) : null),
+        h('div', { class: 'dialog-body' }, h('h2', { id: titleId, text: title }), body ? h('p', { class: 'dialog-text', text: body }) : null),
         h('div', { class: 'dialog-actions' }, cancelBtn, okBtn));
       showModal(dlg, null, () => resolve(result));
       cancelBtn.focus();
@@ -1986,7 +2003,7 @@
     'folder/plan': { section: 'folder', job: 'folder', render: (saved) => viewJob('folder', saved) },
     'folder/done': { section: 'folder', job: 'rebuild', render: () => viewRebuild() },
     sources: { section: 'sources', render: () => viewSources() },
-    help: { section: 'help', render: () => viewHelp() },
+    help: { section: 'help', render: (saved) => viewHelp(saved) },
   };
 
   // The views kept, by route: { route, box, view, key, fresh, scroll, inner, focus }. `key` says
@@ -2015,7 +2032,6 @@
     const r = currentRoute();
     // Any other fragment (#main, from the skip link) is not a route.
     if (r === null && location.hash && location.hash !== '#') return;
-    closeRail();
     show(own(ROUTES, r || '') ? r || '' : '');
   }
 
@@ -2142,15 +2158,25 @@
     state.firstRoute = false;
   }
 
-  /** Marks the part of the page in sight in the frame, and sends each part's link to the view it was left on. */
+  /**
+   * Marks the part of the page in sight in the frame -- its tab selected, the one of the row
+   * that Tab stops on; the start's link current on the start -- and sends each part's link to the
+   * view it was left on.
+   */
   function updateNav() {
     const section = active !== null ? ROUTES[active].section : '';
+    const tabs = $$('[role="tab"][data-route]');
+    const chosen = tabs.find((a) => a.getAttribute('data-route') === section) || null;
     for (const a of $$('[data-route]')) {
       const s = a.getAttribute('data-route');
-      if (s === section) a.setAttribute('aria-current', 'page');
+      if (a.getAttribute('role') === 'tab') {
+        a.setAttribute('aria-selected', String(a === chosen));
+        a.setAttribute('tabindex', a === (chosen || tabs[0]) ? '0' : '-1');
+      } else if (s === section) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
       if (own(lastOf, s)) a.setAttribute('href', '#/' + lastOf[s]);
     }
+    revealTab();
   }
 
   function setTitle() {
@@ -2212,15 +2238,17 @@
         const job = state.jobs.get(state.current[mode] || '');
         if (!job || job.state !== 'done') continue;
         const text = tr('home.lastIn', { place: tr(MODE_NAV[mode]), count: job.total || 0 });
-        last.append(h('li', {}, h('a', { class: 'link-row', href: '#/' + MODE_RESULTS[mode] }, icon('chevron'), text)));
+        last.append(h('li', {}, h('a', { class: 'link-row', href: '#/' + MODE_RESULTS[mode] },
+          h('span', { class: 'status-dot is-done', 'aria-hidden': 'true' }), h('span', { text }), icon('chevron', 'link-go'))));
       }
       last.hidden = !last.childElementCount;
     };
     showLast();
     const tip = (iconName, key) => h('li', {}, icon(iconName), h('span', { text: tr(key) }));
     const el = h('section', { class: 'home' },
-      h('header', { class: 'page-head' },
-        h('h1', { text: tr('home.title') })),
+      h('header', { class: 'home-head' },
+        h('h1', { text: tr('home.title') }),
+        h('p', { class: 'home-desc', text: tr('home.good.copies') })),
       h('ul', { class: 'cards choices' },
         card('#/find', 'search', tr('home.file.title'), tr('home.file.body')),
         card('#/media', 'photo', tr('home.media.title'), tr('home.media.body')),
@@ -2229,13 +2257,12 @@
       h('section', { class: 'good panel', 'aria-labelledby': 'good-title' },
         h('h2', { id: 'good-title', text: tr('home.good.title') }),
         h('ul', { class: 'tips' },
-          tip('info', 'home.good.copies'),
           tip('clock', 'home.good.soon'),
           tip('usb', 'home.good.drive'),
           tip('file', 'home.good.exe'),
           tip('eraser', 'home.good.cleanup'),
           tip('power', 'home.good.window')),
-        h('p', { class: 'panel-foot' }, h('a', { href: '#/sources', text: tr('home.sourcesLink') }))));
+        h('p', { class: 'panel-foot' }, h('a', { class: 'btn outlined', href: '#/sources', text: tr('home.sourcesLink') }))));
     return { el, onShow: showLast };
   }
 
@@ -2300,10 +2327,11 @@
    * searched, while a form is kept.
    */
   function otherDiskField() {
-    const onlyAdded = checkLine(tr('adv.onlyAdded.label'), state.locations.discover === false);
+    const onlyAdded = switchLine(tr('adv.onlyAdded.label'), state.locations.discover === false);
     onlyAdded.input.addEventListener('change', () => {
       state.locations.discover = !onlyAdded.input.checked;
     });
+    onlyAdded.el.classList.add('reveal');
     const hint = h('p', { class: 'hint' });
     const el = h('div', { class: 'other-disk' }, h('p', { class: 'field-label', text: tr('adv.otherDisk.label') }), hint, onlyAdded.el);
     const update = () => {
@@ -2318,10 +2346,13 @@
     return { el, update };
   }
 
+  /** Options side by side, two to a row where the window is wide enough, one above the other where it is not. */
+  const pair = (...els) => h('div', { class: 'form-pair' }, ...els);
+
   /** "More options", closed or open as it was. */
   function moreOptions(open, ...body) {
     return h('details', { class: 'more', open: !!open },
-      h('summary', {}, icon('chevron', 'more-chevron'), h('span', { text: tr('common.advanced') })),
+      h('summary', {}, h('span', { class: 'more-title', text: tr('common.advanced') }), icon('down', 'more-chevron')),
       h('div', { class: 'more-body' }, ...body));
   }
 
@@ -2386,7 +2417,7 @@
       id: 'f-containing', label: tr('find.containing.label'), hint: tr('find.containing.hint'), optional: true,
       control: h('input', { type: 'text', class: 'input wide', value: last.containing || '', autocomplete: 'off', spellcheck: 'false' }),
     });
-    const deletedOnly = checkLine(tr('find.deletedOnly.label'), last.deletedOnly, tr('find.deletedOnly.hint'));
+    const deletedOnly = switchLine(tr('find.deletedOnly.label'), last.deletedOnly, tr('find.deletedOnly.hint'));
 
     // The dates, the folder and only-deleted filter what a search found, in this tab; after a
     // reload the server's copy of the search has none of them, and the form starts without them.
@@ -2398,6 +2429,7 @@
     const sinceDate = field({
       id: 'f-since', label: tr('find.since.date'), control: h('input', { type: 'date', class: 'input date', value: last.sinceDate || '' }),
     });
+    sinceDate.el.classList.add('reveal');
     const syncSince = () => {
       sinceDate.el.hidden = since.value() !== 'pick';
     };
@@ -2410,9 +2442,9 @@
 
     const submit = h('button', { type: 'submit', class: 'btn primary', text: tr('find.submit') });
     const more = moreOptions(saved ? saved.more : sinceChoice !== 'any' || !!last.sources || !!(last.types || []).length,
-      since.el, sinceDate.el, h('div', { class: 'field' }, type.el), places.el, disk.el);
+      pair(h('div', {}, since.el, sinceDate.el), h('div', { class: 'field' }, type.el)), places.el, disk.el);
     const form = h('form', { class: 'search-form panel', novalidate: true },
-      name.el, where.el, containing.el, deletedOnly.el, more, h('p', { class: 'actions form-actions' }, submit));
+      name.el, pair(where.el, containing.el), pair(deletedOnly.el), more, h('p', { class: 'actions form-actions' }, submit));
     const errors = formError(form);
     /** What the form holds; `raw`, as typed, spaces and all. */
     const values = (raw) => {
@@ -2481,7 +2513,7 @@
     const dateBox = (value) => h('input', { type: 'date', class: 'input date', value: value || '' });
     const from = field({ id: 'm-from', label: tr('media.when.from'), control: dateBox(last.fromDate) });
     const to = field({ id: 'm-to', label: tr('media.when.to'), control: dateBox(last.toDate) });
-    const range = h('div', { class: 'range' }, from.el, to.el);
+    const range = h('div', { class: 'range reveal' }, from.el, to.el);
     const syncWhen = () => {
       range.hidden = when.value() !== 'pick';
     };
@@ -2491,9 +2523,9 @@
     const where = field({
       id: 'm-where', label: tr('media.where.label'), hint: pathHint('media.where.hint'), optional: true, control: pathInput(last.where),
     });
-    const smaller = checkLine(tr('media.smaller.label'), last.includeSmaller !== false, tr('media.smaller.hint'));
+    const smaller = switchLine(tr('media.smaller.label'), last.includeSmaller !== false, tr('media.smaller.hint'));
     const hasWeb = state.sources.some((s) => s.id === 'browser-cache');
-    const web = checkLine(tr('media.web.label'), !!last.includeWeb, tr('media.web.hint'));
+    const web = switchLine(tr('media.web.label'), !!last.includeWeb, tr('media.web.hint'));
     const places = placesField('media', last.sources);
     const disk = otherDiskField();
 
@@ -2502,7 +2534,7 @@
     const submit = h('button', { type: 'submit', class: 'btn primary', text: tr('media.submit') });
     const more = moreOptions(saved ? saved.more : !!last.sources, places.el, disk.el);
     const form = h('form', { class: 'search-form panel', novalidate: true },
-      what, when.el, range, where.el, smaller.el, hasWeb ? web.el : null, more,
+      pair(what, h('div', {}, when.el, range)), where.el, pair(smaller.el, hasWeb ? web.el : null), more,
       h('p', { class: 'actions form-actions' }, submit));
     const errors = formError(form);
     const values = (raw) => ({
@@ -2565,7 +2597,7 @@
     const folder = field({
       id: 'r-folder', label: tr('folder.path.label'), hint: pathHint('folder.path.hint'), control: pathInput(last.folder),
     });
-    const deletedOnly = checkLine(tr('folder.deletedOnly.label'), last.deletedOnly, tr('folder.deletedOnly.hint'));
+    const deletedOnly = switchLine(tr('folder.deletedOnly.label'), last.deletedOnly, tr('folder.deletedOnly.hint'));
     const since = field({
       id: 'r-since', label: tr('folder.since.label'), hint: tr('folder.since.hint'), optional: true,
       control: h('input', { type: 'date', class: 'input date', value: last.sinceDate || '' }),
@@ -2579,7 +2611,7 @@
     const submit = h('button', { type: 'submit', class: 'btn primary', text: tr('folder.submit') });
     const more = moreOptions(saved ? saved.more : !!last.sources, places.el, disk.el);
     const form = h('form', { class: 'search-form panel', novalidate: true },
-      folder.el, deletedOnly.el, since.el, more, h('p', { class: 'actions form-actions' }, submit));
+      folder.el, pair(deletedOnly.el, since.el), more, h('p', { class: 'actions form-actions' }, submit));
     const errors = formError(form);
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
@@ -2653,7 +2685,7 @@
   function progressView(job) {
     const overall = h('span', { class: 'overall' });
     const elapsed = h('span', { class: 'muted elapsed' });
-    const stopBtn = button(tr('common.stop'), () => stopJob(job, stopBtn));
+    const stopBtn = button(tr('common.stop'), () => stopJob(job, stopBtn), 'btn danger');
     const whole = h('progress', { class: 'whole', max: '1', value: '0' });
     const list = h('ul', { class: 'progress-list panel' });
     const filtering = h('p', { class: 'filtering', hidden: true }, icon('arc', 'spin'), h('span', { text: tr('progress.filtering') }));
@@ -2724,7 +2756,7 @@
     update();
     const el = h('section', { class: 'progress', 'aria-busy': 'true' },
       h('header', { class: 'page-head' }, h('h1', { text: jobTitle(job) }), stopBtn),
-      h('div', { class: 'progress-head' }, overall, elapsed),
+      h('div', { class: 'progress-head' }, h('span', { class: 'status-dot is-running', 'aria-hidden': 'true' }), overall, elapsed),
       whole,
       list, filtering,
       h('p', { class: 'hint', text: tr('progress.slow') }));
@@ -2878,9 +2910,9 @@
       }, 200);
     });
     const toggle = (label, key, on) => {
-      const line = checkLine(label, on);
+      const line = switchLine(label, on, null, true);
       const count = h('span', { class: 'muted count' });
-      line.el.append(count);
+      line.text.append(count);
       line.input.addEventListener('change', () => {
         ctl[key] = line.input.checked;
         render();
@@ -3400,7 +3432,7 @@
       encoding = v;
       if (bytes) show();
     });
-    const wrap = checkLine(tr('preview.wrap'), false);
+    const wrap = switchLine(tr('preview.wrap'), false, null, true);
     wrap.input.addEventListener('change', () => pre.classList.toggle('wrap', wrap.input.checked));
     function show() {
       const cut = a.size == null ? bytes.length >= TEXT_MAX : bytes.length < a.size;
@@ -4047,18 +4079,18 @@
       ctl.smaller = size.value() === 'smaller';
       render();
     });
-    const tiny = checkLine(tr('grid.filter.minSize', { px: TINY_PX }), ctl.hideTiny);
+    const tiny = switchLine(tr('grid.filter.minSize', { px: TINY_PX }), ctl.hideTiny, null, true);
     tiny.input.addEventListener('change', () => {
       ctl.hideTiny = tiny.input.checked;
       render();
     });
     const hasDates = r.from != null || r.to != null;
-    const dates = checkLine(tr('results.allDates'), ctl.allDates);
+    const dates = switchLine(tr('results.allDates'), ctl.allDates, null, true);
     dates.input.addEventListener('change', () => {
       ctl.allDates = dates.input.checked;
       render();
     });
-    const places = checkLine(tr('results.allPlaces', { folder: r.where || '' }), ctl.allPlaces);
+    const places = switchLine(tr('results.allPlaces', { folder: r.where || '' }), ctl.allPlaces, null, true);
     places.input.addEventListener('change', () => {
       ctl.allPlaces = places.input.checked;
       render();
@@ -4865,7 +4897,7 @@
    */
   function viewSources() {
     const cards = new Map();
-    const onlyAdded = checkLine(tr('sources.onlyAdded'), state.locations.discover === false);
+    const onlyAdded = switchLine(tr('sources.onlyAdded'), state.locations.discover === false);
     onlyAdded.input.addEventListener('change', () => {
       state.locations.discover = !onlyAdded.input.checked;
     });
@@ -4988,16 +5020,23 @@
 
   // ---- help ----------------------------------------------------------------------------------
 
-  function viewHelp() {
+  /** Help. `saved`: which of its parts were open, when it is made again in another language. */
+  function viewHelp(saved) {
     const info = state.info || {};
     // How launch.js opened this window, as api/info says it.
     const launchKey = {
       edge: 'help.browser.inprivate', explorer: 'help.browser.default', open: 'help.browser.default',
       'xdg-open': 'help.browser.default', none: 'help.browser.none',
     }[info.window] || 'help.browser.unknown';
+    // Each part a card that opens when its title is clicked, as SoundVisualizer's help is; at
+    // first only the first is open.
+    let n = 0;
     const section = (titleKey, ...body) => {
-      const id = nextId('help');
-      return h('section', { class: 'panel help-part', 'aria-labelledby': id }, h('h2', { id, text: tr(titleKey) }), ...body);
+      const open = saved && Array.isArray(saved.open) ? saved.open.includes(n) : n === 0;
+      n++;
+      return h('details', { class: 'expander help-part', open },
+        h('summary', {}, h('h2', { text: tr(titleKey) }), icon('down', 'more-chevron')),
+        h('div', { class: 'expander-body' }, ...body));
     };
     const tiers = h('dl', { class: 'info legend' });
     for (const t of [...TIERS, 'folder', 'gone']) {
@@ -5018,13 +5057,14 @@
       section('help.browser.title', h('p', { text: tr(launchKey) }), h('p', { text: tr('help.browser.save') })),
       section('help.keys.title', h('p', { text: tr('help.keys.body') })),
       info.version ? h('p', { class: 'muted version', text: tr('help.version', { version: info.version }) }) : null);
-    return { el };
+    const save = () => ({ open: $$('details.help-part', el).map((d, i) => (d.open ? i : -1)).filter((i) => i >= 0) });
+    return { el, save };
   }
 
   // ---- quitting ------------------------------------------------------------------------------
 
   async function quit() {
-    const ok = await confirmDialog({ title: tr('quit.confirmTitle'), body: tr('quit.confirmBody'), ok: tr('nav.quit') });
+    const ok = await confirmDialog({ title: tr('quit.confirmTitle'), body: tr('quit.confirmBody'), ok: tr('nav.quit'), danger: true });
     if (!ok) return;
     // Stopped from here on: the stream ending and the requests failing are what quitting does.
     state.stopped = true;
@@ -5039,39 +5079,94 @@
     stoppedOverlay(tr('quit.done.title'), writing ? tr('quit.done.writing') : tr('quit.done.body'), false);
   }
 
-  // ---- the frame: the rail, and the language -------------------------------------------------
+  // ---- the frame: the tabs, the theme and the language -------------------------------------
 
-  // The rail shows its words in a window this wide or more, and only its icons in a narrower one,
-  // where its button shows the words over the page; in a wide window the button takes them away.
-  const WIDE_RAIL = '(min-width: 1008px)';
-  let railWish = null; // null: as the width says; 'compact' in a wide window, 'open' in a narrow one
+  /**
+   * Brings the tab of the part in sight into the row of tabs, which scrolls sideways in a narrow
+   * window; the page itself does not move.
+   */
+  function revealTab(tab) {
+    const row = $('.tabs-nav');
+    const shown = tab || (row && $('[aria-selected="true"]', row));
+    if (!row || !shown) return;
+    const r = shown.getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    if (r.left < box.left) row.scrollLeft -= box.left - r.left + 24;
+    else if (r.right > box.right) row.scrollLeft += r.right - box.right + 24;
+  }
 
-  function syncRail() {
-    const app = document.getElementById('app');
-    if (!app) return;
-    const wide = window.matchMedia(WIDE_RAIL).matches;
-    const mode = wide ? (railWish === 'compact' ? 'compact' : 'expanded') : railWish === 'open' ? 'overlay' : 'compact';
-    app.setAttribute('data-rail', mode);
-    const toggle = document.getElementById('rail-toggle');
-    if (toggle) toggle.setAttribute('aria-expanded', String(mode !== 'compact'));
-    // A rail of icons says what each is when it is pointed at.
-    for (const el of $$('.rail [data-route], .rail .quit')) {
-      const label = $('.label', el);
-      if (mode === 'compact' && label) el.setAttribute('title', label.textContent);
-      else el.removeAttribute('title');
+  /**
+   * The tabs beside the sun and the tools when they fit there, in a row of their own below them
+   * when they do not: how wide they are depends on the language, so it is measured.
+   */
+  function fitTopbar() {
+    const bar = document.getElementById('topbar');
+    const row = document.getElementById('tabs-nav');
+    if (!bar || !row) return;
+    bar.classList.remove('stacked');
+    if (row.scrollWidth > row.clientWidth + 1) bar.classList.add('stacked');
+    revealTab();
+  }
+
+  /**
+   * The row of tabs as a tablist: Left and Right (as they move on screen), Home and End go along
+   * it, and Enter or Space opens the part a tab is for, in the view as it was left, focus
+   * included. Ctrl+1 to Ctrl+5 open each part from anywhere but a dialog.
+   */
+  function tabKeys() {
+    const list = $('[role="tablist"]', document.getElementById('topbar'));
+    if (!list) return;
+    const tabs = () => $$('[role="tab"]', list);
+    list.addEventListener('keydown', (e) => {
+      const all = tabs();
+      const at = all.indexOf(document.activeElement);
+      if (at < 0 || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === ' ') {
+        e.preventDefault();
+        all[at].click();
+        return;
+      }
+      const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: all.length - 1 }[logicalKey(e.key)];
+      if (to === undefined) return;
+      e.preventDefault();
+      const next = all[(to + all.length) % all.length];
+      next.focus();
+      revealTab(next);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+      const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
+      const all = tabs();
+      if (!m || Number(m[1]) > all.length || document.querySelector('dialog[open]')) return;
+      e.preventDefault();
+      const tab = all[Number(m[1]) - 1];
+      if (tab.getAttribute('aria-selected') !== 'true') tab.click();
+    });
+  }
+
+  // The theme: dark, as SoundVisualizer is, unless light was chosen. The server keeps the choice
+  // for this run (api/theme), so a reload keeps it; nothing is kept in the browser.
+  let theme = 'dark';
+
+  function applyTheme(next) {
+    theme = next === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('theme');
+    if (btn) {
+      const label = tr(theme === 'dark' ? 'theme.toLight' : 'theme.toDark');
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
     }
   }
 
-  function closeRail() {
-    if (railWish !== 'open') return;
-    railWish = null;
-    syncRail();
-  }
-
-  function toggleRail() {
-    if (window.matchMedia(WIDE_RAIL).matches) railWish = railWish === 'compact' ? null : 'compact';
-    else railWish = railWish === 'open' ? null : 'open';
-    syncRail();
+  async function toggleTheme() {
+    applyTheme(theme === 'dark' ? 'light' : 'dark');
+    if (state.stopped) return;
+    try {
+      await post('api/theme', { theme });
+    } catch (_) {
+      /* the page shows it all the same */
+    }
   }
 
   /** Puts the strings into what index.html holds: data-i18n for text, data-i18n-attr="attr:key;..." for attributes. */
@@ -5092,8 +5187,9 @@
     applyI18n(document);
     const sel = document.getElementById('lang');
     if (sel) sel.value = lang;
-    syncRail();
+    applyTheme(theme);
     setTitle();
+    fitTopbar();
   }
 
   /** The picker: each language the page has a table for, in its own name. None with only English. */
@@ -5169,24 +5265,17 @@
     }
     const quitBtn = document.getElementById('quit');
     if (quitBtn) quitBtn.addEventListener('click', quit);
-    const toggle = document.getElementById('rail-toggle');
-    if (toggle) toggle.addEventListener('click', toggleRail);
-    window.matchMedia(WIDE_RAIL).addEventListener('change', () => {
-      railWish = null;
-      syncRail();
-    });
-    // The words shown over the page go at Esc, or at a click beside them.
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && railWish === 'open') {
-        closeRail();
-        if (toggle) toggle.focus();
-      }
-    });
-    document.addEventListener('pointerdown', (e) => {
-      if (railWish === 'open' && !e.target.closest('.rail')) closeRail();
-    });
+    const themeBtn = document.getElementById('theme');
+    if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
     const pick = document.getElementById('lang');
     if (pick) pick.addEventListener('change', () => chooseLanguage(pick.value, false));
+    tabKeys();
+    let fitting = 0;
+    window.addEventListener('resize', () => {
+      cancelAnimationFrame(fitting);
+      fitting = requestAnimationFrame(fitTopbar);
+    });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTopbar, () => {});
     window.addEventListener('hashchange', () => route());
     // The browser's own menu over a picture or a video offers "Save image as" and "Save video as",
     // which write to Downloads past every check (see the top of this file).
@@ -5207,6 +5296,7 @@
       state.info = info || {};
       state.sources = (sources && sources.sources) || [];
       state.elevated = !!((sources && sources.elevated) || state.info.elevated);
+      applyTheme(state.info.theme);
     } catch (_) {
       /* said by the overlay the failed request put up */
     }

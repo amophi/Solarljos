@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0 (2026-09-30)
+
+The page in the look of the author's SoundVisualizer app, made for a PC window.
+
+- Dark by default, in SoundVisualizer's colours: the page #2A2C31, cards #1E2024 and darker than
+  it, text #F2F4F6 and #8B95A1, its blue for what is chosen. A switch in the top bar changes to a
+  light theme of the same design. The choice is kept by Solarljos for the run (`POST api/theme`),
+  never by the browser. Where one of SoundVisualizer's colours fell short of 4.5:1 for text, a
+  near one that passes is used: #2171EA under white words, #D32F2F for red buttons. The measured
+  values are at the top of `src/gui/ui/style.css`.
+- One bar at the top: the name, the parts as bold text tabs with a short bar under the chosen
+  one, and the language, the theme switch and Quit. The tabs take a row of their own when the
+  window is too narrow for one line, and scroll sideways if they still do not fit. The rail on
+  the side is gone.
+- The tabs are a real tab list. The arrow keys move along them (mirrored in Arabic), as do Home
+  and End, and Ctrl+1 to Ctrl+5 switch parts except while a dialog is open.
+- On/off options are switch rows you can click anywhere on. Check boxes stay where several things
+  are chosen at once: places, kinds of file, the folder plan, the photo grid.
+- "More options" and the sections of Help are cards that open and close with a short animation,
+  as do options that only matter when another is on. Motion is dropped when the system asks.
+- Form options sit in two columns where they fit. Content is centred at 1,120 pixels; the photo
+  grid and results with a preview use up to 1,680. A form's main action is a large button, and
+  the rest are regular PC size. Every control shows where the mouse is and has a focus ring.
+- Two new strings, the theme switch's labels, in all 18 languages.
+
 ## 0.5.0 (2026-09-30)
 
 No console window, eighteen languages, and a page redesigned in the manner of Windows 11 whose

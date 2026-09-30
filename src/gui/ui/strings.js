@@ -76,6 +76,8 @@
     'lang.label': 'Language',
     'lang.changed': 'The page is now in {language}.',
     'lang.failed': 'That language could not be loaded. The page stays in {language}.',
+    'theme.toLight': 'Switch to the light theme',
+    'theme.toDark': 'Switch to the dark theme',
     'quit.confirmTitle': 'Quit Solarljos?',
     'quit.confirmBody': 'The results on this page will be gone. Files you restored stay where you put them.',
     'quit.done.title': 'Solarljos has stopped',

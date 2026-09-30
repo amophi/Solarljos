@@ -847,5 +847,7 @@
   "help.browser.save": "Pour conserver une copie, utilisez Restaurer. La page n’offre pas les commandes du navigateur « Enregistrer l’image sous » et « Enregistrer la vidéo sous », ni le bouton Télécharger du lecteur vidéo, ni Ctrl+S : un téléchargement du navigateur va dans votre dossier Téléchargements sur le lecteur Windows, sans passer par les vérifications que Restaurer fait de l’endroit où il écrit.",
   "help.keys.title": "Clavier",
   "help.keys.body": "Tab permet de passer d’une commande à l’autre. Dans la grille de photos et la liste des dossiers, les touches de direction permettent de se déplacer, Espace sélectionne et Entrée ouvre. Échap ferme un aperçu ou une boîte de dialogue.",
-  "help.version": "Version {version}"
+  "help.version": "Version {version}",
+  "theme.toLight": "Passer au thème clair",
+  "theme.toDark": "Passer au thème sombre"
 }

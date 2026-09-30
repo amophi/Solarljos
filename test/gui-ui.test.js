@@ -98,7 +98,7 @@ test('the page loads nothing from anywhere else, and asks its own server by rela
   const called = new Set([...code.matchAll(/['`](api\/[a-z-]+(?:\/[a-z-]+)?)/g)].map((m) => m[1]));
   assert.deepStrictEqual([...called].sort(), [
     'api/bye', 'api/cancel', 'api/check-folder', 'api/copy', 'api/drives', 'api/events', 'api/info', 'api/job', 'api/lang',
-    'api/plan', 'api/quit', 'api/rebuild', 'api/restore', 'api/search', 'api/sources', 'api/sources/describe',
+    'api/plan', 'api/quit', 'api/rebuild', 'api/restore', 'api/search', 'api/sources', 'api/sources/describe', 'api/theme',
   ]);
   // A language's table is one of the page's own files, asked for by a name relative to the page.
   assert.match(code, /fetch\(`lang\/\$\{enc\(code\)\}\.json`/);

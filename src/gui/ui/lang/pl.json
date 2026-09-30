@@ -897,5 +897,7 @@
   "help.browser.save": "Aby zachować kopię, użyj przycisku „Przywróć”. Strona wyłącza wbudowane w przeglądarkę polecenia „Zapisz obraz jako” i „Zapisz wideo jako”, przycisk „Pobierz” odtwarzacza wideo oraz Ctrl+S, ponieważ pobieranie w przeglądarce trafia do folderu Pobrane na dysku systemu Windows, z pominięciem kontroli miejsca zapisu, które przeprowadza funkcja „Przywróć”.",
   "help.keys.title": "Klawiatura",
   "help.keys.body": "Klawisz Tab przenosi między kontrolkami. W siatce zdjęć i na liście folderu klawisze strzałek przenoszą zaznaczenie, Spacja zaznacza, a Enter otwiera. Esc zamyka podgląd lub okno dialogowe.",
-  "help.version": "Wersja {version}"
+  "help.version": "Wersja {version}",
+  "theme.toLight": "Przełącz na jasny motyw",
+  "theme.toDark": "Przełącz na ciemny motyw"
 }

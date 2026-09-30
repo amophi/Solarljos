@@ -677,5 +677,7 @@
   "help.browser.save": "Untuk menyimpan salinan, gunakan Pulihkan. Halaman ini tidak menyediakan “Simpan gambar sebagai”, “Simpan video sebagai” milik browser, tombol Unduh pada pemutar video, maupun Ctrl+S, karena unduhan browser masuk ke folder Unduhan Anda di drive Windows, tanpa melalui pemeriksaan yang dilakukan Pulihkan terhadap tempat penulisannya.",
   "help.keys.title": "Keyboard",
   "help.keys.body": "Tab berpindah antarkontrol. Di kisi foto dan daftar folder, tombol panah untuk berpindah, Spasi untuk memilih, dan Enter untuk membuka. Esc menutup pratinjau atau dialog.",
-  "help.version": "Versi {version}"
+  "help.version": "Versi {version}",
+  "theme.toLight": "Beralih ke tema terang",
+  "theme.toDark": "Beralih ke tema gelap"
 }

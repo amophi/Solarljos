@@ -847,5 +847,7 @@
   "help.browser.save": "Per conservare una copia, usa Ripristina. La pagina esclude i comandi del browser “Salva immagine con nome” e “Salva video con nome”, il pulsante Scarica del lettore video e Ctrl+S, perché un download del browser finisce nella cartella Download sull’unità di Windows, aggirando i controlli che Ripristina fa sul punto in cui scrive.",
   "help.keys.title": "Tastiera",
   "help.keys.body": "Tab sposta tra i controlli. Nella griglia delle foto e nell’elenco delle cartelle, i tasti di direzione spostano la selezione, la barra spaziatrice seleziona e Invio apre. Esc chiude un’anteprima o una finestra di dialogo.",
-  "help.version": "Versione {version}"
+  "help.version": "Versione {version}",
+  "theme.toLight": "Passa al tema chiaro",
+  "theme.toDark": "Passa al tema scuro"
 }

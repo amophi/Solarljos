@@ -809,5 +809,7 @@
   "help.browser.save": "Bir kopya saklamak için Geri yükle komutunu kullanın. Sayfa, tarayıcının kendi “Resmi farklı kaydet” ve “Videoyu farklı kaydet” komutlarını, video oynatıcının İndir düğmesini ve Ctrl+S kısayolunu devre dışı bırakır; çünkü tarayıcıyla indirilen bir dosya, Geri yükle komutunun nereye yazdığına ilişkin yaptığı denetimleri atlayarak Windows sürücüsündeki İndirilenler klasörünüze gider.",
   "help.keys.title": "Klavye",
   "help.keys.body": "Sekme tuşu denetimler arasında geçiş yapar. Fotoğraf ızgarasında ve klasör listesinde ok tuşlarıyla hareket edilir, Ara Çubuğu seçer, Enter da açar. Esc bir önizlemeyi veya iletişim kutusunu kapatır.",
-  "help.version": "Sürüm {version}"
+  "help.version": "Sürüm {version}",
+  "theme.toLight": "Açık temaya geç",
+  "theme.toDark": "Koyu temaya geç"
 }

@@ -809,5 +809,7 @@
   "help.browser.save": "Um eine Kopie zu behalten, verwenden Sie „Wiederherstellen“. Auf dieser Seite sind die browsereigenen Befehle „Bild speichern unter“ und „Video speichern unter“, die Schaltfläche „Herunterladen“ des Videoplayers und Strg+S nicht verfügbar, da ein Browser-Download in Ihrem Ordner „Downloads“ auf dem Windows-Laufwerk landet, vorbei an den Prüfungen, die „Wiederherstellen“ für den Zielort vornimmt.",
   "help.keys.title": "Tastatur",
   "help.keys.body": "Mit der Tabulatortaste wechseln Sie zwischen den Steuerelementen. Im Fotoraster und in der Ordnerliste bewegen Sie sich mit den Pfeiltasten, die Leertaste wählt aus, und die Eingabetaste öffnet. Esc schließt eine Vorschau oder ein Dialogfeld.",
-  "help.version": "Version {version}"
+  "help.version": "Version {version}",
+  "theme.toLight": "Zum hellen Design wechseln",
+  "theme.toDark": "Zum dunklen Design wechseln"
 }
