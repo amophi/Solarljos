@@ -260,6 +260,12 @@ test('says what it is and what it reads, from the library', async () => {
   assert.strictEqual(info.window, 'none');
   assert.deepStrictEqual(info.types, require('../src/index').TYPES);
   assert.ok(info.frozen && Array.isArray(info.frozen.sources) && info.frozen.error === null, JSON.stringify(info.frozen));
+  // The languages the page has a table for in src/gui/ui/lang, English first; none asked for yet.
+  const { LOCALES } = require('../src/i18n');
+  const tables = LOCALES.filter((l) => l.code === 'en'
+    || fs.existsSync(path.join(__dirname, '..', 'src', 'gui', 'ui', 'lang', `${l.code}.json`)));
+  assert.deepStrictEqual(info.languages, tables.map((l) => ({ code: l.code, name: l.name })));
+  assert.deepStrictEqual([info.lang, typeof info.locale], [null, 'string']);
   const { sources } = json(await get('/api/sources'));
   const lib = require('../src/index').sources;
   assert.deepStrictEqual(sources.map((s) => [s.id, s.media, s.needsAdmin]), lib.map((s) => [s.id, s.media, s.needsAdmin]));

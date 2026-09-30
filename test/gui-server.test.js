@@ -584,6 +584,63 @@ test('keeps the last search of each of the page\'s views, and gives its form bac
   for (const x of [byName, photos, again]) x.events.close();
 });
 
+test('offers the languages the page has, and speaks the one the page says it is in, kept for a reload', async () => {
+  const i18n = require('../src/i18n');
+  const asked = [];
+  const setLocale = i18n.setLocale;
+  i18n.setLocale = (code) => {
+    asked.push(code);
+    return setLocale(code);
+  };
+  try {
+    const files = {
+      'index.html': Buffer.from('<!doctype html><title>t</title>'),
+      'lang/ko.json': Buffer.from(JSON.stringify({ 'meta.lang': 'ko', 'nav.find': '파일 찾기' })),
+      'lang/de.json': Buffer.from('{ not json'),
+    };
+    const s = await session({ assets: (rel) => files[rel] || null });
+    const info = json(await s.get('/api/info'));
+    assert.deepStrictEqual(info.languages, [{ code: 'en', name: 'English' }, { code: 'ko', name: '한국어' }], 'a file that is not JSON is not offered');
+    assert.deepStrictEqual([info.lang, info.locale], [null, i18n.getLocale()]);
+    // A language's table is one of the page's files.
+    const table = await s.get('/lang/ko.json');
+    assert.deepStrictEqual([table.status, table.headers['content-type'], json(table)['nav.find']], [200, 'application/json; charset=utf-8', '파일 찾기']);
+    assert.strictEqual(table.headers['cache-control'], 'no-store');
+    assert.strictEqual((await s.get('/lang/fr.json')).status, 404);
+    assert.strictEqual((await request(s.origin, '/lang/ko.json')).status, 403, 'not without the cookie');
+
+    const told = await s.post('/api/lang', { lang: 'ko' });
+    assert.strictEqual(told.status, 200);
+    const now = json(told);
+    // The library speaks Korean once its catalog is complete (i18n.js), English until then.
+    assert.deepStrictEqual([now.lang, now.locale, asked.at(-1)], ['ko', i18n.getLocale(), 'ko']);
+    assert.strictEqual(json(await s.get('/api/info')).lang, 'ko', 'a reload starts in it');
+    // Each job says what the library spoke when it was made: what its notes are in.
+    const { job, events } = await searched(s, { pattern: 'x' });
+    events.close();
+    assert.strictEqual(job.lang, now.locale);
+    assert.strictEqual(json(await s.post('/api/lang', { lang: 'zh-Hant-TW' })).lang, 'zh-TW');
+    assert.strictEqual(json(await s.post('/api/lang', { lang: 'xx' })).lang, 'en');
+    for (const body of [{}, { lang: 5 }, { lang: '' }]) assert.strictEqual((await s.post('/api/lang', body)).status, 400, JSON.stringify(body));
+    assert.strictEqual((await s.get('/api/lang')).status, 405);
+    assert.strictEqual((await s.post('/api/lang', { lang: 'ko' }, { headers: { 'X-Solarljos': '' } })).status, 403, 'not from the page');
+
+    // Started in a language (the command line's --lang), it speaks it, and the page starts in it.
+    asked.length = 0;
+    const de = await session({ lang: 'de' });
+    assert.deepStrictEqual(asked, ['de']);
+    assert.strictEqual(json(await de.get('/api/info')).lang, 'de');
+    const tagged = await session({ lang: 'ko-KR' });
+    assert.strictEqual(json(await tagged.get('/api/info')).lang, 'ko');
+    asked.length = 0;
+    const plain = await session();
+    assert.deepStrictEqual([asked, json(await plain.get('/api/info')).lang], [[], null], 'none asked for: the library is left as it is');
+  } finally {
+    i18n.setLocale = setLocale;
+    setLocale('en');
+  }
+});
+
 /** A JPEG whose Exif block holds a small picture, as a camera writes it. */
 function exifJpeg({ orientation = 1, thumb = Buffer.from([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]), big = false, rest = 5000 } = {}) {
   const tiff = Buffer.alloc(56 + thumb.length);

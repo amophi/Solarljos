@@ -79,7 +79,10 @@ test('every kind of copy and every source the library names has its words', () =
 });
 
 test('the page loads nothing from anywhere else, and asks its own server by relative names', () => {
-  for (const [name, text] of [['index.html', html], ['app.js', app], ['style.css', css], ['strings.js', stringsSource]]) {
+  // SVG's namespace, which app.js makes its icons in, names no place: nothing is fetched from it.
+  const SVG_NS = "'http://www.w3.org/2000/svg'";
+  assert.strictEqual(app.split(SVG_NS).length, 2, 'app.js names the SVG namespace once');
+  for (const [name, text] of [['index.html', html], ['app.js', app.replace(SVG_NS, "''")], ['style.css', css], ['strings.js', stringsSource]]) {
     assert.ok(!/\b(?:https?|wss?|ftp):\/\//i.test(text), `${name} names a URL`);
     assert.ok(!/(?:src|href|action)\s*=\s*["']?\/\//i.test(text), `${name} has a protocol-relative reference`);
   }
@@ -94,9 +97,11 @@ test('the page loads nothing from anywhere else, and asks its own server by rela
   // The endpoints the page relies on, as its header says: a change here is a change of contract.
   const called = new Set([...code.matchAll(/['`](api\/[a-z-]+(?:\/[a-z-]+)?)/g)].map((m) => m[1]));
   assert.deepStrictEqual([...called].sort(), [
-    'api/bye', 'api/cancel', 'api/check-folder', 'api/copy', 'api/drives', 'api/events', 'api/info', 'api/job', 'api/plan',
-    'api/quit', 'api/rebuild', 'api/restore', 'api/search', 'api/sources', 'api/sources/describe',
+    'api/bye', 'api/cancel', 'api/check-folder', 'api/copy', 'api/drives', 'api/events', 'api/info', 'api/job', 'api/lang',
+    'api/plan', 'api/quit', 'api/rebuild', 'api/restore', 'api/search', 'api/sources', 'api/sources/describe',
   ]);
+  // A language's table is one of the page's own files, asked for by a name relative to the page.
+  assert.match(code, /fetch\(`lang\/\$\{enc\(code\)\}\.json`/);
 });
 
 test('nothing runs inline, and recovered content is never parsed as HTML', () => {
@@ -141,6 +146,33 @@ test('strings are filled in by name, in the plural the count needs', () => {
   assert.strictEqual(ui.tr('results.nameOnly', { name: '<img src=x onerror=alert(1)>' }), '<img src=x onerror=alert(1)> (folder unknown)');
   assert.strictEqual(ui.pickLanguage(['ko-KR', 'en-US']), 'en');
   assert.strictEqual(ui.pickLanguage([]), 'en');
+});
+
+test('a string that counts is always given its count', () => {
+  // A plural form, or {count}, with no count to go by would show "{count}", or the form of 0 --
+  // Arabic has one of its own -- if only for a moment: so every such key is asked for with one.
+  const counting = new Set(Object.keys(en).filter((k) => typeof en[k] === 'object' || String(en[k]).includes('{count}')));
+  const missing = [];
+  let calls = 0;
+  for (const m of code.matchAll(/\btr\(\s*'([^']+)'\s*([,)])/g)) {
+    if (!counting.has(m[1])) continue;
+    calls++;
+    let args = '';
+    if (m[2] === ',') {
+      let depth = 1;
+      for (let i = m.index + m[0].length; i < code.length && depth; i++) {
+        if (code[i] === '(') depth++;
+        else if (code[i] === ')') depth--;
+        if (depth) args += code[i];
+      }
+    }
+    if (!/\bcount\b/.test(args)) missing.push(`${m[1]} at line ${code.slice(0, m.index).split('\n').length}`);
+  }
+  assert.ok(calls > 40, `only ${calls} calls found; the scan is broken`);
+  assert.deepStrictEqual(missing, []);
+  // And were one to be asked for without, it is the "other" form, not the one for 0.
+  ui.setLanguage('en');
+  assert.strictEqual(ui.tr('results.showMore'), 'Show {count} more');
 });
 
 test('sizes read as the command line prints them', () => {

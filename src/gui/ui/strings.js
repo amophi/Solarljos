@@ -1,21 +1,59 @@
 'use strict';
 
-// The words of Solarljos's page, by key, one table per language. app.js looks every string up
-// here with tr(key, params); nothing the page says is written anywhere else. English is the only
-// table so far, and the keys are laid out for a Korean one beside it:
+// The words of Solarljos's page, by key. app.js looks every string up with tr(key, params);
+// nothing the page says is written anywhere else. The table below is English, the source of
+// every other language, and the one shown for any key another language leaves out.
 //
-//   - Placeholders are named, {name} or {count}, never {0}: Korean puts the verb last, so a
-//     translation must be free to move them.
-//   - A value may be { one, other }, chosen by the language's plural rules on params.count.
-//     Korean has only `other`; English uses both.
+//   - Placeholders are named, {name} or {count}, never {0}: a language that puts the verb last
+//     must be free to move them. A number put in is written as the language writes numbers.
+//   - A value may be a set of plural forms, { one, other } here, chosen by the language's plural
+//     rules (Intl.PluralRules) on params.count.
 //   - meta.* is not shown. meta.locale decides how dates and numbers are written (en-GB writes
 //     "27 Sep 2026, 21:14"), meta.lang and meta.dir go on <html>.
 //   - kind.<kind> and kindHelp.<kind> are keyed by the library's own name for a kind of copy
 //     (src/quality.js), so they follow it; a kind with no entry is shown by that name.
 //   - source.<id>.* is keyed by the source's id; a source with no entry shows the library's label.
 //
-// What the library itself says -- a source's notes, a refusal's reason -- is already English
-// from src/i18n.js t() and is shown as it comes.
+// Every other language is a file of its own beside this one, lang/<code>.json, where <code> is
+// one of the codes of src/i18n.js's LOCALES: ko ja zh-CN zh-TW es fr de pt-BR ru it pl tr vi id
+// th ar hi. The page offers the languages whose file is there, by the name LOCALES gives each,
+// and asks for a file only when its language is chosen. A file is JSON in UTF-8, one flat object
+// from a key of the table below to its words:
+//
+//   {
+//     "meta.lang": "ru",
+//     "meta.locale": "ru-RU",
+//     "meta.dir": "ltr",
+//     "nav.find": "Найти файл",
+//     "results.title.name": "Результаты для «{name}»",
+//     "results.files": { "one": "{count} файл", "few": "{count} файла", "many": "{count} файлов", "other": "{count} файла" }
+//   }
+//
+//   - meta.lang is the language's tag as it goes on <html lang>: the file's code ("ko", "zh-CN",
+//     "pt-BR"), which also picks the language's fonts (style.css). meta.locale is the locale
+//     Intl writes dates and numbers in, and whose plural rules count: "ko-KR", "de-DE", "pt-BR";
+//     "ar-EG" writes Arabic-Indic digits, "ar-u-nu-latn" Latin ones. meta.dir is "rtl" for Arabic
+//     and "ltr" for every other language here. Each must be of the file's language; one left
+//     out is taken from the code.
+//   - A key is one of the table below. A key it does not have is left out, and so is any value
+//     that breaks a rule here: English shows in its place.
+//   - A value is a string, or, for a key whose English value is a set of plural forms or has
+//     {count}, an object of plural forms: keyed by the Intl.PluralRules categories of the language
+//     -- zero, one, two, few, many, other -- with "other" always there. A form the language has
+//     and the file lacks falls back to "other"; a plain string serves every count, which suits a
+//     language with one form only (Korean, Japanese, Chinese, Thai, Vietnamese, Indonesian).
+//   - Every form uses every placeholder the English value uses, in any of its forms, and no other,
+//     by the same names: {name} stays {name}. Only {count} may be left out, and only by a form
+//     that stands for one number alone -- English "one" is 1 and may say "1 file"; Russian "one"
+//     is also 21 and 31, French "one" also 0, and must say {count}.
+//   - Text is plain: no markup, which would be shown as it is. Typographic quotes and the
+//     language's own punctuation are welcome.
+//
+// test/gui-lang.test.js checks every file there against these rules, so a key misspelt, a
+// placeholder dropped or renamed, or a plural form that cannot be right fails the tests.
+//
+// What the library itself says -- a source's notes, a refusal's reason -- comes from src/i18n.js
+// t(), in the language the server speaks; the page tells the server the language it is shown in.
 
 (function (root) {
   const en = {
@@ -34,6 +72,10 @@
     'nav.sources': 'What is searched',
     'nav.help': 'Help',
     'nav.quit': 'Quit',
+    'nav.toggle': 'Menu',
+    'lang.label': 'Language',
+    'lang.changed': 'The page is now in {language}.',
+    'lang.failed': 'That language could not be loaded. The page stays in {language}.',
     'quit.confirmTitle': 'Quit Solarljos?',
     'quit.confirmBody': 'The results on this page will be gone. Files you restored stay where you put them.',
     'quit.done.title': 'Solarljos has stopped',
@@ -96,9 +138,12 @@
     'home.good.drive': 'Lost something from a USB stick, a memory card or a hard disk? Save nothing new onto it until you are done.',
     'home.good.exe': 'Don’t copy Solarljos.exe, or anything else, onto the card or drive you are recovering from.',
     'home.good.cleanup': 'Until you are done, don’t run Disk Cleanup and don’t clear your browser’s history or cache: they erase smaller copies of pictures that Windows and the browser keep.',
+    'home.good.window': 'Solarljos runs while this window is open. Closing the window, or Quit, stops it.',
     'home.sourcesLink': 'See what can be searched on this PC',
 
     // ---- the forms ----
+    'form.toResults': 'Back to the results',
+    'form.toSearch': 'Back to the search under way',
     'find.title': 'Find a file',
     'find.name.label': 'File name, or part of it',
     'find.name.hint': 'For example budget, report.docx or *.hwp. Upper and lower case don’t matter.',
@@ -253,6 +298,7 @@
     'results.loading': 'Getting the results again: {count} of {total}…',
     'results.failedPlaces': { one: '1 place could not be searched.', other: '{count} places could not be searched.' },
     'results.notes': 'What the places searched had to say',
+    'results.oldLanguage': 'These were found before the language was changed: what the places searched had to say is in the language Solarljos spoke then.',
     'results.view.label': 'Show',
     'results.view.files': 'By file',
     'results.view.list': 'All copies',
@@ -724,6 +770,8 @@
     'help.cant.original': 'Turn a smaller copy of a photo back into the full-size original.',
     'help.writes.title': 'What is written',
     'help.writes.body': 'Nothing, except the files you choose to restore, in the folder you choose. Solarljos keeps no settings, history or log, and your results live only in its memory until you quit. What Windows does whenever any program runs, such as noting that it started, no program can prevent.',
+    'help.stop.title': 'When Solarljos stops',
+    'help.stop.body': 'Solarljos runs only while this window is open: closing the window, or Quit, stops it a few seconds later, and nothing of it is left running. It never stops in the middle of a restore; a restore under way is finished first.',
     'help.browser.title': 'This window and your browser',
     'help.browser.inprivate': 'Solarljos opened this page in a Microsoft Edge InPrivate window, so Edge keeps no history, cookies or cache of it. If Edge was not already running, it still writes what it writes whenever it starts: its settings and start-up files in your profile.',
     'help.browser.default': 'Solarljos opened this page in your usual browser, which records the visit in its history, the page’s address included. That address works only once, and has been used: nothing can open this page from it again.',

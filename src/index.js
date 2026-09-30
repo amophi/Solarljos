@@ -12,6 +12,7 @@ const { absoluteFolder } = require('./paths');
 const { isElevated } = require('./locations');
 const { TYPES, sniff } = require('./types');
 const { tier } = require('./quality');
+const { setLocale, getLocale, matchLocale, LOCALES } = require('./i18n');
 
 /**
  * Every source, as { id, label, media, needsAdmin }: `media` is false for one that keeps only
@@ -119,4 +120,11 @@ module.exports = {
   isElevated: () => isElevated(),
   looksBinary,
   asText,
+  // The language of every note, reason and label the library gives from then on, process-wide:
+  // English until set. setLocale() returns the code it took, 'en' for one without a complete
+  // translation; LOCALES lists the 18 with their own names (i18n.js).
+  setLocale,
+  getLocale,
+  matchLocale,
+  LOCALES,
 };

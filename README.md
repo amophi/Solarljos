@@ -20,6 +20,8 @@ It changes nothing on the computer: the only files it writes are the ones you ch
 into the folder you choose. (The browser window it opens is your browser's own, and writes what
 that browser writes; see below.)
 
+It is available in 18 languages; see [Languages](#languages).
+
 **On Windows, download [`Solarljos.exe`](https://github.com/amophi/Solarljos/releases/latest)** --
 one file, nothing to install -- and double-click it. Do not save it on the drive, the card or the
 stick you lost files from.
@@ -28,7 +30,7 @@ stick you lost files from.
 
 1. **Download** `Solarljos.exe` from the
    [latest release](https://github.com/amophi/Solarljos/releases/latest). It is one file of about
-   100 MB that carries everything it needs, Node.js included: nothing is installed, and nothing is
+   110 MB that carries everything it needs, Node.js included: nothing is installed, and nothing is
    written beside it.
 2. **Keep it off the drive you lost files from**, and restore onto another drive if you can:
    writing to the drive the files were on can overwrite what is left of them. Never copy it, or
@@ -38,32 +40,36 @@ stick you lost files from.
 3. **Double-click it.** It is not signed, so Windows SmartScreen asks first: *More info*, then
    *Run anyway*. Where Smart App Control is on, Windows refuses it; *Running it from the source*
    below gives the same program.
-4. **A console window opens**, which stays open while Solarljos runs, and then its page opens in a
-   browser window. Choose what you lost -- *Find a file* by its name, a word it contained or its
-   kind, *Photos and videos* in a grid by month, or *Bring back a folder* -- and each copy found
-   says where it was found and how far it can be trusted: *Exact copy*, *Inexact copy*, *Never
-   saved*, *May be incomplete*, *Smaller copy*. A copy can be previewed before anything is
-   written. *Restore* asks for a folder and checks it first: it will not write inside a place
-   copies are read from, asks before it writes onto the drive a file was on, and suggests another
-   drive when there is one.
-5. **Close the window** when you are done. Solarljos stops a few seconds later, and also when its
-   console window is closed or Ctrl+C is pressed there. It does not stop in the middle of a
-   restore: Ctrl+C waits up to 8 seconds for one to finish, and one cut short then leaves no file
-   behind.
+4. **Its page opens in a browser window**, and no other window opens. Choose what you lost --
+   *Find a file* by its name, a word it contained or its kind, *Photos and videos* in a grid by
+   month, or *Bring back a folder* -- and each copy found says where it was found and how far it
+   can be trusted: *Exact copy*, *Inexact copy*, *Never saved*, *May be incomplete*, *Smaller
+   copy*. A copy can be previewed before anything is written. *Restore* asks for a folder and
+   checks it first: it will not write inside a place copies are read from, asks before it writes
+   onto the drive a file was on, and suggests another drive when there is one. Each part of the
+   page keeps what it showed while you use another, and *Language*, below the list of places on
+   the left, changes the language of the page.
+5. **Close the window**, or press *Quit*, when you are done. Solarljos stops 3 to 30 seconds after
+   its page goes, and by itself 10 minutes after it started if no window ever connected. It does
+   not stop in the middle of a restore: one being written finishes first.
 
 What is written:
 
 - **By Solarljos**, nothing but the files you restore, in the folder you choose. It keeps no
   settings, history, log or cache; what it found lives in its memory until it stops. It starts no
-  program but the browser window and, while searching, git and `mountvol.exe`, which only read.
-  It does not open Explorer to show what it restored, since that would make new thumbnails in the
-  very cache a search for photos reads.
+  program but the browser window, git and `mountvol.exe` while searching, which only read, and,
+  as a last resort, `cmd.exe`: when no browser window could be opened, when an error stopped it
+  before its page opened, or when it was given arguments with nowhere to print, nothing it printed
+  would be seen, so it says what it has to say in a console window titled *Solarljos*. That
+  cmd.exe is started with `/d`, which skips the AutoRun commands the registry may name, and writes
+  nothing. It does not open Explorer to show what it restored, since that would make new
+  thumbnails in the very cache a search for photos reads.
 - **By the window**, what the browser writes. Where Microsoft Edge is installed, the page opens in
   an Edge InPrivate window, which keeps no history, cookies or cache of the visit; if Edge was not
   already running, it still writes what it writes whenever it starts, its settings and start-up
-  files in your profile. Without Edge, and always when Solarljos runs as administrator, the page
-  opens in your default browser, which records the visit in its history like any other; the
-  address it records works only once.
+  files in your profile. Without Edge, when Edge cannot be started, and always when Solarljos runs
+  as administrator, the page opens in your default browser, which records the visit in its history
+  like any other; the address it records works only once.
 - **By Windows itself**, the note it keeps of every program that runs, as for any program.
 
 Explorer's thumbnail cache is read into memory before the window opens, so that nothing the
@@ -78,8 +84,18 @@ such as `E:`, or a disk image of it made with another tool. Reading the card its
 administrator rights -- quit Solarljos, right-click `Solarljos.exe` and choose *Run as
 administrator* -- and an image needs none.
 
-Given arguments, `Solarljos.exe` is the command line described below: `Solarljos.exe find
-budget.xlsx` in a console is `solarljos find budget.xlsx`.
+Given arguments, `Solarljos.exe` is the command line described below. It is a Windows program
+without a console, though, so what it prints is seen only when it goes to a program or a file:
+
+```
+Solarljos.exe find budget.xlsx | more
+Solarljos.exe find budget.xlsx > found.txt 2>&1
+```
+
+Typed in a console with nothing redirected -- or with `> NUL`, which goes nowhere -- it prints
+nothing and does nothing, but shows a window that says so and how to use the command line.
+`solarljos.cjs`, attached to the same release, is the command line alone for Node.js 22 or later:
+`node solarljos.cjs find budget.xlsx` prints in the console as any program does.
 
 ## Old photos and videos: what to expect
 
@@ -177,7 +193,10 @@ A recovery tool that writes can destroy what it is trying to recover, so this on
   No PowerShell is started, since every start of it rewrites a file in the user's profile. The
   programs started while searching only read: git, and `mountvol.exe`, which lists the drives'
   volume names for the thumbnail cache and writes nothing. The graphical front end starts one
-  more, the browser window, and *Using the program* lists what that writes.
+  more, the browser window, and *Using the program* lists what that writes. `Solarljos.exe`,
+  which has no console, starts `cmd.exe /d` for a console window of its own when what it has to
+  say would not be seen otherwise; that writes nothing either, and no text it shows is on
+  cmd.exe's command line, so none can act as a command.
 - A card, a USB stick or a disk image is opened for reading only. Windows and other programs
   write to a card while it is in, which nothing here can stop: take an SD card out, slide its
   lock switch to Lock and put it back, and save nothing onto it until everything is back.
@@ -204,9 +223,10 @@ A recovery tool that writes can destroy what it is trying to recover, so this on
   once the name is seen to be free. When anything fails, the temporary file is removed, so a copy
   never stands short under its own name; a process killed while writing leaves only the `.part`
   file, whose name says what it is.
-- Nothing is replaced: a name that is taken becomes `name (recovered 2).ext`, and a rebuilt
-  folder always goes into a new folder of its own. On Windows a name it cannot hold -- `a:b`
-  from Linux would be a stream attached to a file `a` -- is written with `_` in its place. Two
+- Nothing is replaced: a name that is taken becomes `name (recovered 2).ext`, the mark said in
+  the language Solarljos speaks (`name (복구됨 2).ext` in Korean), and a rebuilt folder always
+  goes into a new folder of its own. On Windows a name it cannot hold -- `a:b` from Linux would
+  be a stream attached to a file `a` -- is written with `_` in its place. Two
   entries of a deleted folder that come out under the same name that way, or as `Readme` and
   `README` on a disk that ignores case, both come back, the second as `name (recovered 2)`.
   `rebuild --dry-run` shows the plan and writes nothing.
@@ -273,7 +293,9 @@ node bin/solarljos.js --help
 ```
 
 `npm link` in that folder puts `solarljos` on the `PATH`. `node bin/solarljos.js gui` opens the
-same window as `Solarljos.exe`.
+same window as `Solarljos.exe`; run in a terminal, it also stops when that terminal is closed or
+Ctrl+C is pressed in it, and Ctrl+C waits up to 8 seconds for a restore being written, and one cut
+short then leaves no file behind.
 
 ### Usage
 
@@ -304,6 +326,7 @@ matches the same name typed on Windows.
 | `--to <dir>` | Where `restore` and `rebuild` write |
 | `--dry-run` | `rebuild` only: list what would be written, and write nothing |
 | `--port <n>` / `--no-open` | `gui` only: the port on 127.0.0.1 to listen on, and printing the address instead of opening a window |
+| `--lang <code>` | The language to speak, by its code: `en`, `ko`, `ja`, `zh-CN`, `zh-TW`, `es`, `fr`, `de`, `pt-BR`, `ru`, `it`, `pl`, `tr`, `vi`, `id`, `th`, `ar`, `hi`. The variable `SOLARLJOS_LANG` does the same when `--lang` is not given. With neither it is English, whatever the system's language. A code with no complete translation gets a note, and English. With `gui`, the page starts in it too |
 
 A mistake in the command line -- an unknown option, source or type, a `--since` that cannot be
 read, a missing `--to` -- ends with exit code 2 and writes nothing. `find` and `rebuild` end with
@@ -474,10 +497,13 @@ folder that was only partly deleted is filled in.
 
 ## The graphical front end
 
-`solarljos gui` -- or `Solarljos.exe` with no arguments -- starts a small web server on 127.0.0.1
-and opens its page, as *Using the program* describes. `--no-open` prints the address instead of
-opening a window, and `--port <n>` listens on that port instead of a free one. On macOS and Linux
-the page opens in the default browser.
+`solarljos gui` -- or `Solarljos.exe` with no arguments, or none but `--lang` -- starts a small web
+server on 127.0.0.1 and opens its page, as *Using the program* describes. Edge that cannot be
+started gives way to the default browser. `--no-open` prints the address instead of opening a
+window, and `--port <n>` listens on that port instead of a free one. When the address is to be
+printed and nothing printed would be seen -- no browser could be started, or `Solarljos.exe gui
+--no-open` was typed in a console -- it is shown in a console window of its own instead; closing
+that window does not stop Solarljos. On macOS and Linux the page opens in the default browser.
 
 - **The page.** *Find a file* searches by name, by a word the file contained, or by kind of file,
   and shows the copies of one file together, the best one first, chosen as `rebuild` chooses; a
@@ -488,6 +514,25 @@ the page opens in the default browser.
   ticked. *What is searched* shows what each source sees, and takes places from another disk for
   as long as the window is open. Filters -- only files that are gone, dates, the folder a file was
   in -- say how many copies they hide, and turning one off does not search again.
+- **Each part keeps its work.** The start, *Find a file*, *Photos and videos*, *Bring back a
+  folder*, *What is searched* and *Help* each keep their last view while another is shown: what
+  a form held, the results with their filters, sort, selection and how many of them are shown,
+  where the view was scrolled to, and the preview that was open. A search keeps running, and its
+  results keep coming in, while its part is hidden. A link in the rail goes back to its part's
+  last view; results have *New search*, and a form has *Back to the results*. None of it is kept
+  in the browser: a reload starts again from what the server still has.
+- **How it looks.** In the manner of a Windows 11 app: a rail of places on the left (on the right
+  in Arabic), each with an icon, which keeps only its icons in a window narrower than 1008 pixels
+  and shows its words from the menu button at its top; Segoe UI Variable, and each language's own
+  font where Segoe UI has no letters for it; an 8-pixel rhythm and one calm accent colour, for
+  what is chosen and for the one action that matters on each view. A copy's tier is a pill with
+  an icon and its name in words, never a colour alone. A copy is previewed in a pane beside its
+  results, and messages are bars with an icon, as in Windows' InfoBar. Light and dark follow
+  the system; in a high-contrast theme the system's colours are used and every box keeps a border;
+  motion is dropped when the system asks. Every text colour was measured against every background
+  it is shown on, light and dark, at 4.5:1 or more, and every mark of where a control is and what
+  state it is in at 3:1 or more; the values are at the top of
+  [src/gui/ui/style.css](src/gui/ui/style.css).
 - **Who can reach it.** Only the window it opened. The address carries a random token that works
   once, traded at once for a cookie that no script can read and no other site is sent, named
   after the port. Every request must name exactly 127.0.0.1 and that port and come from that
@@ -505,30 +550,88 @@ the page opens in the default browser.
   written to, told by the volume, since writing there can overwrite what is still to be found. Run
   as administrator, it also refuses Windows' own folders, Program Files and ProgramData, however
   they are reached.
-- **What it keeps.** The last search of each kind -- by name, and for photos and videos -- and the
-  last folder plan, in memory; a reload asks for them again. One search runs at a time, and Stop
-  ends it.
-- **When it stops.** A few seconds after its page is closed, or 30 s after the page went without
-  saying goodbye, so that a reload keeps it running; 10 minutes after starting when no window
-  connected; and on Ctrl+C or when its console window is closed. Never in the middle of a restore
-  or a rebuild: Ctrl+C waits up to 8 s for one, and removes the temporary file of one it cuts.
+- **What it keeps.** The last search of each kind -- by name, and for photos and videos -- the
+  last folder plan, and the language the page chose, in memory; a reload asks for them again. One
+  search runs at a time, and Stop ends it.
+- **When it stops.** 3 s after its page is closed; 30 s after, when a search was running or the
+  page went without saying goodbye, so that a reload keeps it running; 10 minutes after starting
+  when no window connected; and when *Quit* is pressed. Never in the middle of a restore or a
+  rebuild: one being written finishes first. `Solarljos.exe` has no console;
+  `node bin/solarljos.js gui` run in a terminal also stops on Ctrl+C or when that terminal is
+  closed, and then waits up to 8 s for a write, removing the temporary file of one it has to cut.
 
 How it works is at the top of [src/gui/server.js](src/gui/server.js) and
 [src/gui/launch.js](src/gui/launch.js).
 
+## Languages
+
+Solarljos is in 18 languages: English (`en`), Korean (`ko`), Japanese (`ja`), Simplified Chinese
+(`zh-CN`), Traditional Chinese (`zh-TW`), Spanish (`es`), French (`fr`), German (`de`), Brazilian
+Portuguese (`pt-BR`), Russian (`ru`), Italian (`it`), Polish (`pl`), Turkish (`tr`), Vietnamese
+(`vi`), Indonesian (`id`), Thai (`th`), Arabic (`ar`), written right to left, and Hindi (`hi`).
+
+- **The page** starts in the language `--lang` gives -- a shortcut to `Solarljos.exe --lang ko`
+  opens it in Korean -- else in the first of the browser's languages it has, else in English.
+  *Language*, below the list of places, lists the languages whose table,
+  `src/gui/ui/lang/<code>.json`, is there, each by its own name. Choosing one builds every view
+  again in it, keeping what the forms and results held. Plurals follow the language's own rules
+  (Intl.PluralRules), and dates and numbers are written as its locale writes them. In Arabic the
+  whole layout runs from the right. Korean breaks lines between words, not inside them.
+- **What the library says** -- a source's notes, why a folder is refused, the kinds of copy --
+  comes from its language's catalog, `src/locales/<code>.json`, which maps each of the 655
+  English messages to its translation. The page tells the server the language it is shown in, and
+  notes come in that language from the next search on; results found before a change keep the
+  words they were found with, and the page says so. A language is offered only when its catalog
+  translates every message, so that nothing comes out half in it and half in English.
+- **The command line** speaks English unless `--lang <code>` or the variable `SOLARLJOS_LANG`
+  asks for another, whatever the system's language, so that a script reads the same output on
+  every machine. Its columns line up by the width text takes in a terminal, not by its length: a
+  Korean, Japanese or Chinese character takes two columns, and a combining mark -- a Thai vowel, a
+  Devanagari matra, an Arabic haraka -- none.
+- **Restored names** carry their marks in the language spoken: a name that was taken comes back
+  as `photo (복구됨 2).jpg` in Korean, as the marks of a smaller copy and of one that may be
+  incomplete do.
+
+The translations were machine-assisted: each language was written on its own and checked by
+translating it back into English. No native speaker has reviewed them yet, and corrections from
+native speakers are welcome.
+
+To fix a translation or add a language:
+
+- The library's messages are in `src/locales/<code>.json`: each English message, exactly as
+  `src/locales/messages.json` lists it, mapped to its translation, where `{0}`, `{1}`... may move
+  but must all stay. `npm run i18n -- check` says how far each catalog is, and fails on a message
+  missing, left over or empty, or whose `{n}` are not the English's. When a message is added or
+  changed in the code, `npm run i18n -- extract` writes `messages.json` again.
+- The page's words are in `src/gui/ui/lang/<code>.json`: keys of the English table in
+  [src/gui/ui/strings.js](src/gui/ui/strings.js) mapped to their words. The rules -- named
+  placeholders, plural forms by Intl.PluralRules, `meta.lang`, `meta.locale` and `meta.dir` -- are
+  at the top of that file. A key left out is shown in English; every table now has all 679.
+- A new language also needs its code and its own name in `LOCALES` in [src/i18n.js](src/i18n.js).
+- `test/i18n.test.js` fails when `messages.json` is not what `extract` finds or a catalog does not
+  pass `check`, and `test/gui-lang.test.js` holds every page table to the rules of `strings.js`.
+
 ## The Windows program
 
 `Solarljos.exe`, on each release's page, is all of Solarljos in one file: the command line, the
-page and the node.exe they run on. Beside it is `Solarljos.exe.sha256`, and the release workflow
-attests where it was built:
+page and the node.exe they run on. Beside it are `solarljos.cjs`, the script inside it, which is
+the command line alone for Node.js 22 or later, and the SHA-256 of each; the release workflow
+attests where both were built:
 
 ```
 sha256sum -c Solarljos.exe.sha256
+sha256sum -c solarljos.cjs.sha256
 gh attestation verify Solarljos.exe -R amophi/Solarljos
+gh attestation verify solarljos.cjs -R amophi/Solarljos
 ```
 
 In a Windows console without `sha256sum`, `certutil -hashfile Solarljos.exe SHA256` prints the
 hash to compare with the one in `Solarljos.exe.sha256`.
+
+It is a Windows GUI program, not a console program as node.exe is: its header's Subsystem is 2,
+not 3. So a double-click opens no console window, only the browser's, and Windows gives it no
+console even when it is started from one: what it prints is seen only when it goes to a file or a
+program. *Using the program* says what it does when it would not be seen.
 
 It is not code-signed. Windows SmartScreen asks before running it (*More info*, then *Run
 anyway*), and Smart App Control, where it is on, blocks it; there `node bin/solarljos.js gui`
@@ -544,14 +647,20 @@ npm run build:exe      # Windows, Node 25.5 or later: dist\Solarljos.exe, tried 
 npm run bundle         # any system, Node 22 or later: dist/solarljos.cjs, the command line alone
 ```
 
-`scripts/bundle.js` puts the command line and every module it loads into one script;
-`scripts/build-exe.js` puts that script and the page's files into a copy of the node.exe running
-it, with that node.exe's signature taken off first, since it would no longer verify. It then runs
-the exe -- its version, every source, a search and a restore on a made-up Linux trash, and the
-front end serving its page, started with `--no-open` -- and only then writes
-`dist/Solarljos.exe.sha256`. Built with Node 26.10.0 in two folders of different names, it came
-out with the same SHA-256 both times, and with no part of either folder's path in it; the exe
-GitHub's Windows runner built from the same commit in CI had that SHA-256 too.
+`scripts/bundle.js` puts the command line and every module it loads, the language catalogs
+included, into one script; `scripts/build-exe.js` puts that script and the page's files, its
+language tables included, into a copy of the node.exe running it, with that node.exe's signature
+taken off first, since it would no longer verify. It then sets the header's Subsystem to the
+Windows GUI's before it makes the checksum right, and reads the file back, which must say 2. Made
+a console program again, with its checksum made right, the exe differs in two bytes: one of the
+Subsystem and one of the CheckSum. It then runs the exe, with pipes for its output -- its version,
+its help, every source, a search and a restore on a made-up Linux trash, and the front end serving
+its page, started with `--no-open`, where every page file must come back as the bytes that went
+in -- and only then writes `dist/Solarljos.exe.sha256` and `dist/solarljos.cjs.sha256`. Built
+with Node 26.10.0 in two folders of different names, 0.4.0 came out with the same SHA-256 both
+times, and with no part of either folder's path in it; the exe GitHub's Windows runner built from
+the same commit in CI had that SHA-256 too. Setting the Subsystem and the checksum adds nothing
+that depends on the machine or the folder.
 
 ## Using it from code
 
@@ -598,6 +707,13 @@ anything can change them; `removeUnfinished()`, for a front end about to end its
 middle of a write; `sniff(bytes)`, `{ mediaType, ext }` from a copy's first bytes; `TYPES`; and
 `isElevated()`, whether this process may read a drive directly. [src/index.js](src/index.js) has
 the whole list.
+
+The library speaks English until told otherwise. `setLocale(code)` sets the language of every
+note, reason and label it gives from then on, for the whole process, and returns the code it took:
+`'en'` for a code of no language here, or of one whose catalog does not translate every message.
+`getLocale()` says which it speaks; `matchLocale(prefs)` gives the code of the language a list
+such as `navigator.languages`, or an Accept-Language header, asks for first, and `'en'` when it
+names none; `LOCALES` lists the 18 as `{ code, name }`, each name in its own language.
 
 `search()` and `describeSources()` take `locations` as the command line gives them:
 `{ discover, recycleDirs, historyDirs, claudeDir, antigravityDirs, repos, dirs }`, where `dirs`
@@ -674,8 +790,7 @@ that lies anywhere else.
 - A photo's own date, from its EXIF, and a video's, to sort and filter by.
 - Other coding agents' records -- Codex, Gemini CLI, Cursor, VS Code's chat edits -- once they
   can be checked against real data.
-- Languages other than English. All text already goes through one function for that, the
-  page's through one table.
+- Native speakers' review of the translations, which were machine-assisted.
 
 ## Tests
 
@@ -689,6 +804,21 @@ folders, trash, thumbnail cache, Snipping Tool folders, cards, Claude Code or An
 folders, or repositories; cards are disk images the tests build. The tests also bundle the tree
 and run the bundle. A few tests run only on Linux or only on Windows; CI runs both, and builds
 and tries `Solarljos.exe` on every push.
+
+- `test/i18n.test.js`: `messages.json` is what `npm run i18n -- extract` finds in the code now,
+  every catalog passes `check`, and a language is offered only when its catalog is complete.
+- `test/gui-lang.test.js`: every table in `src/gui/ui/lang` keeps the rules at the top of
+  `strings.js`, and the page speaks it.
+- `test/format.test.js`: the columns Korean, Japanese, Chinese, Thai, Hindi and Arabic text and
+  emoji take in a terminal.
+- `test/build-exe.test.js`: taking the signature off, setting the Subsystem and making the
+  checksum right, on made-up PE files, so it runs on any system.
+- `test/launch.test.js`: how the window is opened, Edge falling back to Explorer, and the console
+  window of its own for what would not be seen. Every program is a stand-in, but for one cmd.exe
+  on Windows, run with the command line such a window gets in a console that is hidden.
+
+On Windows 11 with Node 24.20, `npm test` ran 631 tests: 622 passed, and 9 were skipped, which
+need Linux or what Windows does not give without privileges.
 
 ## License
 

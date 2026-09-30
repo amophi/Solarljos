@@ -69,7 +69,9 @@ function candidateNames(name) {
   let i = 1;
   return {
     next() {
-      const n = i === 1 ? stem + ext : `${stem} (recovered ${i})${ext}`;
+      // The mark is said in the language Solarljos speaks, like the tags a smaller or incomplete
+      // copy gets; made safe again, since a translation is text from elsewhere.
+      const n = i === 1 ? stem + ext : safeName(t('{0} (recovered {1})', stem, i)) + ext;
       i++;
       return n;
     },

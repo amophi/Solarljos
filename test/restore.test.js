@@ -34,6 +34,22 @@ test('writes the copy under its original name, and never over an existing file',
   assert.strictEqual(fs.readFileSync(first, 'utf8'), 'recovered');
 });
 
+test('the mark on a taken name is said in the language Solarljos speaks', async () => {
+  const i18n = require('../src/i18n');
+  const root = setup();
+  const out = path.join(root, 'out');
+  write(path.join(out, 'photo.jpg'), 'precious');
+  const c = { id: 'abcd1235', path: 'C:\\Users\\alice\\photo.jpg', text: 'recovered' };
+  try {
+    assert.strictEqual(i18n.setLocale('ko'), 'ko');
+    assert.strictEqual(path.basename(await restore(c, out, [], git)), 'photo (복구됨 2).jpg');
+  } finally {
+    i18n.setLocale('en');
+  }
+  // Back in English, "(recovered 2)" is a name not yet taken.
+  assert.strictEqual(path.basename(await restore(c, out, [], git)), 'photo (recovered 2).jpg');
+});
+
 test('creates the destination folder when it does not exist', async () => {
   const root = setup();
   const target = await restore({ id: 'x', path: '/a/b.txt', text: 'b' }, path.join(root, 'new', 'deep'), [], git);

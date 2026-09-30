@@ -5,8 +5,10 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
-const { t } = require('../i18n');
+const i18n = require('../i18n');
 const launch = require('./launch');
+
+const { t } = i18n;
 
 // The graphical front end's web server: one page (src/gui/ui), for a browser window on this
 // computer, on node:http alone. Everything it shows comes through the library's API (../index.js).
@@ -128,9 +130,22 @@ const launch = require('./launch');
 //   may make, or as \\localhost\C$\Windows -- by what the folder really is and by the volume and
 //   file ID of each folder it lies in.
 //
+// Languages
+//   The page speaks English (strings.js) and every language of i18n.js's LOCALES whose table it
+//   has, lang/<code>.json beside it; api/info lists those, English first, each in its own name.
+//   The language it starts in is the one this server was started in (start({ lang }), the
+//   command line's --lang) when the page has it, else the browser's. The page says which it
+//   speaks (POST api/lang): the library is set to it (setLocale), so that its notes and messages
+//   come in that language from the next search on, as far as its catalog allows -- setLocale()
+//   keeps to English for a language whose catalog is not complete -- and the choice is kept, in
+//   memory, for a reload of the page in this run. Each job says the language the library spoke
+//   when it was made (`lang`), which what it found says things in.
+//
 // The page's files come from src/gui/ui, or, in the built program, from its assets under the same
-// relative names (index.html, app.js, ...). The API, all JSON, all below /api:
-//   GET  info                     version, platform, elevated, how the window was opened, TYPES, ...
+// relative names (index.html, app.js, lang/ko.json, ...). The API, all JSON, all below /api:
+//   GET  info                     version, platform, elevated, how the window was opened, TYPES,
+//                                 lang (the page's language, when one is set), locale (the
+//                                 library's), languages ([{ code, name }] the page has), ...
 //   GET  sources                  { sources: [{ id, label, media, needsAdmin }], elevated }
 //   GET  sources/describe?ids=    { sources: [{ id, label, lines }] }, what each source sees
 //   GET  drives                   { drives: [{ root, letter, answering, network, free, total, system, error }],
@@ -152,6 +167,8 @@ const launch = require('./launch');
 //                                 or { ok: false, error }, a folder inside a searched place included
 //   POST restore                  { uids, to } -> { to, written, failed, results: [{ uid, ok, path | error }] }
 //   POST rebuild                  { plan: <job>, to, exclude: [rel], include: [rel] } -> 202 { job }
+//   POST lang                     { lang: <code> } -> { lang, locale }: the page's language, kept,
+//                                 and the one the library now speaks
 //   POST bye, POST quit
 // A copy in a reply is plain fields (uiCopy): uid, id, kind, kindLabel, source, path, name, ext,
 // time (ms), size, state, copies, seen, isDir, gone, draft, inexact, unverified, derived, tier
@@ -637,6 +654,47 @@ async function checkFolder(to, prober, o = {}) {
   return { path: dir, root, exists: at === dir, free, at, dev };
 }
 
+/** i18n.js's languages, [{ code, name }], English first. */
+function locales() {
+  return Array.isArray(i18n.LOCALES) && i18n.LOCALES.length ? i18n.LOCALES : [{ code: 'en', name: 'English' }];
+}
+
+/**
+ * The code of LOCALES a language is named by: the code itself, in any case, or what i18n.js's
+ * matchLocale() makes of a tag such as ko-KR; null for one that names none of them. matchLocale()
+ * says English for what it does not know, which is English here only when English was named.
+ */
+function localeOf(v) {
+  if (typeof v !== 'string' || !v.trim()) return null;
+  const s = v.trim();
+  const exact = locales().find((l) => l.code.toLowerCase() === s.toLowerCase());
+  if (exact) return exact.code;
+  const m = typeof i18n.matchLocale === 'function' ? i18n.matchLocale([s]) : null;
+  return m && (m !== 'en' || /^en(?:[-_.]|$)/i.test(s)) ? m : null;
+}
+
+const BOM = String.fromCharCode(0xfeff);
+
+/**
+ * The languages the page has a table for, as its files hold them (lang/<code>.json, one JSON
+ * object each), in the order of LOCALES, English always: what the page may offer.
+ */
+function pageLanguages(assets) {
+  return locales().filter((l) => {
+    if (l.code === 'en') return true;
+    const b = assets(`lang/${l.code}.json`);
+    if (!b) return false;
+    try {
+      let s = b.toString('utf8');
+      if (s.startsWith(BOM)) s = s.slice(1);
+      const o = JSON.parse(s);
+      return !!o && typeof o === 'object' && !Array.isArray(o);
+    } catch (_) {
+      return false;
+    }
+  }).map((l) => ({ code: l.code, name: l.name }));
+}
+
 /** The page's own files: the built program's assets, or src/gui/ui when run from source. */
 function defaultAssets() {
   let sea = null;
@@ -759,6 +817,9 @@ function pump(source, res, length) {
  * @param {function} [opts.assets]   the page's files: (relative path) => Buffer | null
  * @param {object} [opts.idle]       { grace, bye, first } in ms, instead of IDLE
  * @param {object} [opts.fsp]        fs.promises, or a stand-in for the looks at drives and folders
+ * @param {string} [opts.lang]       the language to speak (the command line's --lang): the library
+ *   is set to it (i18n.setLocale), and the page starts in it when it has its table; by default the
+ *   library speaks what it speaks, and the page the browser's language
  * @returns {Promise<{ url: string, close: () => Promise<void>, closed: Promise<void> }>}
  *   `url` is the address with the token; `closed` settles when the server has stopped
  */
@@ -796,6 +857,15 @@ async function start(opts = {}) {
   })();
   const tierOf = (c) => (Number.isInteger(c.tier) ? c.tier : typeof api.tier === 'function' ? api.tier(c) : flagsTier(c));
   const sourceIds = () => (api.sources || []).map((s) => s.id);
+  const localeNow = () => (typeof i18n.getLocale === 'function' ? i18n.getLocale() : 'en');
+  // The languages the page may offer, and the one it speaks: the one asked for, until the page
+  // says another (see the top of this file).
+  const languages = pageLanguages(assets);
+  let pageLang = null;
+  if (opts.lang !== undefined && opts.lang !== null) {
+    if (typeof i18n.setLocale === 'function') i18n.setLocale(opts.lang);
+    pageLang = localeOf(String(opts.lang));
+  }
 
   let elevated = false;
   if (opts.elevated !== undefined) {
@@ -1099,6 +1169,7 @@ async function start(opts = {}) {
       kind: job.kind,
       state: job.state,
       request: job.request,
+      lang: job.lang,
       startedAt: job.startedAt,
       finishedAt: job.finishedAt,
       error: job.error,
@@ -1110,7 +1181,7 @@ async function start(opts = {}) {
 
   function newJob(kind, request, ids) {
     const job = {
-      id: String(++seq), kind, state: 'running', request, startedAt: Date.now(), finishedAt: null, error: null,
+      id: String(++seq), kind, state: 'running', request, lang: localeNow(), startedAt: Date.now(), finishedAt: null, error: null,
       sources: new Map(), summary: {}, items: null, copies: null, about: new Map(), abort: new AbortController(),
       lastTick: new Map(), heldTick: new Map(),
     };
@@ -1690,6 +1761,9 @@ async function start(opts = {}) {
         types: Array.isArray(api.TYPES) ? api.TYPES : [],
         frozen,
         writing,
+        lang: pageLang,
+        locale: localeNow(),
+        languages,
       });
     }
     if (m === 'GET' && p === '/api/sources') {
@@ -1727,7 +1801,7 @@ async function start(opts = {}) {
     }
     if (m === 'GET' && (r = /^\/api\/copy\/([0-9a-f]{32})\/thumb$/.exec(p))) return serveThumb(req, res, r[1]);
     if (m !== 'POST') {
-      if (m === 'HEAD' || !/^\/api\/(search|plan|cancel|check-folder|restore|rebuild|bye|quit)$/.test(p)) {
+      if (m === 'HEAD' || !/^\/api\/(search|plan|cancel|check-folder|restore|rebuild|lang|bye|quit)$/.test(p)) {
         return refuse(req, res, 404, t('Not found.'));
       }
       return refuse(req, res, 405, t('Not allowed.'), { Allow: 'POST' });
@@ -1821,6 +1895,15 @@ async function start(opts = {}) {
         runRebuild(job, plan, items, folder.path);
         return reply(req, res, 202, { job: snapshot(job) });
       }
+      case '/api/lang': {
+        // The language the page is shown in: the library speaks it too from now on, as far as
+        // its catalog allows, and a reload of the page starts in it.
+        const asked = text(body.lang, 'lang');
+        if (!asked) throw fail(400, t('{0} must be text.', 'lang'));
+        const used = typeof i18n.setLocale === 'function' ? i18n.setLocale(asked) : 'en';
+        pageLang = localeOf(asked) || used;
+        return reply(req, res, 200, { lang: pageLang, locale: used });
+      }
       case '/api/quit':
         // Once the answer has left: stopping closes every connection, this one included.
         res.once('close', () => requestStop(t('asked to quit'), true));
@@ -1900,6 +1983,6 @@ module.exports = {
   start,
   _internal: {
     parseRange, previewOf, sizeOf, flagsTier, uiCopy, driveProber, checkFolder, gitPlaces, timed, unquote, exifThumbnail,
-    PREVIEW, PAGE_CSP, COPY_CSP,
+    localeOf, pageLanguages, PREVIEW, PAGE_CSP, COPY_CSP,
   },
 };

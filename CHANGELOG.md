@@ -1,5 +1,132 @@
 # Changelog
 
+## 0.5.0 (2026-09-30)
+
+No console window, eighteen languages, and a page redesigned in the manner of Windows 11 whose
+parts keep their work while another is shown.
+
+The Windows program:
+
+- `Solarljos.exe` is a Windows GUI program. `scripts/build-exe.js` sets its PE header's Subsystem
+  from the console's (3), which node.exe has, to the Windows GUI's (2), before it makes the
+  checksum right, and reads the file back, which must say 2. Made a console program again, with
+  its checksum made right, the exe differs in two bytes, one of the Subsystem and one of the
+  CheckSum, and neither depends on the machine or the folder it was built in. A double-click opens
+  only the browser window.
+- It stops when that window is closed or *Quit* is pressed: 3 s after the page says goodbye, 30 s
+  after it went without saying so or while a search runs, and 10 minutes after it started when no
+  window connected, as before; a restore or a rebuild being written finishes first. Ctrl+C,
+  closing the console and the 8 s wait for a write belong to `node bin/solarljos.js gui` in a
+  terminal.
+- A GUI program is given no console, even when it is started from one, so what it prints is seen
+  only when it goes to a file or a program: Node puts the NUL device in place of each handle it
+  was not given (`writesNowhere()` in `src/gui/launch.js`). Where nothing printed would be seen,
+  Solarljos says what matters in a console window of its own, titled *Solarljos*: the address,
+  when no browser could be started or `gui --no-open` was given; an error that stops it before its
+  page opens; and, given arguments, how to use the command line -- send what it prints to a
+  program or a file (`Solarljos.exe find budget | more`,
+  `Solarljos.exe find budget > found.txt 2>&1`; `> NUL` counts as nowhere), or run
+  `node solarljos.cjs ...`. Then it does nothing else, and ends with exit code 2. Piped or
+  redirected, it works as before.
+- That window is `cmd.exe /d`, which runs no AutoRun command and writes nothing, started detached
+  so that it stays after Solarljos has exited. No text is on its command line: each line is in an
+  environment variable, which cmd.exe puts in only after it has read the line, so no text can act
+  as a command -- tried with `& | < > ^ ( ) % !` and quotes. A line is kept to one, with no control
+  characters; text from outside Solarljos, such as an error's message, also loses `& | < > ^ %`
+  and `"`; and an address is shown only when it is the server's own.
+- Edge that cannot be started falls back to the default browser, through Explorer.
+- The tries run the exe with pipes for its output, as a GUI program is handed them like any other,
+  and fetch every page file `scripts/bundle.js` lists -- the language tables, which the page asks
+  for itself, included -- comparing each with the bytes that went into the exe. Those bytes are
+  copied when the tree is bundled, so a file saved in `src/gui` during a build cannot make the two
+  differ.
+- Each release also attaches `solarljos.cjs`, the script inside the exe, which is the command line
+  alone for Node.js 22 or later, with `solarljos.cjs.sha256`; `build-exe.js` writes both SHA-256
+  files once every check passed, and the build attestation covers both files.
+- With the 17 catalogs, the bundle is 54 modules and 2,769,748 bytes, and the exe holds 21 page
+  files, the 17 page tables among them: about 110 MB in all.
+
+The page:
+
+- Each part -- the start, *Find a file*, *Photos and videos*, *Bring back a folder*, *What is
+  searched*, *Help* -- keeps its last view while another is shown: what its form held, its results
+  with their filters, sort, selection and how many are shown, where it was scrolled to, and the
+  preview that was open, with the focus where it was. A search keeps running, and its results
+  keep coming in, while its part is hidden; a video in a hidden view is paused. A link in the rail
+  goes back to its part's last view; results have *New search*, and a form has *Back to the
+  results*, or *Back to the search under way* while it runs. Nothing of it is kept in the browser:
+  a reload starts again from what the server still has.
+- Redesigned in the manner of a Windows 11 app: a rail of places at the start of the window, each
+  with an icon, which keeps only its icons below 1008 pixels and shows its words from a menu
+  button; Segoe UI Variable, and each language's own font through `:lang()` where Segoe UI has no
+  letters for it, with more room between lines for Korean, Japanese, Chinese, Thai, Hindi and
+  Arabic; an 8-pixel rhythm, and one calm blue accent for what is chosen and for the one action
+  that matters on each view. The controls, the tier pills -- an icon and the tier in words, never
+  a colour alone -- the photo grid, a preview pane beside the results, and messages as bars with
+  an icon, as in Windows' InfoBar, were all made again.
+- Light and dark follow the system; in a high-contrast theme (forced colors) the system's colours
+  are used and every box keeps a border; motion is dropped when the system asks. Every text colour
+  was measured against every background it is shown on, light and dark alike, at 4.5:1 or more --
+  muted text at 5.8:1 at the least in light and 6.7:1 in dark -- and every mark of where a control
+  is and what state it is in at 3:1 or more, the focus ring at 12.8:1; `style.css` has every
+  value at its top.
+
+Languages:
+
+- 18 languages: English, Korean, Japanese, Simplified and Traditional Chinese (`zh-CN`, `zh-TW`),
+  Spanish, French, German, Brazilian Portuguese (`pt-BR`), Russian, Italian, Polish, Turkish,
+  Vietnamese, Indonesian, Thai, Arabic, written right to left, and Hindi.
+- The page: a language picker at the bottom of the rail lists each language whose table,
+  `src/gui/ui/lang/<code>.json`, is there, by its own name. The first language is the one `--lang`
+  gives, else the first of the browser's languages there is a table for, else English. Choosing
+  another builds every view again in it, keeping what the forms and results held. Plural forms
+  follow the language's rules (Intl.PluralRules), dates and numbers are written as its
+  `meta.locale` writes them, and in Arabic the layout runs from the right, names and paths in a
+  sentence keeping their own direction. Korean breaks lines between words (`keep-all`). Every
+  table has all 679 keys of the English one.
+- The library, the command line and the server: `src/i18n.js` has `setLocale()`, `getLocale()`,
+  `matchLocale()` and `LOCALES`, which `src/index.js` exports too. Each language's catalog,
+  `src/locales/<code>.json`, maps each of the 655 English messages `t()` is given to its
+  translation, and all 17 are complete. A language is offered only when its catalog translates
+  every message, so nothing comes out half in it and half in English; the language is English
+  until it is set, and never taken from the machine.
+- `--lang <code>` and the variable `SOLARLJOS_LANG` choose the command line's language, `--lang`
+  first. Without either it is English, whatever the system's language, so what scripts read stays
+  the same. A code with no complete translation gets a note, and English. `--help` lists the
+  codes. `Solarljos.exe` given only `--lang` opens its window in that language.
+- The page tells the server the language it is shown in (`POST api/lang`); the library speaks it
+  from then on, so notes and reasons come in it from the next search on, and a reload of the page
+  starts in it. Results found before a change keep the words they were found with, and the page
+  says so. `api/info` gains `lang`, `locale` and `languages`, and each job's snapshot `lang`.
+- The mark on a taken name is said in the language spoken, as the tags of a smaller copy and of
+  one that may be incomplete are: `photo (복구됨 2).jpg` in Korean.
+- The translations were written a language at a time, machine-assisted, and checked by
+  translating them back into English. No native speaker has reviewed them yet; corrections from
+  native speakers are welcome.
+- For translators: `npm run i18n -- extract` (`scripts/i18n.js`) writes
+  `src/locales/messages.json`, every message `t()` can be given, read from the sources as
+  JavaScript tokens; `npm run i18n -- check` says how far each catalog is, and fails on a message
+  missing, left over or empty, or a translation whose `{n}` are not the English's. The page's
+  tables follow the rules at the top of `src/gui/ui/strings.js`: named placeholders, plural forms
+  by the language's categories, and `meta.lang`, `meta.locale` and `meta.dir`.
+  `test/i18n.test.js` and `test/gui-lang.test.js` hold both to them.
+
+The command line:
+
+- Columns line up by the width text takes in a terminal, not by its length (`src/format.js`:
+  `displayWidth()`, `pad()`, `padStart()`, `fit()`). Text is taken a grapheme cluster at a time: a
+  wide Korean, Japanese or Chinese character counts 2, an emoji 2, and a combining mark -- Thai
+  vowels and tone marks, Devanagari matras, Arabic harakat -- 0.
+
+Tests:
+
+- New: `test/i18n.test.js`, `test/gui-lang.test.js`, `test/format.test.js`,
+  `test/build-exe.test.js`, which tries the header work on made-up PE files on any system, and
+  `test/launch.test.js`, whose programs are stand-ins but for one cmd.exe on Windows, run with the
+  command line a console window gets in a console that is hidden. On Windows 11 with Node 24.20,
+  `npm test` ran 631 tests: 622 passed, and 9 were skipped, which need Linux or what Windows does
+  not give without privileges.
+
 ## 0.4.0 (2026-09-30)
 
 Old photos and videos, and a graphical front end in one Windows program: three new sources, a

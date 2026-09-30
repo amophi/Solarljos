@@ -19,6 +19,25 @@
 //   GET  copy/<uid>         a copy's bytes, in ranges; copy/<uid>/about says what they are, and
 //                           copy/<uid>/thumb gives a JPEG's own small picture, for the grid
 //   POST check-folder, restore, rebuild, quit, and bye as a beacon when the page goes away
+//   POST lang               { lang }: the language chosen here, which the library then speaks too
+//
+// and, as one of the page's own files beside this one, lang/<code>.json: a language's table.
+//
+// Each part of the page -- the start, Find a file, Photos and videos, Bring back a folder, What is
+// searched, Help -- keeps its views when another part is shown: hidden, a form as it was typed,
+// results as they were filtered, sorted, opened, paged and scrolled, and a search under way still
+// taking in its progress. Going back shows the part as it was left, with the focus where it was;
+// a video in a view that is hidden is paused. A new search or plan replaces the view of its
+// results, as it replaces the results. None of it is kept in the browser: a reload starts again
+// from what the server still has.
+//
+// Languages. English is strings.js; another language is lang/<code>.json beside it, asked for
+// when it is chosen -- strings.js says what one holds. The first language is the one the server
+// was started with (--lang), else the first of the browser's that has a table here, else
+// English; the picker in the frame changes it, and every view is built again in it, with what
+// its form and its results held. The server is told (api/lang), so that what the library says --
+// a source's notes, why a folder is refused -- comes in that language from the next search on;
+// results found before keep the words they were found with, and say so.
 //
 // A search sends the copies it found once it is done, in batches on the event stream -- the first
 // few thousand; the page fetches the rest by page (job/<id>/items) -- and the page keeps them. The
@@ -48,9 +67,12 @@
 //     opened over a picture or a video ("Save image as"), Ctrl+S does not save the page with its
 //     pictures, and the server refuses a copy asked for as a page of its own. Pictures cannot be
 //     dragged out either: a drop into Explorer writes a file.
-//   - Every string is looked up by key in strings.js with tr(), so that a Korean table can be
-//     added beside the English one. What the library itself says -- a source's notes, why a
-//     folder was refused -- arrives in English and is shown as it is.
+//   - Every string is looked up by key with tr(), in the table of the language chosen and else in
+//     English. What the library itself says -- a source's notes, why a folder was refused --
+//     arrives in the language the server speaks, and is shown as it is.
+//   - Right to left, for Arabic: the layout follows the page's dir, keys that move left and right
+//     move on screen (logicalKey), and names and paths put into a sentence are isolated so they
+//     keep their own direction.
 //
 // A copy's quality follows src/quality.js, and its label is always in words, never colour alone:
 //
@@ -73,33 +95,196 @@
 
   let lang = 'en';
   const own = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+  const EN = STRINGS.en || {};
+
+  // The languages written right to left, by their language subtag, and the plural forms
+  // Intl.PluralRules may choose.
+  const RTL = new Set(['ar', 'fa', 'he', 'ur']);
+  const PLURAL_FORMS = ['zero', 'one', 'two', 'few', 'many', 'other'];
 
   /** The string for a key in the chosen language, else in English; undefined when neither has it. */
   function lookup(key) {
     if (own(STRINGS[lang], key)) return STRINGS[lang][key];
-    return own(STRINGS.en, key) ? STRINGS.en[key] : undefined;
+    return own(EN, key) ? EN[key] : undefined;
   }
 
   function has(key) {
     return lookup(key) !== undefined;
   }
 
-  /** The first language the browser asks for that has a table here; English otherwise. */
-  function pickLanguage(wanted) {
+  /**
+   * The code among `codes` a language tag stands for, read as src/i18n.js reads one: the case
+   * does not count, nor a POSIX tail such as .UTF-8; every Portuguese is pt-BR; Chinese is zh-TW
+   * in the Hant script or in Taiwan, Hong Kong or Macau, unless its script is Hans, and zh-CN
+   * otherwise; any other tag is its language, so ko-KR is ko. Null when none is.
+   */
+  function codeOf(tag, codes) {
+    if (typeof tag !== 'string' || !tag.trim()) return null;
+    const parts = tag.trim().toLowerCase().split(/[.@]/)[0].split(/[-_]/);
+    let code = parts[0];
+    if (code === 'zh') {
+      code = parts.includes('hans') ? 'zh-cn' : parts.some((p) => ['hant', 'tw', 'hk', 'mo'].includes(p)) ? 'zh-tw' : 'zh-cn';
+    } else if (code === 'pt') {
+      code = 'pt-br';
+    }
+    return (codes || []).find((c) => String(c).toLowerCase() === code) || null;
+  }
+
+  /** The first language the browser asks for that is among `available` (the tables here by default); English otherwise. */
+  function pickLanguage(wanted, available) {
+    const codes = available || Object.keys(STRINGS);
     for (const w of wanted || []) {
-      const base = String(w).toLowerCase().split('-')[0];
-      if (own(STRINGS, base)) return base;
+      const c = codeOf(String(w), codes);
+      if (c) return c;
     }
     return 'en';
   }
 
-  function setLanguage(l) {
-    lang = own(STRINGS, l) ? l : 'en';
+  /** Speaks `code` from now on, when its table is here; English otherwise. Returns the language spoken. */
+  function setLanguage(code) {
+    lang = own(STRINGS, code) ? code : 'en';
     intlCache.clear();
+    return lang;
   }
 
   function locale() {
     return lookup('meta.locale') || 'en-GB';
+  }
+
+  /** 'rtl' for a language written right to left, as its table says; 'ltr' otherwise. */
+  function textDir() {
+    return lookup('meta.dir') === 'rtl' ? 'rtl' : 'ltr';
+  }
+
+  /** The names of the placeholders a string uses, in all its forms. */
+  function placeholdersOf(v) {
+    const out = new Set();
+    for (const s of typeof v === 'string' ? [v] : Object.values(v || {})) {
+      for (const m of String(s).matchAll(/\{(\w+)\}/g)) out.add(m[1]);
+    }
+    return out;
+  }
+
+  /**
+   * The plural forms a language uses: `used`, every form a count can take; `common`, those the
+   * counts 0 to 199 take, which a translation must give; and `lone`, those that stand for one
+   * number alone -- English "one" is 1, Arabic "two" is 2 -- which may say that number in words
+   * rather than {count}. Russian "one" is 1, 21, 31... and must say {count}. The one form only
+   * large counts take is "many" in Spanish, French, Italian and Portuguese, for a million and up
+   * (1 000 000 de fichiers): a translation may give it, and "other" stands in where it does not.
+   */
+  function pluralForms(loc) {
+    let rules;
+    try {
+      rules = new Intl.PluralRules(loc);
+    } catch (_) {
+      rules = new Intl.PluralRules('en');
+    }
+    const seen = new Map();
+    const common = new Set();
+    for (let n = 0; n < 200; n++) {
+      const f = rules.select(n);
+      common.add(f);
+      seen.set(f, (seen.get(f) || 0) + 1);
+    }
+    for (const n of [1e3, 1e4, 1e5, 1e6, 2e6, 1e7, 1e9]) {
+      const f = rules.select(n);
+      seen.set(f, (seen.get(f) || 0) + 1);
+    }
+    return { used: new Set(seen.keys()), common, lone: new Set([...seen].filter(([, k]) => k === 1).map(([f]) => f)) };
+  }
+
+  /** A language subtag, "zh" of "zh-CN"; null for a tag that is not one. */
+  function languageOf(tag) {
+    try {
+      return new Intl.Locale(String(tag)).language;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * A language's table as lang/<code>.json holds it, checked against the English one by the rules
+   * at the top of strings.js. What breaks one is left out, so that English shows in its place,
+   * and is said in `problems`: a key English does not have, a value that is not a string or a
+   * set of plural forms, a placeholder left out or one English does not have, a plural form that
+   * is none or no "other". `notes` says what only falls back: a plural form the language uses
+   * missing, or given where the language has none; meta.* not given, which then follows the code.
+   * @returns {{ table: object|null, problems: string[], notes: string[] }}
+   */
+  function checkTable(code, raw) {
+    const problems = [];
+    const notes = [];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { table: null, problems: ['the file is not one JSON object'], notes };
+    const want = languageOf(code);
+    const table = {};
+    const meta = (key, ok, fallback) => {
+      if (!own(raw, key)) {
+        notes.push(`${key} is not given; it is taken as ${JSON.stringify(fallback)}`);
+        return fallback;
+      }
+      const v = raw[key];
+      if (typeof v === 'string' && ok(v)) return v;
+      problems.push(`${key}: ${JSON.stringify(v)} does not fit ${code}`);
+      return fallback;
+    };
+    const dir = RTL.has(want) ? 'rtl' : 'ltr';
+    table['meta.lang'] = meta('meta.lang', (v) => languageOf(v) === want, code);
+    table['meta.locale'] = meta('meta.locale', (v) => languageOf(v) === want, code);
+    table['meta.dir'] = meta('meta.dir', (v) => v === dir, dir);
+    const forms = pluralForms(table['meta.locale']);
+    for (const [key, value] of Object.entries(raw)) {
+      if (key === 'meta.lang' || key === 'meta.locale' || key === 'meta.dir') continue;
+      if (!own(EN, key)) {
+        problems.push(`${key}: English has no such key`);
+        continue;
+      }
+      const en = EN[key];
+      const need = placeholdersOf(en);
+      const say = (form, what) => `${key}${form ? ` (${form})` : ''}: ${what}`;
+      const bad = [];
+      const soft = [];
+      const checkText = (form, text, lone) => {
+        if (typeof text !== 'string' || !text.trim()) {
+          bad.push(say(form, 'not a text'));
+          return;
+        }
+        const got = placeholdersOf(text);
+        for (const p of got) if (!need.has(p)) bad.push(say(form, `{${p}} is not one of its placeholders`));
+        for (const p of need) if (!got.has(p) && !(p === 'count' && lone)) bad.push(say(form, `{${p}} is left out`));
+      };
+      if (typeof value === 'string') {
+        checkText(null, value, false);
+        if (typeof en === 'object' && forms.used.size > 1) soft.push(say(null, `one text for every count, in a language of ${forms.used.size} plural forms`));
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        if (typeof en !== 'object' && !need.has('count')) {
+          bad.push(say(null, 'plural forms for a text that counts nothing'));
+        } else {
+          for (const f of Object.keys(value)) if (!PLURAL_FORMS.includes(f)) bad.push(say(f, 'no such plural form'));
+          if (!own(value, 'other')) bad.push(say(null, 'no "other" form'));
+          for (const f of PLURAL_FORMS) if (own(value, f)) checkText(f, value[f], forms.lone.has(f));
+          for (const f of forms.common) if (f !== 'other' && !own(value, f)) soft.push(say(f, 'missing; "other" is used'));
+          for (const f of Object.keys(value)) if (f !== 'other' && PLURAL_FORMS.includes(f) && !forms.used.has(f)) soft.push(say(f, 'not used by this language'));
+        }
+      } else {
+        bad.push(say(null, 'not a text'));
+      }
+      if (bad.length) {
+        problems.push(...bad);
+        continue;
+      }
+      notes.push(...soft);
+      table[key] = typeof value === 'string' ? value
+        : Object.fromEntries(Object.entries(value).filter(([f]) => f === 'other' || forms.used.has(f)));
+    }
+    return { table, problems, notes };
+  }
+
+  /** Takes in a language's table, checked; the page can then speak it (setLanguage). */
+  function useTable(code, raw) {
+    const checked = checkTable(code, raw);
+    if (checked.table) STRINGS[code] = checked.table;
+    return checked;
   }
 
   const intlCache = new Map();
@@ -113,23 +298,29 @@
 
   /**
    * A string by key, with {name} placeholders filled from `params`; a number is written the way
-   * the language writes numbers. A value may be { one, other }, chosen by the language's plural
-   * rules on params.count (Korean has only `other`). A key no table has comes back as itself, so
-   * that a gap shows rather than hides.
+   * the language writes numbers. A value may be a set of plural forms, { one, other } in English,
+   * chosen by the language's plural rules on params.count, "other" for a form it lacks. A key no
+   * table has comes back as itself, so that a gap shows rather than hides. In a language written
+   * right to left, what is put in is isolated (U+2068 ... U+2069), so that a name or a path in
+   * another script keeps its own direction and does not reorder the sentence around it.
    */
   function tr(key, params) {
     const p = params || {};
     let v = lookup(key);
     if (v === undefined) return key;
     if (typeof v === 'object' && v) {
-      const n = Number(p.count);
-      const form = intl('PluralRules').select(Number.isFinite(n) ? n : 0);
+      // Without a count no form is right: 'other', rather than the form of 0 (Arabic has one). The
+      // page always gives one (test/gui-ui.test.js).
+      const n = p.count === undefined || p.count === null || p.count === '' ? NaN : Number(p.count);
+      const form = Number.isFinite(n) ? intl('PluralRules').select(n) : 'other';
       v = own(v, form) ? v[form] : v.other;
     }
+    const isolate = textDir() === 'rtl';
     return String(v).replace(/\{(\w+)\}/g, (whole, name) => {
       const x = p[name];
       if (x === undefined || x === null) return whole;
-      return typeof x === 'number' ? fmtNum(x) : String(x);
+      if (typeof x === 'number') return fmtNum(x);
+      return isolate ? `\u2068${x}\u2069` : String(x);
     });
   }
 
@@ -260,7 +451,7 @@
     derived: 'tier.derived.help', folder: 'tier.folder.help', gone: 'tier.gone.help',
   };
   // Beside the words, never instead of them.
-  const TIER_GLYPH = { exact: '✓', inexact: '≈', draft: '✎', unverified: '!', derived: '▫', folder: '▤', gone: '∅' };
+  const TIER_ICON = { exact: 'check', inexact: 'approx', draft: 'pencil', unverified: 'alert', derived: 'shrink', folder: 'folder', gone: 'slash' };
 
   const STATE_LABEL = { deleted: 'state.deleted', exists: 'state.exists', 'no content': 'state.noContent', '': 'state.unknown' };
   const STATE_HELP = {
@@ -1112,18 +1303,89 @@
 
   const button = (text, onClick, cls) => h('button', { type: 'button', class: cls || 'btn', text, on: { click: onClick } });
 
-  function callout(kind, title, ...body) {
-    return h('div', { class: `callout ${kind}` }, title ? h('p', { class: 'callout-title', text: title }) : null, ...body);
+  /**
+   * Left and Right as they move on screen: in a page written right to left the next tile, tab or
+   * a folder's inside lies to the left, so there Left is taken for Right and Right for Left.
+   */
+  function logicalKey(key, dir) {
+    const d = dir || (typeof document !== 'undefined' && document.documentElement ? document.documentElement.dir : 'ltr');
+    if (d !== 'rtl') return key;
+    return key === 'ArrowLeft' ? 'ArrowRight' : key === 'ArrowRight' ? 'ArrowLeft' : key;
   }
 
-  function badge(cls, glyph, text) {
-    return h('span', { class: `badge ${cls}` }, glyph ? h('span', { class: 'glyph', 'aria-hidden': 'true', text: glyph }) : null, text);
+  // The icons, drawn in a 24-pixel box with a line of 1.6 (style.css), each as its paths. They
+  // are for the eye only: every one stands beside words that say the same.
+  const CIRCLE = 'M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17z';
+  const ICONS = {
+    check: ['M5 12.5l4.3 4.3L19 7.2'],
+    approx: ['M4.5 9.5c2.5-2 5-2 7.5 0s5 2 7.5 0', 'M4.5 14.5c2.5-2 5-2 7.5 0s5 2 7.5 0'],
+    pencil: ['M4.5 19.5h3.8L19 8.8a2.7 2.7 0 0 0-3.8-3.8L4.5 15.7z', 'M13.8 6.5l3.7 3.7'],
+    alert: ['M10.3 5.1a2 2 0 0 1 3.4 0l7.1 12.3a2 2 0 0 1-1.7 3H4.9a2 2 0 0 1-1.7-3z', 'M12 10v4.2', 'M12 17.2v.1'],
+    shrink: ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5', 'M9.5 9.5h5v5h-5z'],
+    folder: ['M3.5 7.5a2 2 0 0 1 2-2h3.6l2 2h7.4a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z'],
+    slash: [CIRCLE, 'M6 6l12 12'],
+    info: [CIRCLE, 'M12 11v5.2', 'M12 7.9v.1'],
+    error: [CIRCLE, 'M9.2 9.2l5.6 5.6', 'M14.8 9.2l-5.6 5.6'],
+    success: [CIRCLE, 'M8.3 12.3l2.6 2.6 5-5.2'],
+    circle: [CIRCLE],
+    arc: ['M12 3.5a8.5 8.5 0 0 1 8.5 8.5'],
+    minus: ['M7 12h10'],
+    chevron: ['M9.5 6l6 6-6 6'],
+    close: ['M6.5 6.5l11 11', 'M17.5 6.5l-11 11'],
+    copy: ['M9 9h10v11H9z', 'M5.5 15.5V4.5h10'],
+    play: ['M8.5 5.8v12.4l10-6.2z'],
+    search: ['M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z', 'M15.3 15.3l5.2 5.2'],
+    photo: ['M6 5h12a2.5 2.5 0 0 1 2.5 2.5v9A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5v-9A2.5 2.5 0 0 1 6 5z',
+      'M9 8.4a1.6 1.6 0 1 0 0 3.2a1.6 1.6 0 1 0 0-3.2z', 'M4 17.5l4.8-4.6a1.5 1.5 0 0 1 2.1 0l1.6 1.6 2.6-2.6a1.5 1.5 0 0 1 2.1 0l3.3 3.2'],
+    folderBack: ['M3.5 7.5a2 2 0 0 1 2-2h3.6l2 2h7.4a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z',
+      'M9.5 13.5h5', 'M12.5 11.2l2.3 2.3-2.3 2.3'],
+    places: ['M12 4l8.5 4.5L12 13 3.5 8.5z', 'M3.5 12.5l8.5 4.5 8.5-4.5', 'M3.5 16.2l8.5 4.3 8.5-4.3'],
+    power: ['M12 3.8v7.4', 'M7.2 6.6a7.2 7.2 0 1 0 9.6 0'],
+    stop: [CIRCLE, 'M9.5 9.5h5v5h-5z'],
+    file: ['M7 3.5h6.5L18 8v12.5H7z', 'M13.5 3.5V8H18'],
+    clock: [CIRCLE, 'M12 7.5V12l3 2'],
+    usb: ['M9 3.5h6v5H9z', 'M7.5 8.5h9V17a3.5 3.5 0 0 1-3.5 3.5h-2A3.5 3.5 0 0 1 7.5 17z', 'M11 5.5v1', 'M13 5.5v1'],
+    eraser: ['M13.2 5.3a1.8 1.8 0 0 1 2.5 0l3 3a1.8 1.8 0 0 1 0 2.5L11 18.5H7.3l-3-3a1.8 1.8 0 0 1 0-2.5z', 'M8.8 9.7l5.5 5.5', 'M11 18.5h8.5'],
+    video: ['M4.5 6.5h10a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 16V8a1.5 1.5 0 0 1 1.5-1.5z', 'M16 10.5l4.5-2.5v8L16 13.5'],
+  };
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  /** An icon by name, hidden from assistive technology. */
+  function icon(name, cls) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', `icon icon-${name}${cls ? ` ${cls}` : ''}`);
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    for (const d of ICONS[name] || []) {
+      const p = document.createElementNS(SVG_NS, 'path');
+      p.setAttribute('d', d);
+      svg.append(p);
+    }
+    return svg;
+  }
+
+  const CALLOUT_ICON = { error: 'error', warn: 'alert', info: 'info', plain: 'info', success: 'success' };
+
+  /** A message in a box of its kind -- error, warn, info, plain, success -- with its icon, a title and what it says. */
+  function callout(kind, title, ...body) {
+    return h('div', { class: `callout ${kind}` }, icon(CALLOUT_ICON[kind] || 'info', 'callout-icon'),
+      h('div', { class: 'callout-body' }, title ? h('p', { class: 'callout-title', text: title }) : null, ...body));
+  }
+
+  function badge(cls, iconName, text) {
+    return h('span', { class: `badge ${cls}` }, iconName ? icon(iconName) : null, h('span', { class: 'badge-text', text }));
   }
 
   function tierBadge(c) {
     const t = tierOf(c);
-    return badge(`tier-${t}`, TIER_GLYPH[t], tierText(c));
+    return badge(`tier-${t}`, TIER_ICON[t], tierText(c));
   }
+
+  /** A file's name, isolated so that one in another script keeps its own direction. */
+  const nameText = (name, cls) => h('bdi', { class: cls || null, text: name });
+  /** A path, which reads left to right in any language. */
+  const pathText = (p, cls) => h('span', { class: cls ? `path ${cls}` : 'path', dir: 'ltr', text: p });
 
   function stateBadge(s) {
     const key = STATE_LABEL[s || ''] || STATE_LABEL[''];
@@ -1195,7 +1457,7 @@
     const id = nextId('sel');
     const sel = h('select', { id, on: { change: () => onChange(sel.value) } },
       choices.map(([value, text]) => h('option', { value, text, selected: value === selected })));
-    return { el: h('span', { class: 'select' }, h('label', { for: id, text: label }), sel), control: sel };
+    return { el: h('span', { class: 'select' }, h('label', { for: id, text: label }), h('span', { class: 'select-box' }, sel)), control: sel };
   }
 
   /**
@@ -1281,7 +1543,9 @@
     const titleId = nextId('dlg');
     const dlg = h('dialog', { class: 'dialog overlay', 'aria-labelledby': titleId, role: 'alertdialog' });
     const status = h('p', { class: 'muted', role: 'status' });
-    dlg.append(h('div', { class: 'dialog-body' }, h('h2', { id: titleId, text: title }), h('p', { text: body }), status));
+    dlg.append(h('div', { class: 'dialog-body stopped-body' },
+      h('div', { class: 'stopped-icon' }, icon('power')),
+      h('h2', { id: titleId, text: title }), h('p', { text: body }), status));
     if (canRetry) {
       const retry = button(tr('common.retry'), async () => {
         status.textContent = tr('conn.checking');
@@ -1348,15 +1612,18 @@
     locations: { discover: true, dirs: {} },
     jobs: new Map(), // server job id -> the page's picture of it
     current: { name: null, media: null, folder: null, rebuild: null }, // the job each view shows
-    forms: { name: {}, media: {}, folder: {} }, // what each form last held
+    forms: { name: {}, media: {}, folder: {} }, // what a form starts from when it is made
     abouts: new Map(),
-    view: null,
     firstRoute: true,
     events: null,
     helloSeen: false,
     helloWaiters: [],
     onRestoreProgress: null,
     stopped: false,
+    // The languages the page has tables for, [{ code, name }], as api/info lists them; the one
+    // the library speaks now (api/info, api/lang), which each job also says it was found in.
+    languages: [{ code: 'en', name: 'English' }],
+    locale: 'en',
   };
 
   function sourceLabel(id, fallback) {
@@ -1379,7 +1646,7 @@
       job = {
         id: key, kind: null, mode: null, request: {}, state: 'running', rows: new Map(), order: [], filtering: false,
         startedAt: Date.now(), summary: {}, error: null, items: [], received: 0, total: null, complete: false,
-        written: 0, writeTotal: 0, rel: '', fetching: null, loadError: null,
+        written: 0, writeTotal: 0, rel: '', fetching: null, loadError: null, lang: null,
       };
       state.jobs.set(key, job);
     }
@@ -1405,6 +1672,8 @@
     job.state = snap.state || job.state;
     if (snap.startedAt) job.startedAt = snap.startedAt;
     job.error = snap.error || null;
+    // The language the library spoke when the job was made, which its notes are in.
+    if (snap.lang) job.lang = snap.lang;
     for (const s of snap.sources || []) {
       const row = addRow(job, s.id, s.label);
       row.label = s.label || row.label;
@@ -1415,7 +1684,7 @@
       row.error = s.error || null;
     }
     const summary = { ...snap };
-    for (const k of ['id', 'kind', 'state', 'request', 'startedAt', 'finishedAt', 'error', 'sources', 'total']) delete summary[k];
+    for (const k of ['id', 'kind', 'state', 'request', 'startedAt', 'finishedAt', 'error', 'sources', 'total', 'lang']) delete summary[k];
     job.summary = { ...job.summary, ...summary };
     if (typeof snap.total === 'number' && job.kind !== 'rebuild') job.total = snap.total;
     checkComplete(job);
@@ -1447,7 +1716,8 @@
       row.status = e.error ? 'failed' : e.skipped ? 'skipped' : 'done';
       row.count = e.count || 0;
       row.error = e.error || null;
-      if (job.id === state.current[job.mode]) {
+      // Said of the search in sight only; one going on in a part not shown says when it is done.
+      if (job.id === state.current[job.mode] && active === MODE_RESULTS[job.mode]) {
         announce(tr('a11y.sourceDone', { source: sourceLabel(row.id, row.label), result: rowResult(row) }));
       }
     }
@@ -1550,12 +1820,18 @@
       }
       const waiters = state.helloWaiters.splice(0);
       waiters.forEach((fn) => fn());
-      if (state.helloSeen && state.view && state.view.job) refreshSoon();
+      // Back after the stream dropped: what ended meanwhile is shown as ended, the rest goes on.
+      if (state.helloSeen) {
+        for (const job of state.jobs.values()) {
+          jobChanged(job);
+          refreshSoon(job);
+        }
+      }
     },
     progress(d) {
       const job = jobOf(d.job);
       applyProgress(job, d);
-      if (state.view && state.view.job === job) refreshSoon();
+      refreshSoon(job);
     },
     results(d) {
       take(jobOf(d.job), d);
@@ -1611,17 +1887,42 @@
     state.events = connect();
   }
 
+  /**
+   * A job has moved on -- ended, its results all here, or let go of -- and every view that shows
+   * it follows, shown or not: one whose job now needs another kind of view (the results after the
+   * progress) is built again, one whose job is gone goes, and the rest only update. The start
+   * page's links to the last results follow too.
+   */
   function jobChanged(job) {
-    if (state.view && state.view.job === job) route();
+    for (const [route, slot] of [...slots]) {
+      const r = ROUTES[route];
+      if (!r.job) continue;
+      if (slot.key === keyOf(route)) {
+        if (slot.view && slot.view.job === job && slot.view.update) slot.view.update();
+        continue;
+      }
+      if (route === active) show(route);
+      else if (!jobFor(route)) dropSlot(route);
+      else build(route);
+    }
+    const home = slots.get('');
+    if (home && home.view && home.view.onShow) home.view.onShow();
   }
 
+  // Progress is drawn once a frame, in every view of the jobs it came for.
   let refreshPending = false;
-  function refreshSoon() {
+  const refreshing = new Set();
+  function refreshSoon(job) {
+    if (job) refreshing.add(job);
     if (refreshPending) return;
     refreshPending = true;
     requestAnimationFrame(() => {
       refreshPending = false;
-      if (state.view && state.view.update) state.view.update();
+      const jobs = [...refreshing];
+      refreshing.clear();
+      for (const slot of slots.values()) {
+        if (slot.view && slot.view.update && jobs.includes(slot.view.job)) slot.view.update();
+      }
     });
   }
 
@@ -1630,10 +1931,13 @@
   /**
    * Starts a search (or a folder's plan), stopping the one already running in its place when the
    * person agrees: the server runs one at a time. `request` is what the form held, kept to fill
-   * it in again and to show and filter the results.
+   * it in again and to show and filter the results. Started from elsewhere than its form -- Try
+   * again, a shorter name -- it has the form made again from it, so the form says what was
+   * searched for.
    */
-  async function startSearch(mode, request) {
+  async function startSearch(mode, request, fromForm) {
     state.forms[mode] = { ...request };
+    if (!fromForm) dropSlot(MODE_ROUTE[mode]);
     const url = mode === 'folder' ? 'api/plan' : 'api/search';
     const body = mode === 'folder' ? planBody(request, state.locations) : searchBody(request, state.locations);
     let res;
@@ -1669,18 +1973,31 @@
 
   // ---- routes --------------------------------------------------------------------------------
 
+  // Each route is a view in a part of the page (its section). A view is kept for each route, so
+  // that a form and the results it led to are both there to go back to; `job` names the job a
+  // view of results shows, by the mode it was searched in.
   const ROUTES = {
-    '': () => viewHome(),
-    find: () => viewFindForm(),
-    'find/results': () => viewJob('name'),
-    media: () => viewMediaForm(),
-    'media/results': () => viewJob('media'),
-    folder: () => viewFolderForm(),
-    'folder/plan': () => viewJob('folder'),
-    'folder/done': () => viewRebuild(),
-    sources: () => viewSources(),
-    help: () => viewHelp(),
+    '': { section: '', render: () => viewHome() },
+    find: { section: 'find', render: (saved) => viewFindForm(saved) },
+    'find/results': { section: 'find', job: 'name', render: (saved) => viewJob('name', saved) },
+    media: { section: 'media', render: (saved) => viewMediaForm(saved) },
+    'media/results': { section: 'media', job: 'media', render: (saved) => viewJob('media', saved) },
+    folder: { section: 'folder', render: (saved) => viewFolderForm(saved) },
+    'folder/plan': { section: 'folder', job: 'folder', render: (saved) => viewJob('folder', saved) },
+    'folder/done': { section: 'folder', job: 'rebuild', render: () => viewRebuild() },
+    sources: { section: 'sources', render: () => viewSources() },
+    help: { section: 'help', render: () => viewHelp() },
   };
+
+  // The views kept, by route: { route, box, view, key, fresh, scroll, inner, focus }. `key` says
+  // what a view of results was made for -- its job, and whether it was running, done... -- so
+  // that one made for something else is made again; `fresh` is a view not yet shown.
+  const slots = new Map();
+  let active = null; // the route in sight
+  // The view each part of the page was last left on, where its link in the frame goes.
+  const lastOf = { '': '', find: 'find', media: 'media', folder: 'folder', sources: 'sources', help: 'help' };
+  // What scrolls inside a view, besides the window: kept by hand, as a view out of sight loses it.
+  const SCROLLERS = '.preview-pane, .text-view, .table-wrap, .tabpanel';
 
   // The route is all a URL holds. What was searched for stays in the page, not in the address:
   // an address goes into the browser's history, and a file's name has no business there.
@@ -1698,77 +2015,228 @@
     const r = currentRoute();
     // Any other fragment (#main, from the skip link) is not a route.
     if (r === null && location.hash && location.hash !== '#') return;
-    const render = own(ROUTES, r || '') ? ROUTES[r || ''] : ROUTES[''];
-    if (state.view && state.view.destroy) state.view.destroy();
-    const main = document.getElementById('main');
-    main.textContent = '';
-    state.view = render() || {};
-    if (state.view.el) main.append(state.view.el);
-    const section = (r || '').split('/')[0];
-    for (const a of $$('[data-route]')) {
-      if (a.getAttribute('data-route') === section) a.setAttribute('aria-current', 'page');
-      else a.removeAttribute('aria-current');
+    closeRail();
+    show(own(ROUTES, r || '') ? r || '' : '');
+  }
+
+  /** The job a route's view shows; null for a route of no job, or when that job is gone. */
+  function jobFor(route) {
+    const r = ROUTES[route];
+    if (!r || !r.job) return null;
+    return state.jobs.get(state.current[r.job] || '') || null;
+  }
+
+  /** What kind of view a job needs now. */
+  function phaseOf(job) {
+    if (job.state !== 'done') return job.state;
+    if (job.kind === 'rebuild' || job.complete) return 'ready';
+    return job.loadError ? 'unloaded' : 'loading';
+  }
+
+  function keyOf(route) {
+    const job = jobFor(route);
+    return job ? `${job.id}:${phaseOf(job)}` : '';
+  }
+
+  const pauseMedia = (root) => {
+    for (const v of $$('video, audio', root)) if (!v.paused) v.pause();
+  };
+
+  function teardown(slot) {
+    if (!slot.view) return;
+    pauseMedia(slot.box);
+    if (slot.view.destroy) slot.view.destroy();
+    slot.view = null;
+  }
+
+  /** Makes a route's view, in the box it is kept in, from what it held (`saved`) when it is made again. */
+  function build(route, saved) {
+    let slot = slots.get(route);
+    if (!slot) {
+      const box = h('div', { class: 'view', hidden: true });
+      box.inert = true;
+      slot = { route, box, view: null, key: '', fresh: true, scroll: 0, inner: [], focus: null };
+      box.addEventListener('focusin', (e) => {
+        slot.focus = e.target;
+      });
+      document.getElementById('main').append(box);
+      slots.set(route, slot);
+    } else {
+      teardown(slot);
     }
+    slot.key = keyOf(route);
+    slot.view = ROUTES[route].render(saved) || null;
+    slot.box.textContent = '';
+    if (slot.view && slot.view.el) slot.box.append(slot.view.el);
+    Object.assign(slot, { fresh: true, scroll: 0, inner: [], focus: null });
+    return slot;
+  }
+
+  /** Lets go of a route's view; its part of the page then goes back to its first view. */
+  function dropSlot(route) {
+    const slot = slots.get(route);
+    if (slot) {
+      teardown(slot);
+      slot.box.remove();
+      slots.delete(route);
+    }
+    const section = ROUTES[route].section;
+    if (lastOf[section] === route) lastOf[section] = section;
+    if (active === route) active = null;
+  }
+
+  /** Puts a view out of sight as it is: where it was scrolled, and no video playing. */
+  function leave(slot) {
+    slot.scroll = window.scrollY;
+    slot.inner = $$(SCROLLERS, slot.box).map((el) => [el, el.scrollTop, el.scrollLeft]).filter(([, y, x]) => y || x);
+    pauseMedia(slot.box);
+    for (const d of $$('dialog[open]')) pauseMedia(d);
+    if (slot.view && slot.view.onHide) slot.view.onHide();
+    slot.box.hidden = true;
+    slot.box.inert = true;
+  }
+
+  const inSight = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
+
+  function focusHeading(slot) {
+    const h1 = $('h1', slot.box);
+    if (!h1) return;
+    h1.setAttribute('tabindex', '-1');
+    h1.focus({ preventScroll: true });
+  }
+
+  /**
+   * Shows a route's view: the one kept when it is still the one to show, else a new one. One
+   * shown for the first time starts at the top, with focus on its heading, so that a screen
+   * reader starts there (not on the first view of a fresh page, which leaves focus where the
+   * browser put it); one kept comes back where it was left, focus included.
+   */
+  function show(route) {
+    const r = ROUTES[route];
+    if (r.job && !jobFor(route)) {
+      dropSlot(route);
+      location.replace('#/' + (r.job === 'rebuild' ? 'folder' : MODE_ROUTE[r.job]));
+      return;
+    }
+    const before = active !== null && active !== route ? slots.get(active) : null;
+    if (before) leave(before);
+    let slot = slots.get(route);
+    if (!slot || slot.key !== keyOf(route) || !slot.view) slot = build(route);
+    else if (slot.view.onShow) slot.view.onShow();
+    active = route;
+    lastOf[r.section] = route;
+    slot.box.hidden = false;
+    slot.box.inert = false;
+    updateNav();
     setTitle();
-    // Moving to a new view moves focus to its heading, so a screen reader starts there; the
-    // first view of a fresh page leaves focus where the browser put it.
-    const h1 = $('#main h1');
-    if (h1 && !state.firstRoute) {
-      h1.setAttribute('tabindex', '-1');
-      h1.focus();
+    if (slot.fresh) {
+      slot.fresh = false;
+      window.scrollTo(0, 0);
+      if (!state.firstRoute) focusHeading(slot);
+    } else {
+      for (const [el, y, x] of slot.inner) if (el.isConnected) el.scrollTo(x, y);
+      if (inSight(slot.focus) && slot.box.contains(slot.focus)) slot.focus.focus({ preventScroll: true });
+      else focusHeading(slot);
+      window.scrollTo(0, slot.scroll);
     }
     state.firstRoute = false;
   }
 
+  /** Marks the part of the page in sight in the frame, and sends each part's link to the view it was left on. */
+  function updateNav() {
+    const section = active !== null ? ROUTES[active].section : '';
+    for (const a of $$('[data-route]')) {
+      const s = a.getAttribute('data-route');
+      if (s === section) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+      if (own(lastOf, s)) a.setAttribute('href', '#/' + lastOf[s]);
+    }
+  }
+
   function setTitle() {
-    const h1 = $('#main h1');
+    const slot = active !== null ? slots.get(active) : null;
+    const h1 = slot ? $('h1', slot.box) : null;
     document.title = h1 ? tr('app.pageTitle', { page: h1.textContent }) : tr('app.name');
   }
 
-  function viewJob(mode) {
-    const job = state.jobs.get(state.current[mode] || '');
-    if (!job) {
-      location.replace('#/' + MODE_ROUTE[mode]);
-      return null;
+  /**
+   * Every view made again in the language now chosen, from what each held: its form, its
+   * results' choices. The one in sight stays in sight, about where it was scrolled.
+   */
+  function rebuildAll() {
+    const y = window.scrollY;
+    for (const [route, slot] of [...slots]) {
+      const saved = slot.view && slot.view.save ? slot.view.save() : undefined;
+      const hidden = slot.box.hidden;
+      build(route, saved);
+      if (!hidden) {
+        slot.fresh = false;
+        slot.scroll = y;
+      }
     }
+    if (active !== null) {
+      const slot = slots.get(active);
+      slot.box.hidden = false;
+      slot.box.inert = false;
+      focusHeading(slot);
+      window.scrollTo(0, y);
+    }
+    updateNav();
+    setTitle();
+  }
+
+  function viewJob(mode, saved) {
+    const job = state.jobs.get(state.current[mode] || '');
+    if (!job) return null;
     if (job.state === 'running') return progressView(job);
     if (job.state === 'failed') return failedView(job);
     if (job.state === 'cancelled') return stoppedView(job);
     if (!job.complete) return loadingView(job);
-    if (mode === 'folder') return planView(job);
-    if (mode === 'media') return gridView(job);
-    return resultsView(job);
+    if (mode === 'folder') return planView(job, saved);
+    if (mode === 'media') return gridView(job, saved);
+    return resultsView(job, saved);
   }
 
   // ---- start ---------------------------------------------------------------------------------
 
   function viewHome() {
-    const card = (href, title, body) => h('li', {}, h('a', { class: 'card', href },
-      h('span', { class: 'card-title', text: title }), h('span', { class: 'card-body', text: body })));
-    const last = [];
-    for (const mode of Object.keys(MODE_RESULTS)) {
-      const job = state.jobs.get(state.current[mode] || '');
-      if (!job || job.state !== 'done') continue;
-      const text = tr('home.lastIn', { place: tr(MODE_NAV[mode]), count: job.total || 0 });
-      last.push(h('li', {}, h('a', { href: '#/' + MODE_RESULTS[mode], text })));
-    }
+    const card = (href, iconName, title, body) => h('li', {}, h('a', { class: 'card choice', href },
+      h('span', { class: 'choice-icon' }, icon(iconName)),
+      h('span', { class: 'choice-text' }, h('span', { class: 'card-title', text: title }), h('span', { class: 'card-body', text: body })),
+      icon('chevron', 'choice-go')));
+    const last = h('ul', { class: 'plain last' });
+    // The last results of each kind, which change while this page is kept.
+    const showLast = () => {
+      last.textContent = '';
+      for (const mode of Object.keys(MODE_RESULTS)) {
+        const job = state.jobs.get(state.current[mode] || '');
+        if (!job || job.state !== 'done') continue;
+        const text = tr('home.lastIn', { place: tr(MODE_NAV[mode]), count: job.total || 0 });
+        last.append(h('li', {}, h('a', { class: 'link-row', href: '#/' + MODE_RESULTS[mode] }, icon('chevron'), text)));
+      }
+      last.hidden = !last.childElementCount;
+    };
+    showLast();
+    const tip = (iconName, key) => h('li', {}, icon(iconName), h('span', { text: tr(key) }));
     const el = h('section', { class: 'home' },
-      h('h1', { text: tr('home.title') }),
-      h('ul', { class: 'cards' },
-        card('#/find', tr('home.file.title'), tr('home.file.body')),
-        card('#/media', tr('home.media.title'), tr('home.media.body')),
-        card('#/folder', tr('home.folder.title'), tr('home.folder.body'))),
-      last.length ? h('ul', { class: 'plain last' }, last) : null,
-      h('section', { class: 'good', 'aria-labelledby': 'good-title' },
+      h('header', { class: 'page-head' },
+        h('h1', { text: tr('home.title') })),
+      h('ul', { class: 'cards choices' },
+        card('#/find', 'search', tr('home.file.title'), tr('home.file.body')),
+        card('#/media', 'photo', tr('home.media.title'), tr('home.media.body')),
+        card('#/folder', 'folderBack', tr('home.folder.title'), tr('home.folder.body'))),
+      last,
+      h('section', { class: 'good panel', 'aria-labelledby': 'good-title' },
         h('h2', { id: 'good-title', text: tr('home.good.title') }),
-        h('ul', {},
-          h('li', { text: tr('home.good.copies') }),
-          h('li', { text: tr('home.good.soon') }),
-          h('li', { text: tr('home.good.drive') }),
-          h('li', { text: tr('home.good.exe') }),
-          h('li', { text: tr('home.good.cleanup') }))),
-      h('p', {}, h('a', { href: '#/sources', text: tr('home.sourcesLink') })));
-    return { el };
+        h('ul', { class: 'tips' },
+          tip('info', 'home.good.copies'),
+          tip('clock', 'home.good.soon'),
+          tip('usb', 'home.good.drive'),
+          tip('file', 'home.good.exe'),
+          tip('eraser', 'home.good.cleanup'),
+          tip('power', 'home.good.window')),
+        h('p', { class: 'panel-foot' }, h('a', { href: '#/sources', text: tr('home.sourcesLink') }))));
+    return { el, onShow: showLast };
   }
 
   // ---- forms ---------------------------------------------------------------------------------
@@ -1826,18 +2294,48 @@
     };
   }
 
-  /** Places added from another disk, and whether this PC's own are left out; kept in this tab for the session. */
+  /**
+   * Places added from another disk, and whether this PC's own are left out; kept in this tab for
+   * the session. update() says them again as they stand: places are added under What is
+   * searched, while a form is kept.
+   */
   function otherDiskField() {
-    const n = addedCount();
     const onlyAdded = checkLine(tr('adv.onlyAdded.label'), state.locations.discover === false);
     onlyAdded.input.addEventListener('change', () => {
       state.locations.discover = !onlyAdded.input.checked;
     });
-    return h('div', { class: 'other-disk' },
-      h('p', { class: 'field-label', text: tr('adv.otherDisk.label') }),
-      h('p', { class: 'hint' }, n ? tr('adv.otherDisk.count', { count: n }) : tr('adv.otherDisk.hint'), ' ',
-        h('a', { href: '#/sources', text: tr('adv.otherDisk.link') })),
-      n ? onlyAdded.el : null);
+    const hint = h('p', { class: 'hint' });
+    const el = h('div', { class: 'other-disk' }, h('p', { class: 'field-label', text: tr('adv.otherDisk.label') }), hint, onlyAdded.el);
+    const update = () => {
+      const n = addedCount();
+      hint.textContent = '';
+      hint.append(n ? tr('adv.otherDisk.count', { count: n }) : tr('adv.otherDisk.hint'), ' ',
+        h('a', { href: '#/sources', text: tr('adv.otherDisk.link') }));
+      onlyAdded.input.checked = state.locations.discover === false;
+      onlyAdded.el.hidden = !n;
+    };
+    update();
+    return { el, update };
+  }
+
+  /** "More options", closed or open as it was. */
+  function moreOptions(open, ...body) {
+    return h('details', { class: 'more', open: !!open },
+      h('summary', {}, icon('chevron', 'more-chevron'), h('span', { text: tr('common.advanced') })),
+      h('div', { class: 'more-body' }, ...body));
+  }
+
+  /** A form's heading, with a way back to the results it led to while they are kept. */
+  function formHead(mode, titleKey) {
+    const back = h('a', { class: 'btn back-link', href: '#/' + MODE_RESULTS[mode] });
+    const update = () => {
+      const job = state.jobs.get(state.current[mode] || '');
+      back.hidden = !job;
+      back.textContent = '';
+      if (job) back.append(h('span', { text: tr(job.state === 'running' ? 'form.toSearch' : 'form.toResults') }), icon('chevron'));
+    };
+    update();
+    return { el: h('header', { class: 'page-head' }, h('h1', { text: tr(titleKey) }), back), update };
   }
 
   function formError(form) {
@@ -1863,7 +2361,7 @@
     errors.clear();
     submit.disabled = true;
     try {
-      await startSearch(mode, request);
+      await startSearch(mode, request, true);
     } catch (e) {
       errors.show(errorText(e));
     } finally {
@@ -1871,18 +2369,22 @@
     }
   }
 
-  function viewFindForm() {
-    const last = state.forms.name || {};
+  /**
+   * Find a file. `saved` is the form as it was, when it is made again in another language; it
+   * starts otherwise from what was last searched for here.
+   */
+  function viewFindForm(saved) {
+    const last = saved || state.forms.name || {};
     const name = field({
       id: 'f-name', label: tr('find.name.label'), hint: tr('find.name.hint'),
-      control: h('input', { type: 'text', class: 'input', value: last.name || '', autocomplete: 'off', spellcheck: 'false' }),
+      control: h('input', { type: 'text', class: 'input wide', value: last.name || '', autocomplete: 'off', spellcheck: 'false' }),
     });
     const where = field({
       id: 'f-where', label: tr('find.where.label'), hint: pathHint('find.where.hint'), optional: true, control: pathInput(last.where),
     });
     const containing = field({
       id: 'f-containing', label: tr('find.containing.label'), hint: tr('find.containing.hint'), optional: true,
-      control: h('input', { type: 'text', class: 'input', value: last.containing || '', autocomplete: 'off', spellcheck: 'false' }),
+      control: h('input', { type: 'text', class: 'input wide', value: last.containing || '', autocomplete: 'off', spellcheck: 'false' }),
     });
     const deletedOnly = checkLine(tr('find.deletedOnly.label'), last.deletedOnly, tr('find.deletedOnly.hint'));
 
@@ -1904,29 +2406,27 @@
     const kinds = [['', tr('find.type.any')], ...Object.entries(CATEGORIES).map(([k, key]) => [k, tr(key)])];
     const type = select(tr('find.type.label'), kinds, (last.types || [])[0] || '', () => {});
     const places = placesField('name', last.sources);
+    const disk = otherDiskField();
 
     const submit = h('button', { type: 'submit', class: 'btn primary', text: tr('find.submit') });
-    const form = h('form', { class: 'search-form', novalidate: true },
-      name.el, where.el, containing.el, deletedOnly.el,
-      h('details', { class: 'more', open: sinceChoice !== 'any' || !!last.sources || !!(last.types || []).length },
-        h('summary', { text: tr('common.advanced') }),
-        since.el, sinceDate.el, h('div', { class: 'field' }, type.el), places.el, otherDiskField()),
-      h('p', { class: 'actions' }, submit));
+    const more = moreOptions(saved ? saved.more : sinceChoice !== 'any' || !!last.sources || !!(last.types || []).length,
+      since.el, sinceDate.el, h('div', { class: 'field' }, type.el), places.el, disk.el);
+    const form = h('form', { class: 'search-form panel', novalidate: true },
+      name.el, where.el, containing.el, deletedOnly.el, more, h('p', { class: 'actions form-actions' }, submit));
     const errors = formError(form);
+    /** What the form holds; `raw`, as typed, spaces and all. */
+    const values = (raw) => {
+      const v = (c) => (raw ? c.value : c.value.trim());
+      return {
+        mode: 'name', name: v(name.control), containing: v(containing.control), where: v(where.control),
+        deletedOnly: deletedOnly.input.checked, sinceChoice: since.value(), sinceDate: sinceDate.control.value,
+        types: type.control.value ? [type.control.value] : [], sources: places.value(),
+      };
+    };
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       for (const f of [name, where, sinceDate]) f.setError(null);
-      const request = {
-        mode: 'name',
-        name: name.control.value.trim(),
-        containing: containing.control.value.trim(),
-        where: where.control.value.trim(),
-        deletedOnly: deletedOnly.input.checked,
-        sinceChoice: since.value(),
-        sinceDate: sinceDate.control.value,
-        types: type.control.value ? [type.control.value] : [],
-        sources: places.value(),
-      };
+      const request = values(false);
       request.since = sinceMs(request.sinceChoice, request.sinceDate);
       let bad = null;
       if (!request.name && !request.containing && !request.types.length) {
@@ -1953,16 +2453,25 @@
       delete last.focus;
       setTimeout(() => containing.control.focus(), 0);
     }
-    return { el: h('section', {}, h('h1', { text: tr('find.title') }), form) };
+    const head = formHead('name', 'find.title');
+    return {
+      el: h('section', { class: 'form-view' }, head.el, form),
+      save: () => ({ ...values(true), more: more.open }),
+      onShow() {
+        head.update();
+        disk.update();
+      },
+    };
   }
 
-  function viewMediaForm() {
-    const last = state.forms.media || {};
+  function viewMediaForm(saved) {
+    const last = saved || state.forms.media || {};
     const wanted = last.types || ['image', 'video'];
     const photos = checkLine(tr('media.what.photos'), wanted.includes('image'));
     const videos = checkLine(tr('media.what.videos'), wanted.includes('video'));
     const whatErr = h('p', { class: 'field-error', hidden: true });
-    const what = h('fieldset', { class: 'what' }, h('legend', { text: tr('media.what.label') }), photos.el, videos.el, whatErr);
+    const what = h('fieldset', { class: 'what' }, h('legend', { text: tr('media.what.label') }),
+      h('div', { class: 'check-row' }, photos.el, videos.el), whatErr);
 
     const whenChoice = last.whenChoice || 'any';
     const when = radioGroup(tr('media.when.label'), [
@@ -1986,38 +2495,43 @@
     const hasWeb = state.sources.some((s) => s.id === 'browser-cache');
     const web = checkLine(tr('media.web.label'), !!last.includeWeb, tr('media.web.hint'));
     const places = placesField('media', last.sources);
+    const disk = otherDiskField();
 
     const frozen = (state.info.frozen && state.info.frozen.sources) || [];
     const thumbs = frozen.find((s) => s.id === 'thumbcache');
     const submit = h('button', { type: 'submit', class: 'btn primary', text: tr('media.submit') });
-    const form = h('form', { class: 'search-form', novalidate: true },
-      what, when.el, range, where.el, smaller.el, hasWeb ? web.el : null,
-      h('details', { class: 'more', open: !!last.sources }, h('summary', { text: tr('common.advanced') }), places.el, otherDiskField()),
-      h('p', { class: 'actions' }, submit));
+    const more = moreOptions(saved ? saved.more : !!last.sources, places.el, disk.el);
+    const form = h('form', { class: 'search-form panel', novalidate: true },
+      what, when.el, range, where.el, smaller.el, hasWeb ? web.el : null, more,
+      h('p', { class: 'actions form-actions' }, submit));
     const errors = formError(form);
+    const values = (raw) => ({
+      mode: 'media', types: [photos.input.checked ? 'image' : null, videos.input.checked ? 'video' : null].filter(Boolean),
+      whenChoice: when.value(), fromDate: from.control.value, toDate: to.control.value,
+      where: raw ? where.control.value : where.control.value.trim(), includeSmaller: smaller.input.checked,
+      includeWeb: hasWeb && web.input.checked, sources: places.value(),
+    });
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       whatErr.hidden = true;
       for (const f of [from, where]) f.setError(null);
-      const types = [photos.input.checked ? 'image' : null, videos.input.checked ? 'video' : null].filter(Boolean);
+      const request = values(false);
       let bad = null;
-      if (!types.length) {
+      if (!request.types.length) {
         whatErr.hidden = false;
         whatErr.textContent = tr('media.what.missing');
         bad = photos.input;
       }
-      const choice = when.value();
-      const dates = mediaRange(choice, from.control.value, to.control.value);
+      const dates = mediaRange(request.whenChoice, request.fromDate, request.toDate);
       if (!dates) {
-        const f = from.control.value;
-        const t = to.control.value;
+        const f = request.fromDate;
+        const t = request.toDate;
         if (!f && !t) from.setError(tr('media.when.missing'));
         else if ((f && dayStart(f) === null) || (t && dayStart(t) === null)) from.setError(tr('media.when.bad'));
         else from.setError(tr('media.when.badRange'));
         bad = bad || from.control;
       }
-      const whereValue = where.control.value.trim();
-      if (whereValue && !isAbsolute(whereValue)) {
+      if (request.where && !isAbsolute(request.where)) {
         where.setError(tr('folder.path.relative'));
         bad = bad || where.control;
       }
@@ -2026,24 +2540,28 @@
         bad.focus();
         return;
       }
-      submitSearch(submit, errors, 'media', {
-        mode: 'media', types, whenChoice: choice, fromDate: from.control.value, toDate: to.control.value, from: dates.from, to: dates.to,
-        where: whereValue, includeSmaller: smaller.input.checked, includeWeb: hasWeb && web.input.checked, sources: places.value(),
-      });
+      submitSearch(submit, errors, 'media', { ...request, from: dates.from, to: dates.to });
     });
+    const head = formHead('media', 'media.title');
     return {
-      el: h('section', {},
-        h('h1', { text: tr('media.title') }),
-        callout('info', null, h('p', { text: tr('media.expect') }), h('p', { text: tr('media.video') })),
-        callout(state.elevated ? 'info' : 'plain', tr('media.card.title'),
-          h('p', { text: state.elevated ? tr('media.card.admin') : tr('media.card.body') })),
+      el: h('section', { class: 'form-view' },
+        head.el,
+        h('div', { class: 'notices' },
+          callout('info', null, h('p', { text: tr('media.expect') }), h('p', { text: tr('media.video') })),
+          callout(state.elevated ? 'info' : 'plain', tr('media.card.title'),
+            h('p', { text: state.elevated ? tr('media.card.admin') : tr('media.card.body') }))),
         thumbs && !thumbs.error ? h('p', { class: 'hint', text: tr('media.frozen') }) : null,
         form),
+      save: () => ({ ...values(true), more: more.open }),
+      onShow() {
+        head.update();
+        disk.update();
+      },
     };
   }
 
-  function viewFolderForm() {
-    const last = state.forms.folder || {};
+  function viewFolderForm(saved) {
+    const last = saved || state.forms.folder || {};
     const folder = field({
       id: 'r-folder', label: tr('folder.path.label'), hint: pathHint('folder.path.hint'), control: pathInput(last.folder),
     });
@@ -2053,15 +2571,15 @@
       control: h('input', { type: 'date', class: 'input date', value: last.sinceDate || '' }),
     });
     const places = placesField('folder', last.sources);
+    const disk = otherDiskField();
     folder.control.addEventListener('input', () => {
       const v = folder.control.value.trim();
       folder.setError(v && !isAbsolute(v) ? tr('folder.path.relative') : null);
     });
     const submit = h('button', { type: 'submit', class: 'btn primary', text: tr('folder.submit') });
-    const form = h('form', { class: 'search-form', novalidate: true },
-      folder.el, deletedOnly.el, since.el,
-      h('details', { class: 'more', open: !!last.sources }, h('summary', { text: tr('common.advanced') }), places.el, otherDiskField()),
-      h('p', { class: 'actions' }, submit));
+    const more = moreOptions(saved ? saved.more : !!last.sources, places.el, disk.el);
+    const form = h('form', { class: 'search-form panel', novalidate: true },
+      folder.el, deletedOnly.el, since.el, more, h('p', { class: 'actions form-actions' }, submit));
     const errors = formError(form);
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
@@ -2082,7 +2600,31 @@
         since: sinceDate ? dayStart(sinceDate) : null, sources: places.value(),
       });
     });
-    return { el: h('section', {}, h('h1', { text: tr('folder.title') }), form) };
+    const head = formHead('folder', 'folder.title');
+    return {
+      el: h('section', { class: 'form-view' }, head.el, form),
+      save: () => ({
+        mode: 'folder', folder: folder.control.value, deletedOnly: deletedOnly.input.checked, sinceDate: since.control.value,
+        sources: places.value(), more: more.open,
+      }),
+      onShow() {
+        head.update();
+        disk.update();
+      },
+    };
+  }
+
+  /**
+   * Sends the person to a form, filled in with `patch` over what it holds now, and to one of its
+   * boxes (`focus`): a word it contained, a folder to bring back.
+   */
+  function prefill(mode, patch, focus) {
+    const route = MODE_ROUTE[mode];
+    const slot = slots.get(route);
+    const now = slot && slot.view && slot.view.save ? slot.view.save() : state.forms[mode] || {};
+    state.forms[mode] = { ...now, ...patch, ...(focus ? { focus } : {}) };
+    dropSlot(route);
+    go(route);
   }
 
   // ---- searching -----------------------------------------------------------------------------
@@ -2098,7 +2640,7 @@
 
   const typeWords = (types) => fmtList((types || []).map((t) => (CATEGORIES[t] ? tr(CATEGORIES[t]) : t)));
 
-  const ROW_GLYPH = { waiting: '○', running: '◔', done: '✓', failed: '!', skipped: '–' };
+  const ROW_ICON = { waiting: 'circle', running: 'arc', done: 'check', failed: 'alert', skipped: 'minus' };
 
   function rowResult(row) {
     if (row.status === 'failed') return tr('progress.failed');
@@ -2112,12 +2654,13 @@
     const overall = h('span', { class: 'overall' });
     const elapsed = h('span', { class: 'muted elapsed' });
     const stopBtn = button(tr('common.stop'), () => stopJob(job, stopBtn));
-    const list = h('ul', { class: 'progress-list' });
-    const filtering = h('p', { class: 'filtering', hidden: true, text: tr('progress.filtering') });
+    const whole = h('progress', { class: 'whole', max: '1', value: '0' });
+    const list = h('ul', { class: 'progress-list panel' });
+    const filtering = h('p', { class: 'filtering', hidden: true }, icon('arc', 'spin'), h('span', { text: tr('progress.filtering') }));
     const rows = new Map();
 
     function rowEl() {
-      const icon = h('span', { class: 'row-icon', 'aria-hidden': 'true' });
+      const mark = h('span', { class: 'row-icon' });
       const label = h('span', { class: 'row-label' });
       const status = h('span', { class: 'row-status' });
       const bar = h('progress', { max: '1', hidden: true });
@@ -2128,12 +2671,17 @@
       }, 'btn small quiet');
       more.setAttribute('aria-expanded', 'false');
       more.hidden = true;
-      const li = h('li', { class: 'progress-row' }, icon, label, h('span', { class: 'row-state' }, status, bar, more), detail);
+      const li = h('li', { class: 'progress-row' }, mark, label, h('span', { class: 'row-state' }, status, bar, more), detail);
+      let was = null;
       return {
         li,
         set(r) {
           li.className = `progress-row is-${r.status}`;
-          icon.textContent = ROW_GLYPH[r.status] || ROW_GLYPH.waiting;
+          if (was !== r.status) {
+            was = r.status;
+            mark.textContent = '';
+            mark.append(icon(ROW_ICON[r.status] || ROW_ICON.waiting, r.status === 'running' ? 'spin' : null));
+          }
           label.textContent = sourceLabel(r.id, r.label);
           if (r.status === 'waiting') status.textContent = r.id === 'vss' ? tr('progress.vssLast') : tr('progress.waiting');
           else if (r.status !== 'running') status.textContent = rowResult(r);
@@ -2163,6 +2711,9 @@
       }
       const done = job.order.filter((id) => ['done', 'failed', 'skipped'].includes(job.rows.get(id).status)).length;
       overall.textContent = tr('progress.overall', { done, total: job.order.length });
+      whole.max = Math.max(1, job.order.length);
+      whole.value = done;
+      whole.setAttribute('aria-label', overall.textContent);
       filtering.hidden = !job.filtering;
     }
     const tick = () => {
@@ -2172,10 +2723,11 @@
     const timer = setInterval(tick, 1000);
     update();
     const el = h('section', { class: 'progress', 'aria-busy': 'true' },
-      h('h1', { text: jobTitle(job) }),
-      h('div', { class: 'progress-head' }, overall, elapsed, stopBtn),
+      h('header', { class: 'page-head' }, h('h1', { text: jobTitle(job) }), stopBtn),
+      h('div', { class: 'progress-head' }, overall, elapsed),
+      whole,
       list, filtering,
-      h('p', { class: 'muted', text: tr('progress.slow') }));
+      h('p', { class: 'hint', text: tr('progress.slow') }));
     return { el, job, update, destroy: () => clearInterval(timer) };
   }
 
@@ -2184,16 +2736,20 @@
     const retry = () => {
       job.loadError = null;
       fetchItems(job);
-      route();
+      jobChanged(job);
     };
+    const status = h('p', { class: 'muted loading-line', role: 'status' });
+    const update = () => {
+      status.textContent = tr('results.loading', { count: job.received, total: job.total || 0 });
+    };
+    update();
     const failedNow = job.loadError ? [
       callout('error', tr('error.title'), h('p', { text: errorText(job.loadError) })),
       h('p', { class: 'actions' }, button(tr('common.retry'), retry, 'btn primary')),
     ] : null;
-    const el = h('section', {}, h('h1', { text: jobTitle(job) }),
-      failedNow || h('p', { class: 'muted', role: 'status', text: tr('results.loading', { count: job.received, total: job.total || 0 }) }));
+    const el = h('section', {}, h('header', { class: 'page-head' }, h('h1', { text: jobTitle(job) })), failedNow || status);
     if (!job.loadError && !job.fetching) fetchItems(job);
-    return { el, job, update: () => {} };
+    return { el, job, update };
   }
 
   function backToForm(mode) {
@@ -2202,10 +2758,18 @@
 
   const again = (mode, request) => () => startSearch(mode, request).catch((e) => alertNow(errorText(e)));
 
+  /** A view that says one thing: an icon, a heading, what happened, and what can be done. */
+  function statePage(kind, title, ...body) {
+    const which = { error: 'error', stopped: 'stop', success: 'success', empty: 'search' }[kind] || 'info';
+    return h('section', { class: `state-page is-${kind}` },
+      h('div', { class: 'state-icon' }, icon(which)),
+      h('div', { class: 'state-body' }, h('h1', { text: title }), ...body));
+  }
+
   function failedView(job) {
-    const el = h('section', {},
-      h('h1', { text: tr('error.title') }),
-      callout('error', null, h('p', { text: job.error ? tr('progress.failedBecause', { message: job.error }) : tr('error.unexpected') })),
+    const el = statePage('error', tr('error.title'),
+      h('p', { class: 'lead', text: job.error ? tr('progress.failedBecause', { message: job.error }) : tr('error.unexpected') }),
+      oldLanguage(job, !!job.error),
       h('p', { class: 'actions' },
         button(tr('common.retry'), again(job.mode, job.request), 'btn primary'),
         backToForm(job.mode)));
@@ -2213,17 +2777,26 @@
   }
 
   function stoppedView(job) {
-    const el = h('section', {},
-      h('h1', { text: tr('progress.stopped.title') }),
-      h('p', { text: tr('progress.stopped.body') }),
+    const el = statePage('stopped', tr('progress.stopped.title'),
+      h('p', { class: 'lead', text: tr('progress.stopped.body') }),
       h('p', { class: 'actions' },
         button(tr('common.searchAgain'), again(job.mode, job.request), 'btn primary'),
         backToForm(job.mode)));
     return { el, job };
   }
 
+  /**
+   * That what the library said of a job -- its notes, why it failed -- is in the language it spoke
+   * when the job was made, when that is not the one it speaks now; null when it is, or when
+   * nothing it said is shown (`said`).
+   */
+  function oldLanguage(job, said) {
+    if (!said || !job || !job.lang || !state.locale || job.lang === state.locale) return null;
+    return h('p', { class: 'hint old-language', text: tr('results.oldLanguage') });
+  }
+
   /** Places that could not be searched, and what each place and the search had to say, in words and under Details. */
-  function searchNotices(summary) {
+  function searchNotices(summary, job) {
     const per = (summary && summary.perSource) || [];
     const failed = per.filter((s) => s.error);
     const notes = per.filter((s) => (s.notes || []).length);
@@ -2234,35 +2807,56 @@
         h('ul', {}, failed.map((s) => h('li', {}, h('strong', { text: sourceLabel(s.id, s.label) }), ': ', String(s.error))))));
     }
     if (notes.length || general.length) {
-      out.append(h('details', { class: 'notes' }, h('summary', { text: tr('results.notes') }),
+      out.append(h('details', { class: 'notes' }, h('summary', {}, icon('chevron', 'more-chevron'), h('span', { text: tr('results.notes') })),
         h('ul', {},
           general.map((n) => h('li', { text: String(n) })),
           notes.flatMap((s) => s.notes.map((n) => h('li', {}, h('strong', { text: sourceLabel(s.id, s.label) }), ': ', String(n)))))));
     }
+    const lang = oldLanguage(job, failed.length || notes.length || general.length);
+    if (lang) out.append(lang);
     return out;
   }
 
   // ---- results: files ------------------------------------------------------------------------
 
+  /** The heading of a view of results, what was found, and a way to a new search in its form. */
+  function resultsHead(title, mode, ...below) {
+    return h('header', { class: 'page-head' },
+      h('div', { class: 'page-title' }, h('h1', { text: title }), ...below),
+      button(tr('common.newSearch'), () => go(MODE_ROUTE[mode]), 'btn'));
+  }
+
+  /** The icon of a kind of file, for the eye: a folder, a picture, a video, or a page. */
+  function fileIcon(c) {
+    if (c && c.isDir) return 'folder';
+    const m = mediaOf(c);
+    return m === 'image' ? 'photo' : m === 'video' ? 'video' : 'file';
+  }
+
   /**
    * What a search by name found, by file or as every copy. The filters -- only what is gone now,
    * the dates, the folder it was in -- work on what the page holds, and say how many copies each
-   * hides, with a way to show them.
+   * hides, with a way to show them. `saved` is what the view held when it is made again in
+   * another language: the choices, how many were shown, which files had their other copies
+   * open, and the copy in the preview.
    */
-  function resultsView(job) {
+  function resultsView(job, saved) {
     const r = job.request || {};
     if (!job.items.length) return emptyResults(job);
+    const s = saved || {};
     const ctl = {
-      view: 'files', sort: 'newest', q: '', deletedOnly: !!r.deletedOnly, allDates: false, allPlaces: false,
-      rows: [], shown: 0, opener: null,
+      view: s.view === 'copies' ? 'copies' : 'files', sort: s.sort || 'newest', q: s.q || '',
+      deletedOnly: s.deletedOnly !== undefined ? !!s.deletedOnly : !!r.deletedOnly, allDates: !!s.allDates, allPlaces: !!s.allPlaces,
+      rows: [], shown: 0, opener: null, open: new Set(s.open || []), preview: null,
     };
     const title = r.name ? tr('results.title.name', { name: r.name })
       : r.containing ? tr('results.title.containing', { text: r.containing }) : tr('results.title.type', { type: typeWords(r.types) });
     const summaryEl = h('p', { class: 'summary', role: 'status' });
     const list = h('div', { class: 'result-list' });
-    const more = button(tr('results.showMore'), () => showMore());
+    // Its words say how many more, so they are put in with the count, by showMore().
+    const more = button('', () => showMore(), 'btn more-button');
     more.hidden = true;
-    const hiddenNote = h('div');
+    const hiddenNote = h('div', { class: 'hidden-note' });
 
     const viewFiles = button(tr('results.view.files'), () => setView('files'), 'btn seg');
     const viewList = button(tr('results.view.list'), () => setView('copies'), 'btn seg');
@@ -2274,7 +2868,7 @@
       render();
     });
     const filterId = nextId('filter');
-    const filter = h('input', { type: 'search', id: filterId, class: 'input small', autocomplete: 'off', spellcheck: 'false' });
+    const filter = h('input', { type: 'search', id: filterId, class: 'input small', value: ctl.q, autocomplete: 'off', spellcheck: 'false' });
     let filterTimer = null;
     filter.addEventListener('input', () => {
       clearTimeout(filterTimer);
@@ -2285,7 +2879,7 @@
     });
     const toggle = (label, key, on) => {
       const line = checkLine(label, on);
-      const count = h('span', { class: 'muted' });
+      const count = h('span', { class: 'muted count' });
       line.el.append(count);
       line.input.addEventListener('change', () => {
         ctl[key] = line.input.checked;
@@ -2294,17 +2888,17 @@
       return { ...line, count };
     };
     const deleted = toggle(tr('results.deletedOnly'), 'deletedOnly', ctl.deletedOnly);
-    const dates = toggle(tr('results.allDates'), 'allDates', false);
-    const places = toggle(tr('results.allPlaces', { folder: r.where || '' }), 'allPlaces', false);
+    const dates = toggle(tr('results.allDates'), 'allDates', ctl.allDates);
+    const places = toggle(tr('results.allPlaces', { folder: r.where || '' }), 'allPlaces', ctl.allPlaces);
     const toolbar = h('div', { class: 'toolbar' },
       h('div', { class: 'segmented', role: 'group', 'aria-label': tr('results.view.label') }, viewFiles, viewList),
       sort.el,
       h('span', { class: 'select' }, h('label', { for: filterId, text: tr('results.filter.label') }), filter),
-      deleted.el, r.since != null ? dates.el : null, r.where ? places.el : null);
+      h('div', { class: 'toggles' }, deleted.el, r.since != null ? dates.el : null, r.where ? places.el : null));
 
     const pane = h('aside', { class: 'preview-pane', hidden: true, 'aria-label': tr('preview.title') });
     const mainCol = h('section', { class: 'results-main' },
-      h('h1', { text: title }), summaryEl, searchNotices(job.summary), toolbar, hiddenNote, list, more);
+      resultsHead(title, 'name', summaryEl), searchNotices(job.summary, job), toolbar, hiddenNote, list, h('p', { class: 'more-row' }, more));
     const el = h('div', { class: 'results-layout' }, mainCol, pane);
     pane.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closePreview();
@@ -2317,17 +2911,21 @@
       render();
     }
 
-    function openPreview(copy, opener) {
+    function openPreview(copy, opener, tab, focus = true) {
       ctl.opener = opener;
+      if (ctl.preview) ctl.preview.panel.destroy();
       pane.textContent = '';
-      const p = previewPanel(copy, { onClose: closePreview });
+      const p = previewPanel(copy, { onClose: closePreview, tab });
+      ctl.preview = { uid: uidOf(copy), panel: p };
       pane.append(p.el);
       pane.hidden = false;
       el.classList.add('with-preview');
-      p.focus();
+      if (focus) p.focus();
     }
 
     function closePreview() {
+      if (ctl.preview) ctl.preview.panel.destroy();
+      ctl.preview = null;
       pane.hidden = true;
       pane.textContent = '';
       el.classList.remove('with-preview');
@@ -2341,7 +2939,7 @@
 
     /** Where a file was, in words, when its folder, or its name too, is not known. */
     function whereText(g) {
-      if (g.folder) return g.folder;
+      if (g.folder) return pathText(g.folder);
       if (g.name) return tr('results.folderUnknown');
       return g.best.ext ? tr('results.nameUnknownLong', { ext: formatName(g.best.ext) }) : tr('results.nameUnknown');
     }
@@ -2352,58 +2950,62 @@
       const titleId = nextId('file');
       const card = h('article', { class: 'file-card', 'aria-labelledby': titleId },
         h('div', { class: 'file-head' },
-          h('h2', { id: titleId, class: 'file-name', text: g.name || tr('results.nameUnknown') }),
-          g.isDir ? badge('tier-folder', TIER_GLYPH.folder, tr('tier.folder')) : null,
-          stateBadge(g.state)),
-        h('p', { class: 'path', text: whereText(g) }),
+          h('span', { class: 'file-icon' }, icon(fileIcon(best))),
+          h('div', { class: 'file-title' },
+            h('h2', { id: titleId, class: 'file-name' }, nameText(g.name || tr('results.nameUnknown'))),
+            h('p', { class: 'file-where' }, whereText(g))),
+          h('p', { class: 'badges file-badges' },
+            g.isDir ? badge('tier-folder', TIER_ICON.folder, tr('tier.folder')) : null, stateBadge(g.state))),
         h('div', { class: 'best' },
           h('p', { class: 'best-line' },
-            h('span', { class: 'best-label', text: tr('results.best') }), ' ', tierBadge(best), ' ', h('span', { text: foundIn(best) })),
+            h('span', { class: 'best-label', text: tr('results.best') }), tierBadge(best), h('span', { class: 'found', text: foundIn(best) })),
           h('p', { class: 'meta', text: metaLine(best) }),
           h('p', { class: 'actions' }, actions(best), g.isDir ? rebuildFromHere(best) : null)));
       if (g.newer) {
         const when = fmtWhen(whenOf(g.newer));
         const said = tierOf(g.newer) === 'draft'
           ? tr('results.newerDraft', { when }) : tr('results.newerOther', { when, tier: tierText(g.newer) });
-        card.append(callout('warn', null, h('p', { text: said }), actions(g.newer)));
+        card.append(callout('warn', null, h('p', { text: said }), h('p', { class: 'actions' }, actions(g.newer))));
       }
-      if (others.length) card.append(versions(others));
+      if (others.length) card.append(versions(others, g.key));
       return card;
     }
 
-    function versions(others) {
+    function versions(others, key) {
       const tableId = nextId('ver');
-      const table = h('div', { class: 'table-wrap', id: tableId, hidden: true }, copyTable(others, false));
-      const btn = h('button', { type: 'button', class: 'btn quiet disclosure', 'aria-expanded': 'false', 'aria-controls': tableId },
-        h('span', { class: 'glyph', 'aria-hidden': 'true', text: '▸' }), tr('results.versions', { count: others.length }));
+      const open = ctl.open.has(key);
+      const table = h('div', { class: 'table-wrap', id: tableId, hidden: !open }, copyTable(others, false));
+      const btn = h('button', { type: 'button', class: 'btn quiet disclosure', 'aria-expanded': String(open), 'aria-controls': tableId },
+        icon('chevron', 'disclosure-chevron'), h('span', { text: tr('results.versions', { count: others.length }) }));
       btn.addEventListener('click', () => {
-        const open = table.hidden;
-        table.hidden = !open;
-        btn.setAttribute('aria-expanded', String(open));
-        btn.firstChild.textContent = open ? '▾' : '▸';
+        const now = table.hidden;
+        table.hidden = !now;
+        btn.setAttribute('aria-expanded', String(now));
+        if (now) ctl.open.add(key);
+        else ctl.open.delete(key);
       });
       return h('div', { class: 'versions' }, btn, table);
     }
 
     function copyRow(c, full) {
-      const was = c.path || (nameOf(c) ? tr('results.nameOnly', { name: nameOf(c) }) : tr('results.nameUnknown'));
+      const was = c.path ? pathText(c.path) : nameOf(c) ? tr('results.nameOnly', { name: nameOf(c) }) : tr('results.nameUnknown');
       return h('tr', {},
         full ? h('td', { class: 'mono', text: c.id || uidOf(c).slice(0, 8) }) : null,
-        h('td', { text: fmtWhen(whenOf(c)) }),
-        h('td', { text: foundIn(c) }),
+        h('td', { class: 'when-cell', text: fmtWhen(whenOf(c)) }),
+        h('td', { class: 'found-cell', text: foundIn(c) }),
         h('td', {}, tierBadge(c)),
         h('td', { class: 'num', text: c.isDir ? '' : fmtSize(c.size) }),
         full ? h('td', {}, stateBadge(c.state)) : null,
-        full ? h('td', { class: 'path', text: was }) : null,
-        h('td', {}, actions(c)));
+        full ? h('td', { class: 'path-cell' }, was) : null,
+        h('td', { class: 'actions-cell' }, actions(c)));
     }
 
     function copyTable(copies, full) {
-      const th = (key) => h('th', { scope: 'col', text: tr(key) });
+      const th = (key, cls) => h('th', { scope: 'col', class: cls || null, text: tr(key) });
       const head = h('tr', {}, full ? th('results.id') : null, th('results.when'), th('results.foundIn'), th('results.quality'),
-        th('results.size'), full ? th('results.state') : null, full ? th('results.path') : null,
+        th('results.size', 'num'), full ? th('results.state') : null, full ? th('results.path') : null,
         h('th', { scope: 'col' }, h('span', { class: 'sr-only', text: tr('results.actions') })));
-      return h('table', { class: 'copies' }, h('thead', {}, head), h('tbody', {}, copies.map((c) => copyRow(c, full))));
+      return h('table', { class: full ? 'copies full' : 'copies' }, h('thead', {}, head), h('tbody', {}, copies.map((c) => copyRow(c, full))));
     }
 
     function showHidden(f) {
@@ -2436,7 +3038,7 @@
       summaryEl.textContent = tr('results.summary', { files, copies: tr('results.copies', { count: f.kept.length }) });
       showHidden(f);
       list.textContent = '';
-      if (!f.kept.length && ctl.q) list.append(h('p', { class: 'muted', text: tr('results.noMatch') }));
+      if (!f.kept.length && ctl.q) list.append(h('p', { class: 'muted no-match', text: tr('results.noMatch') }));
       if (ctl.view === 'copies' && ctl.rows.length) list.append(h('div', { class: 'table-wrap' }, copyTable([], true)));
       ctl.shown = 0;
       showMore();
@@ -2455,10 +3057,27 @@
       more.textContent = tr('results.showMore', { count: Math.min(PAGE, Math.max(0, left)) });
     }
 
-    viewFiles.setAttribute('aria-pressed', 'true');
-    viewList.setAttribute('aria-pressed', 'false');
+    viewFiles.setAttribute('aria-pressed', String(ctl.view === 'files'));
+    viewList.setAttribute('aria-pressed', String(ctl.view === 'copies'));
     render();
-    return { el, job };
+    while (ctl.shown < (s.shown || 0) && ctl.shown < ctl.rows.length) showMore();
+    if (s.preview) {
+      const c = job.items.find((x) => uidOf(x) === s.preview.uid);
+      if (c) openPreview(c, null, s.preview.tab, false);
+    }
+    return {
+      el,
+      job,
+      save: () => ({
+        view: ctl.view, sort: ctl.sort, q: filter.value.trim(), deletedOnly: ctl.deletedOnly, allDates: ctl.allDates,
+        allPlaces: ctl.allPlaces, shown: ctl.shown, open: [...ctl.open],
+        preview: ctl.preview ? { uid: ctl.preview.uid, tab: ctl.preview.panel.tab() } : null,
+      }),
+      destroy() {
+        clearTimeout(filterTimer);
+        if (ctl.preview) ctl.preview.panel.destroy();
+      },
+    };
   }
 
   function foundIn(c) {
@@ -2481,10 +3100,7 @@
   /** A deleted folder's copy: bring back everything that was ever below it, from every place. */
   function rebuildFromHere(c) {
     if (!c.path) return null;
-    return button(tr('results.rebuildFolder'), () => {
-      state.forms.folder = { ...(state.forms.folder || {}), folder: c.path };
-      go('folder');
-    }, 'btn small quiet');
+    return button(tr('results.rebuildFolder'), () => prefill('folder', { folder: c.path }), 'btn small quiet');
   }
 
   // ---- nothing found -------------------------------------------------------------------------
@@ -2526,13 +3142,8 @@
     const tries = [];
     if (mode === 'name') {
       const part = partOfName(r.name);
-      if (part) tries.push(button(tr('empty.try.shorter', { part }), again(mode, { ...r, name: part })));
-      if (!r.containing) {
-        tries.push(button(tr('empty.try.containing'), () => {
-          state.forms.name = { ...r, focus: 'containing' };
-          go('find');
-        }));
-      }
+      if (part) tries.push(button(tr('empty.try.shorter', { part }), again(mode, { ...r, name: part }), 'btn primary'));
+      if (!r.containing) tries.push(button(tr('empty.try.containing'), () => prefill('name', {}, 'containing')));
     }
     if (filters.length) {
       const wider = { ...r, sources: null, types: mode === 'name' && (r.name || r.containing) ? [] : r.types };
@@ -2554,32 +3165,37 @@
     elsewhere.push(tr('empty.else.email'), tr('empty.else.copies'));
     if (mode !== 'media') elsewhere.push(tr('empty.else.app'));
 
-    return h('section', { class: 'empty' },
-      h('h1', { text: title }),
-      h('h2', { text: tr('empty.why') }), h('ul', {}, why.map((t) => h('li', { text: t }))),
-      h('h2', { text: tr('empty.try') }),
-      tryText.map((t) => h('p', { text: t })),
-      h('p', { class: 'actions wrap' }, tries),
-      h('h2', { text: tr('empty.elsewhere') }), h('ul', {}, elsewhere.map((t) => h('li', { text: t }))),
-      per.length ? h('details', { class: 'notes' }, h('summary', { text: tr('empty.details') }),
+    const part = (key, ...body) => {
+      const id = nextId('empty');
+      return h('section', { class: 'panel empty-part', 'aria-labelledby': id }, h('h2', { id, text: tr(key) }), ...body);
+    };
+    return statePage('empty', title,
+      part('empty.why', h('ul', {}, why.map((t) => h('li', { text: t })))),
+      part('empty.try', tryText.map((t) => h('p', { text: t })), h('p', { class: 'actions wrap' }, tries)),
+      part('empty.elsewhere', h('ul', {}, elsewhere.map((t) => h('li', { text: t })))),
+      per.length ? h('details', { class: 'notes' }, h('summary', {}, icon('chevron', 'more-chevron'), h('span', { text: tr('empty.details') })),
         h('ul', {}, per.map((s) => h('li', {},
           h('strong', { text: sourceLabel(s.id, s.label) }), ': ',
           s.error ? tr('progress.failed') : s.skipped ? tr('progress.skipped') : tr('progress.found', { count: s.count || 0 }),
           s.error ? h('span', { class: 'muted', text: ` (${s.error})` }) : null,
           (s.notes || []).length ? h('ul', {}, s.notes.map((n) => h('li', { text: String(n) }))) : null)))) : null,
+      oldLanguage(job, per.some((s) => s.error || (s.notes || []).length)),
       h('p', { class: 'actions' }, backToForm(mode)));
   }
-
   // ---- preview -------------------------------------------------------------------------------
 
   /**
    * Tabs in the ARIA pattern: arrow keys move between them, and each panel is built the first
-   * time its tab is chosen. `tabs` is [{ label, render }].
+   * time its tab is chosen, then kept as it was left -- where its text was scrolled, the encoding
+   * chosen -- while another is shown; a video in one that is left is paused. `tabs` is
+   * [{ label, render }]; `first` the tab to start on.
    */
-  function tabsWidget(tabs) {
+  function tabsWidget(tabs, first) {
     const list = h('div', { class: 'tablist', role: 'tablist' });
     const panels = h('div', { class: 'tabpanels' });
     const made = new Map();
+    const scrolled = new Map(); // panel -> [[element, top, left]], while it is out of sight
+    let current = -1;
     const btns = tabs.map((t, i) => {
       const id = nextId('tab');
       const b = h('button', { type: 'button', role: 'tab', id, class: 'tab', 'aria-selected': 'false', tabindex: '-1', text: t.label });
@@ -2590,7 +3206,7 @@
     list.addEventListener('keydown', (e) => {
       const at = btns.indexOf(document.activeElement);
       if (at < 0) return;
-      const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: btns.length - 1 }[e.key];
+      const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: btns.length - 1 }[logicalKey(e.key)];
       if (to === undefined) return;
       e.preventDefault();
       choose((to + btns.length) % btns.length, true);
@@ -2600,7 +3216,12 @@
         b.setAttribute('aria-selected', String(i === j));
         b.setAttribute('tabindex', i === j ? '0' : '-1');
       });
-      for (const p of made.values()) p.hidden = true;
+      for (const [j, p] of made) {
+        if (j === i || p.hidden) continue;
+        scrolled.set(p, [p, ...$$('.text-view, .table-wrap', p)].map((x) => [x, x.scrollTop, x.scrollLeft]));
+        pauseMedia(p);
+        p.hidden = true;
+      }
       if (!made.has(i)) {
         const panel = h('div', { role: 'tabpanel', id: nextId('panel'), class: 'tabpanel', tabindex: '0', 'aria-labelledby': btns[i].id });
         btns[i].setAttribute('aria-controls', panel.id);
@@ -2608,11 +3229,19 @@
         made.set(i, panel);
         panels.append(panel);
       }
-      made.get(i).hidden = false;
+      const shown = made.get(i);
+      shown.hidden = false;
+      for (const [x, y, left] of scrolled.get(shown) || []) x.scrollTo(left, y);
+      scrolled.delete(shown);
+      current = i;
       if (focus) btns[i].focus();
     }
-    if (tabs.length) choose(0, false);
-    return h('div', { class: 'tabs' }, tabs.length > 1 ? list : null, panels);
+    if (tabs.length) choose(Number.isInteger(first) && first >= 0 && first < tabs.length ? first : 0, false);
+    return {
+      el: h('div', { class: 'tabs' }, tabs.length > 1 ? list : null, panels),
+      current: () => Math.max(0, current),
+      destroy: () => pauseMedia(panels),
+    };
   }
 
   // The formats whose first bytes sniff() always recognises, by what they are and, for those
@@ -2654,20 +3283,36 @@
    * from their first 4 KB); the first page of them is read at once, for a copy that is nothing
    * but zeros says so before anything else: its data was erased.
    */
+  /** A button that shows only an icon, named for assistive technology and in its tooltip. */
+  function iconButton(iconName, label, onClick, cls) {
+    return h('button', { type: 'button', class: `btn icon-only${cls ? ` ${cls}` : ''}`, 'aria-label': label, title: label, on: { click: onClick } },
+      icon(iconName));
+  }
+
   function previewPanel(copy, opts) {
     const o = opts || {};
     const uid = uidOf(copy);
     const t = tierOf(copy);
     const titleId = nextId('pv');
-    const heading = h('h2', { id: titleId, class: 'preview-title', tabindex: '-1', text: nameOf(copy) || tr('results.nameUnknown') });
+    const heading = h('h2', { id: titleId, class: 'preview-title', tabindex: '-1' }, nameText(nameOf(copy) || tr('results.nameUnknown')));
     const body = h('div', { class: 'preview-body' }, h('p', { class: 'muted', text: tr('preview.loading') }));
     const el = h('div', { class: 'preview', 'aria-labelledby': titleId },
-      h('div', { class: 'preview-head' }, heading, o.onClose ? button(tr('common.close'), o.onClose, 'btn small') : null),
-      h('p', { class: 'badges' }, tierBadge(copy), ' ', stateBadge(copy.state)),
+      h('div', { class: 'preview-head' }, heading, o.onClose ? iconButton('close', tr('common.close'), o.onClose, 'small') : null),
+      h('p', { class: 'badges' }, tierBadge(copy), stateBadge(copy.state)),
       t !== 'exact' ? h('p', { class: 'hint', text: tr(tierHelpKey(copy)) }) : null,
       body,
-      o.noRestore ? null : h('p', { class: 'actions' }, restoreButton(copy)));
-    const done = { el, focus: () => heading.focus() };
+      o.noRestore ? null : h('p', { class: 'actions preview-actions' }, restoreButton(copy)));
+    let tabs = null;
+    const done = {
+      el,
+      focus: () => heading.focus(),
+      /** The tab chosen, to open again on; the one asked for until the tabs are there. */
+      tab: () => (tabs ? tabs.current() : o.tab || 0),
+      destroy() {
+        if (tabs) tabs.destroy();
+        pauseMedia(el);
+      },
+    };
     const say = (kind, text) => callout(kind, null, h('p', { text }));
     if (copy.isDir || t === 'gone') {
       body.textContent = '';
@@ -2694,16 +3339,17 @@
       }
       const said = zero ? null : mismatch(copy, a);
       if (said) body.append(say('warn', said));
-      const tabs = [];
-      if (a.preview === 'image') tabs.push({ label: tr('preview.tab.picture'), render: () => picturePanel(uid, copy, a) });
-      if (a.preview === 'video') tabs.push({ label: tr('preview.tab.video'), render: () => videoPanel(uid, a) });
-      if (a.preview === 'text') tabs.push({ label: tr('preview.tab.text'), render: () => textPanel(uid, a, head) });
+      const list = [];
+      if (a.preview === 'image') list.push({ label: tr('preview.tab.picture'), render: () => picturePanel(uid, copy, a) });
+      if (a.preview === 'video') list.push({ label: tr('preview.tab.video'), render: () => videoPanel(uid, a) });
+      if (a.preview === 'text') list.push({ label: tr('preview.tab.text'), render: () => textPanel(uid, a, head) });
       if (!a.preview && !zero && head.length) {
         body.append(say('info', tr('preview.none.format', { format: formatName(a.ext || copy.ext || extOfName(nameOf(copy))) })));
       }
-      if (head.length) tabs.push({ label: tr('preview.tab.hex'), render: () => hexPanel(uid, a, head) });
-      tabs.push({ label: tr('preview.tab.info'), render: () => infoList(copy, a) });
-      body.append(tabsWidget(tabs));
+      if (head.length) list.push({ label: tr('preview.tab.hex'), render: () => hexPanel(uid, a, head) });
+      list.push({ label: tr('preview.tab.info'), render: () => infoList(copy, a) });
+      tabs = tabsWidget(list, o.tab);
+      body.append(tabs.el);
     })();
     return done;
   }
@@ -2775,7 +3421,7 @@
         notes.append(callout('error', null, h('p', { text: errorText(e) })));
       }
     })();
-    return h('div', {}, h('div', { class: 'toolbar' }, encSel.el, wrap.el), notes, pre);
+    return h('div', {}, h('div', { class: 'toolbar text-tools' }, encSel.el, wrap.el), notes, pre);
   }
 
   /** The bytes, a page at a time: first a sentence on what they start with, then the table. */
@@ -2826,7 +3472,7 @@
       dl.append(h('dt', { text: tr(key) }), h('dd', {}, ...value));
     };
     const name = nameOf(copy);
-    row('preview.info.path', copy.path ? h('span', { class: 'path', text: copy.path })
+    row('preview.info.path', copy.path ? pathText(copy.path)
       : name ? tr('results.nameOnly', { name }) : tr('results.nameUnknown'));
     row('preview.info.when', timeText(copy));
     if (!copy.isDir) row('preview.info.size', fmtSize(copy.size != null ? copy.size : a && a.size));
@@ -2839,7 +3485,7 @@
       h('span', { class: 'block muted', text: kindHelp(copy.kind, sourceLabel(copy.source, copy.source)) }));
     const seen = (copy.seen || []).filter((k) => k !== copy.kind);
     if (seen.length) row('preview.info.alsoIn', fmtList(seen.map((k) => kindLabel(k))));
-    row('preview.info.keptAt', copy.origin ? h('span', { class: 'path', text: copy.origin }) : null);
+    row('preview.info.keptAt', copy.origin ? pathText(copy.origin) : null);
     row('preview.info.note', copy.note || null);
     row('preview.info.id', h('span', { class: 'mono', text: copy.id || uidOf(copy).slice(0, 8) }),
       h('span', { class: 'block muted', text: tr('preview.info.idHint') }));
@@ -2848,11 +3494,11 @@
 
   /** A copy's preview in a dialog of its own, for the folder plan. */
   function previewDialog(copy, opener) {
-    const dlg = h('dialog', { class: 'dialog wide' });
+    const dlg = h('dialog', { class: 'dialog wide preview-dialog' });
     const p = previewPanel(copy, { onClose: () => dlg.close(), noRestore: true });
     dlg.setAttribute('aria-labelledby', $('.preview-title', p.el).id);
     dlg.append(h('div', { class: 'dialog-body' }, p.el));
-    showModal(dlg, opener);
+    showModal(dlg, opener, () => p.destroy());
     p.focus();
   }
 
@@ -3088,12 +3734,13 @@
       let heading = tr('restore.done.none');
       if (ok.length === 1) heading = tr('restore.done.one');
       else if (ok.length) heading = tr('restore.done.many', { count: ok.length });
-      const failure = (b) => h('li', {}, nameOf(byUid.get(b.uid)) || b.uid, ': ', errorText({ message: b.error, code: b.code }));
+      const failure = (b) => h('li', {}, nameText(nameOf(byUid.get(b.uid)) || b.uid), ': ', errorText({ message: b.error, code: b.code }));
       const body = h('div', { class: 'dialog-body' },
-        h('h2', { id: doneTitleId, text: heading }),
-        ok.length ? h('p', { class: 'path done-path', text: where }) : null,
+        h('div', { class: `done-head${ok.length ? ' is-ok' : ' is-none'}` }, icon(ok.length ? 'success' : 'error'),
+          h('h2', { id: doneTitleId, text: heading })),
+        ok.length ? h('p', { class: 'done-path' }, pathText(where)) : null,
         ok.length ? h('p', { class: 'actions' }, copyButton(where)) : null,
-        bad.length ? h('div', {}, h('p', { text: tr('restore.done.failed', { count: bad.length }) }), h('ul', {}, bad.map(failure))) : null,
+        bad.length ? callout('warn', tr('restore.done.failed', { count: bad.length }), h('ul', {}, bad.map(failure))) : null,
         ok.length ? h('p', { class: 'hint', text: tr('restore.openWarning') }) : null);
       dlg.setAttribute('aria-labelledby', doneTitleId);
       form.replaceWith(h('div', { class: 'dialog-form' }, body, h('div', { class: 'dialog-actions' }, doneBtn)));
@@ -3365,24 +4012,31 @@
    * copies that carry no date in a group of their own at the end -- never hidden, whatever the
    * dates chosen, since a thumbnail whose file is unknown has no date and may be the one photo
    * left. The grid is one composite control (the ARIA grid pattern): Tab enters it once, arrow
-   * keys move, Space selects, Shift+Space selects a range, Enter opens.
+   * keys move, Space selects, Shift+Space selects a range, Enter opens. `saved` is what the view
+   * held when it is made again in another language: its choices, how many tiles were shown, what
+   * was selected.
    */
-  function gridView(job) {
+  function gridView(job, saved) {
     const r = job.request || {};
     if (!job.items.length) return emptyResults(job);
+    const s = saved || {};
     const ctl = {
-      smaller: r.includeSmaller !== false, hideTiny: true, source: '', allDates: false, allPlaces: false,
+      smaller: s.smaller !== undefined ? !!s.smaller : r.includeSmaller !== false, hideTiny: s.hideTiny !== undefined ? !!s.hideTiny : true,
+      source: s.source || '', allDates: !!s.allDates, allPlaces: !!s.allPlaces,
       list: [], shown: 0, cols: 4, selected: new Map(), anchor: null, focus: null,
     };
+    const byUid = new Map(job.items.map((it) => [uidOf(it), it]));
+    for (const uid of s.selected || []) if (byUid.has(uid)) ctl.selected.set(uid, byUid.get(uid));
     const tileOf = new Map(); // uid -> tile
     const itemOfTile = new WeakMap();
     const groups = new Map(); // month|'none' -> { section, grid, rows, tiles }
     const thumbs = thumbLoader((tile) => itemOfTile.get(tile));
 
     const summaryEl = h('p', { class: 'summary', role: 'status' });
-    const hiddenNote = h('div');
+    const hiddenNote = h('div', { class: 'hidden-note' });
     const groupsEl = h('div', { class: 'grid-groups' });
-    const more = button(tr('results.showMore'), () => showMore());
+    // Its words say how many more, so they are put in with the count, by showMore().
+    const more = button('', () => showMore(), 'btn more-button');
     more.hidden = true;
     const sentinel = h('div', { class: 'sentinel', 'aria-hidden': 'true' });
 
@@ -3399,27 +4053,27 @@
       render();
     });
     const hasDates = r.from != null || r.to != null;
-    const dates = checkLine(tr('results.allDates'), false);
+    const dates = checkLine(tr('results.allDates'), ctl.allDates);
     dates.input.addEventListener('change', () => {
       ctl.allDates = dates.input.checked;
       render();
     });
-    const places = checkLine(tr('results.allPlaces', { folder: r.where || '' }), false);
+    const places = checkLine(tr('results.allPlaces', { folder: r.where || '' }), ctl.allPlaces);
     places.input.addEventListener('change', () => {
       ctl.allPlaces = places.input.checked;
       render();
     });
     const found = ((job.summary && job.summary.perSource) || []).filter((x) => x.count > 0);
-    const froms = [['', tr('grid.filter.allSources')], ...found.map((s) => [s.id, sourceLabel(s.id, s.label)])];
-    const sourceSel = select(tr('grid.filter.from'), froms, '', (v) => {
+    const froms = [['', tr('grid.filter.allSources')], ...found.map((x) => [x.id, sourceLabel(x.id, x.label)])];
+    const sourceSel = select(tr('grid.filter.from'), froms, ctl.source, (v) => {
       ctl.source = v;
       render();
     });
     const jump = select(tr('grid.jump'), [['', tr('grid.jumpPick')]], '', (v) => {
       if (v) jumpTo(v === 'none' ? null : v);
     });
-    const toolbar = h('div', { class: 'toolbar' }, size.el, tiny.el, found.length > 1 ? sourceSel.el : null, jump.el,
-      hasDates ? dates.el : null, r.where ? places.el : null);
+    const toolbar = h('div', { class: 'toolbar' }, size.el, found.length > 1 ? sourceSel.el : null, jump.el,
+      h('div', { class: 'toggles' }, tiny.el, hasDates ? dates.el : null, r.where ? places.el : null));
 
     const selCount = h('span', { class: 'sel-count', role: 'status' });
     const restoreSelected = (e) => openRestoreDialog({ copies: [...ctl.selected.values()], opener: e.currentTarget });
@@ -3428,9 +4082,9 @@
       button(tr('grid.restoreSelected'), restoreSelected, 'btn primary'));
 
     const el = h('section', { class: 'grid-view' },
-      h('h1', { text: tr('grid.title') }), summaryEl, searchNotices(job.summary), hiddenNote, toolbar,
-      h('p', { class: 'hint', text: tr('grid.keys') }),
-      groupsEl, sentinel, more, bar);
+      resultsHead(tr('grid.title'), 'media', summaryEl), searchNotices(job.summary, job), hiddenNote, toolbar,
+      h('p', { class: 'hint keys', text: tr('grid.keys') }),
+      groupsEl, sentinel, h('p', { class: 'more-row' }, more), bar);
 
     // More tiles as the end comes near, and a button for doing the same by keyboard.
     const endWatch = new IntersectionObserver((entries) => {
@@ -3438,12 +4092,16 @@
     }, { rootMargin: '800px 0px' });
     endWatch.observe(sentinel);
 
+    // Columns follow the width; a grid out of sight has none, and keeps the ones it had.
     const columnsFor = (width) => Math.max(1, Math.floor((width + GAP_PX) / (TILE_PX + GAP_PX)));
     const resize = new ResizeObserver(() => {
-      const cols = columnsFor(groupsEl.clientWidth || 600);
+      if (!groupsEl.clientWidth) return;
+      const cols = columnsFor(groupsEl.clientWidth);
       if (cols !== ctl.cols) {
+        const had = document.activeElement;
         ctl.cols = cols;
         for (const g of groups.values()) rechunk(g);
+        if (had && had.classList && had.classList.contains('tile') && had.isConnected) had.focus({ preventScroll: true });
       }
     });
     resize.observe(groupsEl);
@@ -3497,10 +4155,12 @@
       const caption = `${when === null ? tr('grid.noDate') : fmtDay(when)} · ${fmtSize(it.size)}`;
       const cell = { role: 'gridcell', class: `tile tier-${t}`, tabindex: '-1', 'aria-selected': 'false', 'aria-label': tileLabel(it) };
       const node = h('div', cell,
-        h('div', { class: 'thumb', ...shown }, h('span', { class: 'loading', text: tr('grid.loadingThumb') })),
-        h('span', { class: `badge tier-${t}`, ...shown }, h('span', { class: 'glyph', text: TIER_GLYPH[t] }), tierText(it)),
-        video ? h('span', { class: 'play', ...shown, text: '▶' }) : null,
-        h('span', { class: 'pick', ...shown, title: tr('grid.select') }),
+        h('div', { class: 'frame', ...shown },
+          h('div', { class: 'thumb' }, h('span', { class: 'loading', text: tr('grid.loadingThumb') })),
+          // The kind of copy alone: its size in pixels is said in its label, and when it is opened.
+          h('span', { class: `badge tile-badge tier-${t}` }, icon(TIER_ICON[t]), h('span', { class: 'badge-text', text: tr(TIER_LABEL[t]) })),
+          video ? h('span', { class: 'play' }, icon('play')) : null,
+          h('span', { class: 'pick', title: tr('grid.select') }, icon('check'))),
         h('span', { class: 'caption', ...shown, text: caption }));
       itemOfTile.set(node, it);
       tileOf.set(uidOf(it), node);
@@ -3708,7 +4368,7 @@
         updateBar();
         return;
       }
-      const to = neighbour(t, e.key, e.ctrlKey || e.metaKey);
+      const to = neighbour(t, logicalKey(e.key), e.ctrlKey || e.metaKey);
       if (to === undefined) return;
       e.preventDefault();
       if (to) {
@@ -3736,9 +4396,10 @@
       const heading = h('h2', { id: titleId, class: 'lb-title' });
       const frame = h('div', { class: 'lb-frame' });
       const facts = h('div', { class: 'lb-facts' });
-      const prev = button(tr('preview.prevItem'), () => show(at - 1), 'btn');
-      const next = button(tr('preview.nextItem'), () => show(at + 1), 'btn');
-      dlg.append(h('div', { class: 'lb-head' }, heading, button(tr('common.close'), () => dlg.close(), 'btn')),
+      const prev = iconButton('chevron', tr('preview.prevItem'), () => show(at - 1), 'lb-step back');
+      const next = iconButton('chevron', tr('preview.nextItem'), () => show(at + 1), 'lb-step');
+      const tools = h('div', { class: 'lb-tools' });
+      dlg.append(h('div', { class: 'lb-head' }, heading, tools, iconButton('close', tr('common.close'), () => dlg.close())),
         h('div', { class: 'lb-main' }, prev, frame, next), facts);
       let at = index;
       let seq = 0;
@@ -3748,7 +4409,9 @@
         const mine = ++seq;
         const it = ctl.list[i];
         const uid = uidOf(it);
-        heading.textContent = nameOf(it) || tileLabel(it);
+        heading.textContent = '';
+        heading.append(nameText(nameOf(it) || tileLabel(it)));
+        pauseMedia(frame);
         frame.textContent = '';
         const msg = h('p', { class: 'callout info', hidden: true });
         frame.append(h('p', { class: 'muted', text: tr('preview.loading') }));
@@ -3791,22 +4454,24 @@
           else ctl.selected.delete(uid);
           updateBar();
         });
+        tools.textContent = '';
+        tools.append(h('span', { class: 'check' }, sel, h('label', { for: selId, text: tr('grid.select') })), restoreButton(it));
         facts.textContent = '';
         facts.append(
-          h('p', { class: 'badges' }, tierBadge(it), ' ', h('span', { text: metaLine(it) })),
+          h('p', { class: 'badges' }, tierBadge(it), h('span', { class: 'meta', text: metaLine(it) })),
           h('p', { class: 'hint', text: tr(tierHelpKey(it)) }),
           h('p', {}, h('span', { class: 'muted', text: `${tr('preview.info.foundIn')}: ` }), foundIn(it)),
-          h('details', {}, h('summary', { text: tr('preview.technical') }), infoList(it, null)),
-          h('p', { class: 'actions' },
-            h('span', { class: 'check' }, sel, h('label', { for: selId, text: tr('grid.select') })), restoreButton(it)));
+          h('details', { class: 'notes' }, h('summary', {}, icon('chevron', 'more-chevron'), h('span', { text: tr('preview.technical') })),
+            infoList(it, null)));
         prev.disabled = i === 0;
         next.disabled = i >= ctl.list.length - 1;
         if (i >= ctl.shown - 3 && !more.hidden) showMore();
       }
       dlg.addEventListener('keydown', (e) => {
         if (e.target.closest('input, select, textarea, video, summary')) return;
-        if (e.key === 'ArrowRight') show(at + 1);
-        else if (e.key === 'ArrowLeft') show(at - 1);
+        const key = logicalKey(e.key);
+        if (key === 'ArrowRight') show(at + 1);
+        else if (key === 'ArrowLeft') show(at - 1);
         else return;
         e.preventDefault();
       });
@@ -3818,13 +4483,18 @@
         }
       });
       show(index);
-      $('button', dlg).focus();
+      $('.lb-head > .icon-only', dlg).focus();
     }
 
     render();
+    while (ctl.shown < (s.shown || 0) && ctl.shown < ctl.list.length) showMore();
     return {
       el,
       job,
+      save: () => ({
+        smaller: ctl.smaller, hideTiny: ctl.hideTiny, source: ctl.source, allDates: ctl.allDates, allPlaces: ctl.allPlaces,
+        shown: ctl.shown, selected: [...ctl.selected.keys()],
+      }),
       destroy() {
         thumbs.destroy();
         endWatch.disconnect();
@@ -3842,26 +4512,31 @@
     exists: (f) => f.copy.state === 'exists',
   };
 
-  function planView(job) {
+  function planView(job, saved) {
     if (!job.items.length) return emptyResults(job);
-    return { el: renderPlan(job), job };
+    const plan = renderPlan(job, saved);
+    return { el: plan.el, job, save: plan.save };
   }
 
   /**
    * What a rebuild would write, as a tree to tick and untick. Every file ever found below the
    * folder is in it, also ones deleted long ago on purpose, so the person decides. A file whose
    * only copies are smaller ones or may be incomplete (the plan's leftOut) is listed apart and
-   * left unticked: it is not the file, or may not be all of it.
+   * left unticked: it is not the file, or may not be all of it. `saved` is what the view held when
+   * it is made again in another language: what is unticked or added, which folders are open, and
+   * what is shown.
    */
-  function renderPlan(job) {
+  function renderPlan(job, saved) {
+    const s = saved || {};
     const folder = job.summary.folder || job.request.folder || '';
     const all = job.items;
     const normal = all.filter((f) => !f.leftOut);
     const leftOut = all.filter((f) => f.leftOut);
-    const excluded = new Set();
-    const leftIn = new Set();
+    const excluded = new Set(s.excluded || []);
+    const leftIn = new Set(s.leftIn || []);
+    const opened = new Set(s.opened || []); // the folders open, by their path inside
     const isIncluded = (node) => !excluded.has(node.rel);
-    let filter = 'all';
+    let filter = PLAN_FILTERS[s.filter] ? s.filter : 'all';
     let top = null;
     const nodeOf = new WeakMap();
 
@@ -3886,7 +4561,7 @@
     if (tierCounts.draft) filterChoices.push(['draft', tr('plan.filter.draft')]);
     if (tierCounts.inexact) filterChoices.push(['inexact', tr('plan.filter.inexact')]);
     if (normal.some((f) => f.copy.state === 'exists')) filterChoices.push(['exists', tr('plan.filter.exists')]);
-    const filterSel = select(tr('plan.filter.label'), filterChoices, 'all', (v) => {
+    const filterSel = select(tr('plan.filter.label'), filterChoices, filter, (v) => {
       filter = v;
       build();
     });
@@ -3894,6 +4569,7 @@
     function build() {
       top = buildTree(normal.filter(PLAN_FILTERS[filter]), baseName(folder) || folder);
       if (filter !== 'all') expandAll(top, true);
+      else reopen(top);
       tree.textContent = '';
       recount();
       tree.append(item(top));
@@ -3901,9 +4577,18 @@
       if (first) first.setAttribute('tabindex', '0');
     }
 
+    /** Opens again the folders that were open. */
+    function reopen(node) {
+      if (!node.dir) return;
+      if (opened.has(node.rel)) node.expanded = true;
+      node.children.forEach(reopen);
+    }
+
     function expandAll(node, on) {
       if (!node.dir) return;
       node.expanded = on || !node.parent;
+      if (node.parent && on) opened.add(node.rel);
+      else if (node.parent) opened.delete(node.rel);
       node.children.forEach((c) => expandAll(c, on));
     }
 
@@ -3938,11 +4623,12 @@
       });
       const row = h('div', { class: 'tree-row' });
       row.style.setProperty('--level', String(node.level - 1));
-      const twisty = h('span', { class: 'twisty', 'aria-hidden': 'true', text: node.dir ? (node.expanded ? '▾' : '▸') : '' });
-      const box = h('span', { class: 'box', 'aria-hidden': 'true' });
-      row.append(twisty, box, h('span', { class: 'tree-name', text: node.name }));
+      const twisty = h('span', { class: 'twisty', 'aria-hidden': 'true' }, node.dir ? icon('chevron') : null);
+      const box = h('span', { class: 'box', 'aria-hidden': 'true' }, icon('check', 'box-check'), icon('minus', 'box-mixed'));
+      row.append(twisty, box, h('span', { class: 'tree-icon', 'aria-hidden': 'true' }, icon(node.dir ? 'folder' : fileIcon(node.file.copy))),
+        h('bdi', { class: 'tree-name', text: node.name }));
       if (node.dir) {
-        row.append(h('span', { class: 'muted', text: tr('plan.folderCount', { count: node.total }) }));
+        row.append(h('span', { class: 'muted tree-count', text: tr('plan.folderCount', { count: node.total }) }));
         li.setAttribute('aria-expanded', String(!!node.expanded));
       } else {
         const c = node.file.copy;
@@ -3967,8 +4653,9 @@
     function setExpanded(node, on) {
       if (!node.dir || (!node.parent && !on)) return;
       node.expanded = on;
+      if (on) opened.add(node.rel);
+      else opened.delete(node.rel);
       node.el.setAttribute('aria-expanded', String(on));
-      $('.twisty', node.el).textContent = on ? '▾' : '▸';
       node.groupEl.hidden = !on;
       if (on && !node.groupEl.childElementCount) add(node.groupEl, node.children.map(item));
       if (on) refreshChecks(node);
@@ -4010,7 +4697,7 @@
       const list = visible();
       const at = list.indexOf(node);
       let to = null;
-      switch (e.key) {
+      switch (logicalKey(e.key)) {
         case 'ArrowDown': to = list[at + 1]; break;
         case 'ArrowUp': to = list[at - 1]; break;
         case 'Home': to = list[0]; break;
@@ -4048,19 +4735,19 @@
       else if (!node.dir && e.target.closest('.tree-name')) previewDialog(node.file.copy, li);
     });
 
-    const leftOutList = leftOut.length ? h('section', { class: 'smaller-only', 'aria-labelledby': 'left-out-title' },
+    const leftOutList = leftOut.length ? h('section', { class: 'smaller-only panel', 'aria-labelledby': 'left-out-title' },
       h('h2', { id: 'left-out-title', text: tr('plan.leftOut.title', { count: leftOut.length }) }),
       h('p', { class: 'hint', text: tr('plan.leftOut.body') }),
-      h('ul', { class: 'plain' }, leftOut.map((f) => {
+      h('ul', { class: 'plain left-out' }, leftOut.map((f) => {
         const rel = relParts(f.rel).join('/');
-        const line = checkLine(rel, false);
+        const line = checkLine(rel, leftIn.has(rel));
         line.input.addEventListener('change', () => {
           if (line.input.checked) leftIn.add(rel);
           else leftIn.delete(rel);
           recount();
         });
-        line.el.append(h('span', { class: 'muted', text: ` ${tierText(f.copy)} · ${fmtSize(f.copy.size)}` }),
-          ' ', button(tr('results.preview'), (e) => previewDialog(f.copy, e.currentTarget), 'btn small'));
+        line.el.append(h('span', { class: 'left-out-meta' }, tierBadge(f.copy), h('span', { class: 'muted', text: fmtSize(f.copy.size) })),
+          button(tr('results.preview'), (e) => previewDialog(f.copy, e.currentTarget), 'btn small'));
         return h('li', {}, line.el);
       }))) : null;
 
@@ -4082,13 +4769,13 @@
     });
 
     build();
-    return h('div', { class: 'plan' },
-      h('h1', { text: tr('plan.title', { count: all.length, folder }) }),
-      h('p', { text: tr('plan.explain') }),
-      tierLine ? h('p', { class: 'summary', text: tierLine }) : null,
-      kindLine ? h('p', { class: 'muted', text: tr('plan.from', { list: kindLine }) }) : null,
+    const el = h('div', { class: 'plan' },
+      resultsHead(tr('plan.title', { count: all.length, folder }), 'folder',
+        tierLine ? h('p', { class: 'summary', text: tierLine }) : null,
+        kindLine ? h('p', { class: 'muted', text: tr('plan.from', { list: kindLine }) }) : null),
+      h('p', { class: 'lead', text: tr('plan.explain') }),
       callout('warn', null, h('p', { text: tr('plan.oldFiles') })),
-      searchNotices(job.summary),
+      searchNotices(job.summary, job),
       normal.length ? [
         h('div', { class: 'toolbar' }, filterSel.el,
           button(tr('common.expandAll'), () => {
@@ -4103,34 +4790,34 @@
             tree.append(item(top));
             focusNode(top);
           }, 'btn small')),
-        h('p', { class: 'hint', text: tr('plan.keys') }),
+        h('p', { class: 'hint keys', text: tr('plan.keys') }),
         tree,
       ] : null,
       leftOutList,
       h('div', { class: 'selection-bar' }, barText, write));
+    return {
+      el,
+      save: () => ({ filter, excluded: [...excluded], leftIn: [...leftIn], opened: [...opened] }),
+    };
   }
 
   /** A folder being written, and then what came of it. */
   function viewRebuild() {
     const job = state.jobs.get(state.current.rebuild || '');
-    if (!job) {
-      location.replace('#/folder');
-      return null;
-    }
+    if (!job) return null;
     const back = () => (state.current.folder ? go('folder/plan') : go('folder'));
     if (job.state === 'failed' || job.state === 'cancelled') {
       return {
         job,
-        el: h('section', {}, h('h1', { text: tr('error.title') }),
-          callout('error', null,
-            h('p', { text: job.error ? tr('rebuild.failedBecause', { message: job.error }) : tr('error.unexpected') })),
-          h('p', { class: 'actions' }, button(tr('rebuild.back'), back))),
+        el: statePage('error', tr('error.title'),
+          h('p', { class: 'lead', text: job.error ? tr('rebuild.failedBecause', { message: job.error }) : tr('error.unexpected') }),
+          h('p', { class: 'actions' }, button(tr('rebuild.back'), back, 'btn primary'))),
       };
     }
     if (job.state === 'running') {
-      const bar = h('progress', { max: '1' });
-      const line = h('p', { class: 'muted path' });
-      const status = h('p', { role: 'status' });
+      const bar = h('progress', { class: 'whole', max: '1' });
+      const line = h('p', { class: 'muted writing-now', dir: 'ltr' });
+      const status = h('p', { class: 'overall', role: 'status' });
       const update = () => {
         const total = job.writeTotal || job.request.files || 0;
         if (total) {
@@ -4141,24 +4828,30 @@
           bar.removeAttribute('value');
           status.textContent = tr('rebuild.progressUnknown');
         }
+        bar.setAttribute('aria-label', status.textContent);
         line.textContent = job.rel || '';
       };
       update();
-      return { job, update, el: h('section', { 'aria-busy': 'true' }, h('h1', { text: tr('rebuild.writing') }), bar, status, line) };
+      return {
+        job, update,
+        el: h('section', { class: 'progress', 'aria-busy': 'true' },
+          h('header', { class: 'page-head' }, h('h1', { text: tr('rebuild.writing') })), status, bar, line),
+      };
     }
     const d = job.summary;
     const failed = d.failed || [];
-    const from = (k) => h('li', { text: tr('plan.fromKind', { kind: kindLabel(k.kind, k.label), count: k.count }) });
-    const failure = (f) => h('li', {},
-      h('span', { class: 'path', text: relParts(f.rel || f.path).join('/') }), ': ', errorText({ message: f.error }));
+    const from = (k) => h('li', {}, h('span', { text: kindLabel(k.kind, k.label) }), h('span', { class: 'num', text: fmtNum(k.count) }));
+    const failure = (f) => h('li', {}, pathText(relParts(f.rel || f.path).join('/')), ': ', errorText({ message: f.error }));
     return {
       job,
-      el: h('section', { class: 'done' },
-        h('h1', { text: tr('rebuild.done', { written: d.written || 0, count: d.files || 0 }) }),
-        d.root ? h('p', {}, tr('rebuild.into'), ' ', h('span', { class: 'path', text: d.root }), ' ', copyButton(d.root)) : null,
+      el: statePage(failed.length && !d.written ? 'error' : 'success', tr('rebuild.done', { written: d.written || 0, count: d.files || 0 }),
+        d.root ? h('div', { class: 'done-where' },
+          h('p', { class: 'field-label', text: tr('rebuild.into') }),
+          h('p', { class: 'done-path' }, pathText(d.root), copyButton(d.root))) : null,
         d.root ? h('p', { class: 'hint', text: tr('restore.openWarning') }) : null,
-        (d.byKind || []).length ? h('div', {}, h('h2', { text: tr('rebuild.byKind') }), h('ul', {}, d.byKind.map(from))) : null,
         failed.length ? callout('warn', tr('rebuild.failed', { count: failed.length }), h('ul', {}, failed.map(failure))) : null,
+        (d.byKind || []).length ? h('section', { class: 'panel by-kind' }, h('h2', { text: tr('rebuild.byKind') }),
+          h('ul', { class: 'plain counts' }, d.byKind.map(from))) : null,
         h('p', { class: 'actions' }, button(tr('common.newSearch'), () => go('folder'), 'btn primary'), button(tr('rebuild.back'), back))),
     };
   }
@@ -4179,9 +4872,10 @@
     const list = h('div', { class: 'source-cards' });
     const frozen = state.info.frozen || null;
     const el = h('section', { class: 'sources' },
-      h('h1', { text: tr('sources.title') }), h('p', { text: tr('sources.intro') }),
+      h('header', { class: 'page-head' }, h('div', { class: 'page-title' }, h('h1', { text: tr('sources.title') }),
+        h('p', { class: 'lead', text: tr('sources.intro') }))),
       state.elevated ? callout('info', null, h('p', { text: tr('sources.elevated') })) : null,
-      onlyAdded.el, list);
+      h('div', { class: 'panel only-added' }, onlyAdded.el), list);
 
     for (const s of state.sources) {
       const titleId = nextId('source');
@@ -4192,15 +4886,15 @@
       const readAhead = read
         && (read.error ? tr('sources.frozenFailed', { error: read.error }) : tr('sources.frozen', { when: fmtWhen(frozen.at) }));
       const term = (key, value) => (has(value) ? [h('dt', { text: tr(key) }), h('dd', { text: tr(value) })] : null);
-      const card = h('section', { class: 'source-card', 'aria-labelledby': titleId },
+      const card = h('section', { class: 'source-card panel', 'aria-labelledby': titleId },
         h('h2', { id: titleId, text: sourceLabel(s.id, s.label) }),
-        s.needsAdmin && !state.elevated ? callout('plain', null, h('p', { text: tr('sources.needsAdmin') })) : null,
-        s.media === false ? h('p', { class: 'hint', text: tr('sources.textOnly') }) : null,
-        readAhead ? h('p', { class: 'hint', text: readAhead }) : null,
         has(`source.${s.id}.keeps`)
           ? h('dl', { class: 'info' }, term('sources.keeps', `source.${s.id}.keeps`), term('sources.howLong', `source.${s.id}.howLong`)) : null,
-        h('details', {}, h('summary', { text: tr('sources.technical') }), lines),
-        added, addBtn);
+        s.needsAdmin && !state.elevated ? h('p', { class: 'note-line' }, icon('alert'), h('span', { text: tr('sources.needsAdmin') })) : null,
+        s.media === false ? h('p', { class: 'note-line' }, icon('info'), h('span', { text: tr('sources.textOnly') })) : null,
+        readAhead ? h('p', { class: 'note-line' }, icon(read.error ? 'alert' : 'info'), h('span', { text: readAhead })) : null,
+        h('details', { class: 'notes' }, h('summary', {}, icon('chevron', 'more-chevron'), h('span', { text: tr('sources.technical') })), lines),
+        added, h('p', { class: 'card-actions' }, addBtn));
       cards.set(s.id, { lines, added, s });
       list.append(card);
     }
@@ -4217,7 +4911,8 @@
         c.added.textContent = '';
         for (const p of [].concat((state.locations.dirs || {})[id] || [])) {
           c.added.append(h('li', {},
-            h('span', { class: 'muted', text: `${tr('sources.added')}: ` }), h('span', { class: 'path', text: placeText(id, p) }), ' ',
+            h('span', { class: 'muted', text: `${tr('sources.added')}: ` }),
+            id === 'vss' && /^walk=/.test(p) ? h('span', { text: placeText(id, p) }) : pathText(p), ' ',
             button(tr('sources.remove'), () => removePlace(id, p), 'btn small quiet')));
         }
       }
@@ -4283,7 +4978,12 @@
         c.lines.append(h('p', { class: 'muted', text: tr('sources.describeFailed', { message: errorText(e) }) }));
       }
     });
-    return { el };
+    return {
+      el,
+      onShow() {
+        onlyAdded.input.checked = state.locations.discover === false;
+      },
+    };
   }
 
   // ---- help ----------------------------------------------------------------------------------
@@ -4297,16 +4997,16 @@
     }[info.window] || 'help.browser.unknown';
     const section = (titleKey, ...body) => {
       const id = nextId('help');
-      return h('section', { 'aria-labelledby': id }, h('h2', { id, text: tr(titleKey) }), ...body);
+      return h('section', { class: 'panel help-part', 'aria-labelledby': id }, h('h2', { id, text: tr(titleKey) }), ...body);
     };
     const tiers = h('dl', { class: 'info legend' });
     for (const t of [...TIERS, 'folder', 'gone']) {
-      tiers.append(h('dt', {}, badge(`tier-${t}`, TIER_GLYPH[t], tr(TIER_LABEL[t]))), h('dd', { text: tr(TIER_HELP[t]) }));
+      tiers.append(h('dt', {}, badge(`tier-${t}`, TIER_ICON[t], tr(TIER_LABEL[t]))), h('dd', { text: tr(TIER_HELP[t]) }));
     }
     const states = h('dl', { class: 'info legend' });
     for (const s of Object.keys(STATE_LABEL)) states.append(h('dt', {}, stateBadge(s)), h('dd', { text: tr(STATE_HELP[s]) }));
     const el = h('section', { class: 'help' },
-      h('h1', { text: tr('help.title') }),
+      h('header', { class: 'page-head' }, h('h1', { text: tr('help.title') })),
       section('help.what.title', h('p', { text: tr('help.what.body') })),
       section('help.tiers.title', tiers),
       section('help.states.title', states),
@@ -4314,9 +5014,10 @@
       section('help.cant.title',
         h('ul', {}, ['help.cant.formatted', 'help.cant.nocopy', 'help.cant.original'].map((k) => h('li', { text: tr(k) })))),
       section('help.writes.title', h('p', { text: tr('help.writes.body') })),
+      section('help.stop.title', h('p', { text: tr('help.stop.body') })),
       section('help.browser.title', h('p', { text: tr(launchKey) }), h('p', { text: tr('help.browser.save') })),
       section('help.keys.title', h('p', { text: tr('help.keys.body') })),
-      info.version ? h('p', { class: 'muted', text: tr('help.version', { version: info.version }) }) : null);
+      info.version ? h('p', { class: 'muted version', text: tr('help.version', { version: info.version }) }) : null);
     return { el };
   }
 
@@ -4338,7 +5039,40 @@
     stoppedOverlay(tr('quit.done.title'), writing ? tr('quit.done.writing') : tr('quit.done.body'), false);
   }
 
-  // ---- starting up ---------------------------------------------------------------------------
+  // ---- the frame: the rail, and the language -------------------------------------------------
+
+  // The rail shows its words in a window this wide or more, and only its icons in a narrower one,
+  // where its button shows the words over the page; in a wide window the button takes them away.
+  const WIDE_RAIL = '(min-width: 1008px)';
+  let railWish = null; // null: as the width says; 'compact' in a wide window, 'open' in a narrow one
+
+  function syncRail() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    const wide = window.matchMedia(WIDE_RAIL).matches;
+    const mode = wide ? (railWish === 'compact' ? 'compact' : 'expanded') : railWish === 'open' ? 'overlay' : 'compact';
+    app.setAttribute('data-rail', mode);
+    const toggle = document.getElementById('rail-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', String(mode !== 'compact'));
+    // A rail of icons says what each is when it is pointed at.
+    for (const el of $$('.rail [data-route], .rail .quit')) {
+      const label = $('.label', el);
+      if (mode === 'compact' && label) el.setAttribute('title', label.textContent);
+      else el.removeAttribute('title');
+    }
+  }
+
+  function closeRail() {
+    if (railWish !== 'open') return;
+    railWish = null;
+    syncRail();
+  }
+
+  function toggleRail() {
+    if (window.matchMedia(WIDE_RAIL).matches) railWish = railWish === 'compact' ? null : 'compact';
+    else railWish = railWish === 'open' ? null : 'open';
+    syncRail();
+  }
 
   /** Puts the strings into what index.html holds: data-i18n for text, data-i18n-attr="attr:key;..." for attributes. */
   function applyI18n(rootEl) {
@@ -4351,11 +5085,81 @@
     }
   }
 
-  async function boot() {
-    setLanguage(pickLanguage(navigator.languages || [navigator.language]));
-    document.documentElement.lang = tr('meta.lang');
-    document.documentElement.dir = tr('meta.dir');
+  /** The frame in the language spoken: <html lang dir>, its words, the language chosen in the picker. */
+  function applyFrame() {
+    document.documentElement.lang = String(lookup('meta.lang') || 'en');
+    document.documentElement.dir = textDir();
     applyI18n(document);
+    const sel = document.getElementById('lang');
+    if (sel) sel.value = lang;
+    syncRail();
+    setTitle();
+  }
+
+  /** The picker: each language the page has a table for, in its own name. None with only English. */
+  function renderPicker() {
+    const box = document.getElementById('lang-pick');
+    const sel = document.getElementById('lang');
+    if (!box || !sel) return;
+    sel.textContent = '';
+    for (const l of state.languages) sel.append(h('option', { value: l.code, lang: l.code, text: l.name }));
+    sel.value = lang;
+    box.hidden = state.languages.length < 2;
+  }
+
+  const languageName = (code) => (state.languages.find((l) => l.code === code) || { name: code }).name;
+
+  /** Asks for a language's table, lang/<code>.json beside this page, and takes it in; false when it cannot be had. */
+  async function loadLanguage(code) {
+    if (code === 'en' || own(STRINGS, code)) return true;
+    try {
+      const res = await fetch(`lang/${enc(code)}.json`, { cache: 'no-store', credentials: 'same-origin' });
+      if (!res.ok) return false;
+      return !!useTable(code, await res.json()).table;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  let languageSeq = 0;
+  /**
+   * Speaks a language from now on: its table asked for, the frame and every view made again in
+   * it, and the server told, so that the library speaks it from the next search on. `first`: the
+   * language the page starts in, before any view is made; then a language the server was started
+   * in (--lang) that the page has no table for is left to the library, not changed.
+   */
+  async function chooseLanguage(code, first) {
+    const mine = ++languageSeq;
+    const wanted = state.languages.some((l) => l.code === code) ? code : 'en';
+    const ok = await loadLanguage(wanted);
+    if (mine !== languageSeq) return;
+    if (!ok) {
+      if (!first) alertNow(tr('lang.failed', { language: languageName(lang) }));
+      applyFrame();
+      return;
+    }
+    setLanguage(wanted);
+    applyFrame();
+    if (!state.stopped && wanted !== state.info.lang && !(first && state.info.lang)) {
+      try {
+        const r = await post('api/lang', { lang: wanted });
+        state.info.lang = (r && r.lang) || wanted;
+        if (r && r.locale) state.locale = r.locale;
+      } catch (_) {
+        /* the page speaks it all the same */
+      }
+      if (mine !== languageSeq) return;
+    }
+    if (!first) {
+      rebuildAll();
+      announce(tr('lang.changed', { language: languageName(wanted) }));
+    }
+  }
+
+  // ---- starting up ---------------------------------------------------------------------------
+
+  async function boot() {
+    applyFrame();
     const skip = $('.skip');
     if (skip) {
       skip.addEventListener('click', (e) => {
@@ -4365,6 +5169,24 @@
     }
     const quitBtn = document.getElementById('quit');
     if (quitBtn) quitBtn.addEventListener('click', quit);
+    const toggle = document.getElementById('rail-toggle');
+    if (toggle) toggle.addEventListener('click', toggleRail);
+    window.matchMedia(WIDE_RAIL).addEventListener('change', () => {
+      railWish = null;
+      syncRail();
+    });
+    // The words shown over the page go at Esc, or at a click beside them.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && railWish === 'open') {
+        closeRail();
+        if (toggle) toggle.focus();
+      }
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (railWish === 'open' && !e.target.closest('.rail')) closeRail();
+    });
+    const pick = document.getElementById('lang');
+    if (pick) pick.addEventListener('change', () => chooseLanguage(pick.value, false));
     window.addEventListener('hashchange', () => route());
     // The browser's own menu over a picture or a video offers "Save image as" and "Save video as",
     // which write to Downloads past every check (see the top of this file).
@@ -4388,6 +5210,17 @@
     } catch (_) {
       /* said by the overlay the failed request put up */
     }
+    // The languages the page has, English always among them; the first is the server's, when it
+    // was started in one of them, else the browser's first that is one, else English.
+    const offered = (Array.isArray(state.info.languages) ? state.info.languages : [])
+      .filter((l) => l && typeof l.code === 'string' && typeof l.name === 'string');
+    state.languages = offered.some((l) => l.code === 'en') ? offered : [{ code: 'en', name: 'English' }, ...offered];
+    state.locale = state.info.locale || 'en';
+    const codes = state.languages.map((l) => l.code);
+    const first = state.info.lang && codes.includes(state.info.lang)
+      ? state.info.lang : pickLanguage(navigator.languages || [navigator.language], codes);
+    renderPicker();
+    await chooseLanguage(first, true);
     if (!state.stopped) {
       const hello = new Promise((resolve) => state.helloWaiters.push(resolve));
       state.events = connect();
@@ -4399,8 +5232,9 @@
 
   // The page's own logic, for the tests, which run it in Node without a document.
   const internals = {
-    STRINGS, TIERS, TIER_LABEL, TIER_HELP, STATE_LABEL, STATE_HELP, TIME_LABEL, CATEGORIES, ERRNO_KEYS,
-    tr, has, pickLanguage, setLanguage, fmtSize, fmtWhen, toMs, ymd, stamp, monthOf, dayStart, sinceMs, mediaRange,
+    STRINGS, TIERS, TIER_LABEL, TIER_HELP, STATE_LABEL, STATE_HELP, TIME_LABEL, CATEGORIES, ERRNO_KEYS, PLURAL_FORMS,
+    tr, has, pickLanguage, setLanguage, codeOf, checkTable, useTable, placeholdersOf, pluralForms, textDir, logicalKey,
+    fmtSize, fmtWhen, toMs, ymd, stamp, monthOf, dayStart, sinceMs, mediaRange,
     tierOf, tierText, mediaOf, nameOf, folderOf, extOfName, timeMeaningOf, baseName, dirName, isAbsolute, pathKey, isInside,
     rootOf, joinPath, syncedBy, kindLabel, formatName, partOfName, relParts, better, groupFiles, sortRows, filterResults,
     filterMedia, mediaCounts, groupByMonth, monthCounts, buildTree, countIncluded, checkState, hexRows, isAllZero, magicOf,

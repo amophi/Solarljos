@@ -1,7 +1,10 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+const tty = require('tty');
 const { parseArgs } = require('util');
-const { t } = require('./i18n');
+const i18n = require('./i18n');
 const { search, sourceRoots, describeAll, locate, git } = require('./search');
 const { restore, planRebuild, leftOutOf, rebuild } = require('./restore');
 const { load, looksBinary } = require('./content');
@@ -10,6 +13,8 @@ const { tier, isDerived, isUnverified } = require('./quality');
 const { parseTypes } = require('./types');
 const fmt = require('./format');
 const pkg = require('../package.json');
+
+const { t } = i18n;
 
 const OPTIONS = {
   source: { type: 'string', multiple: true },
@@ -32,6 +37,7 @@ const OPTIONS = {
   binary: { type: 'boolean' },
   port: { type: 'string' },
   'no-open': { type: 'boolean' },
+  lang: { type: 'string' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
 };
@@ -69,6 +75,9 @@ Options
   --dry-run             rebuild: list what would be written, write nothing
   --port <n>            gui: the port to listen on, on 127.0.0.1 only (default: a free one)
   --no-open             gui: print the address instead of opening a browser window
+  --lang <code>         the language to use, by its code; English unless this or the
+                        variable SOLARLJOS_LANG gives another:
+                        {1}
 
 Locations (added to the ones found on this machine unless --no-discover)
   --recycle-dir <dir>       a $Recycle.Bin folder, or one account's folder inside it
@@ -88,7 +97,19 @@ while searching only read: git, to read repositories, and mountvol.exe, which li
 volume names for the thumbnail cache and writes nothing. gui also opens a browser window, unless
 --no-open: an Edge InPrivate window where Edge is installed, which keeps no history of the visit
 but writes what Edge writes whenever it starts; otherwise, and when run as administrator, the
-default browser, which records the visit as it records any other. Its address works once.`, pkg.version);
+default browser, which records the visit as it records any other. Its address works once.`, pkg.version, codeList());
+
+/** The languages' codes (i18n's LOCALES), as a list that wraps under --lang in the help. */
+function codeList(width = 64, indent = ' '.repeat(24)) {
+  const lines = [];
+  for (const { code } of i18n.LOCALES) {
+    const last = lines.length - 1;
+    if (last >= 0 && lines[last].length + code.length + 2 <= width) lines[last] += `, ${code}`;
+    else if (last >= 0) lines.push(`${lines.pop()},`, code);
+    else lines.push(code);
+  }
+  return lines.join(`\n${indent}`);
+}
 
 function usageError(message) {
   const e = new Error(message);
@@ -239,12 +260,13 @@ async function cmdFind(pattern, v) {
   }
 
   print('');
-  const width = Math.max(...perSource.map((s) => t(s.label).length));
+  // Lined up by the columns a label takes, not its length: labels are translated (format.js).
+  const width = Math.max(...perSource.map((s) => fmt.displayWidth(t(s.label))));
   for (const s of perSource) {
     let extra = '';
     if (s.id === 'git' && stats.repos != null) extra = '   ' + t('(repositories searched: {0})', stats.repos);
     if (s.error) extra = '   ' + t('failed: {0}', s.error);
-    print(`  ${t(s.label).padEnd(width)}  ${(s.skipped ? '-' : String(s.count)).padStart(5)}${extra}`);
+    print(`  ${fmt.pad(t(s.label), width)}  ${fmt.padStart(s.skipped ? '-' : String(s.count), 5)}${extra}`);
     for (const n of s.notes || []) print(`  ${' '.repeat(width)}  ! ${n}`);
   }
   printNotes(notes);
@@ -399,7 +421,7 @@ async function cmdRebuild(rest, v) {
   print(t('Rebuilt {0} of {1} file(s) below {2}', written.length, plan.length, folder));
   print(t('into {0}', root));
   print('');
-  for (const [kind, n] of [...byKind].sort((a, b) => b[1] - a[1])) print(`  ${String(n).padStart(5)}  ${t(kind)}`);
+  for (const [kind, n] of [...byKind].sort((a, b) => b[1] - a[1])) print(`  ${fmt.padStart(String(n), 5)}  ${t(kind)}`);
   printLeftOut(leftOut, sep);
   if (failed.length) {
     print('');
@@ -425,20 +447,80 @@ async function cmdSources(v) {
  * window on it. The server is loaded only here, so the rest of the command line never loads it.
  * It says itself where it can be reached, how its window was opened -- with --no-open none is,
  * and the address is only printed -- and how it stops; the process keeps running while it does.
+ * The language asked for (languageOf()) is passed on to it, for its page.
  */
-async function cmdGui(v, deps) {
+async function cmdGui(v, deps, lang) {
   let port = 0;
   if (v.port !== undefined) {
     port = /^\d{1,5}$/.test(v.port.trim()) ? Number(v.port) : NaN;
     if (!(port >= 0 && port <= 65535)) throw usageError(t('Give --port as a number from 0 to 65535.'));
   }
-  await deps.gui().start({ port, open: !v['no-open'], host: '127.0.0.1' });
+  await deps.gui().start({ port, open: !v['no-open'], host: '127.0.0.1', ...(lang === undefined ? {} : { lang }) });
   return 0;
 }
 
-// What main() reaches outside this file, replaceable for tests: the GUI server, and whether this
-// runs as the single Solarljos executable, where no arguments at all -- a double-click -- means
-// the GUI rather than the help.
+/**
+ * The arguments as far as they can be read before they are checked, which a mistake in them
+ * stops: the language asked for, the command, and whether there is nothing else -- no argument
+ * at all, or --lang alone.
+ */
+function glance(argv) {
+  try {
+    const { values, positionals } = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true, strict: false });
+    return {
+      lang: typeof values.lang === 'string' && !values.lang.startsWith('-') ? values.lang : undefined,
+      first: positionals[0],
+      bare: !positionals.length && Object.keys(values).every((k) => k === 'lang'),
+    };
+  } catch (_) {
+    return { lang: undefined, first: undefined, bare: !argv.length };
+  }
+}
+
+/**
+ * The language asked for: --lang, read before the rest of the arguments so that a complaint about
+ * them is in it too, else SOLARLJOS_LANG. Undefined for neither, and then it is English, whatever
+ * the system's language, so that what is printed is the same on every machine.
+ */
+function languageOf(glanced, env) {
+  for (const given of [glanced.lang, env.SOLARLJOS_LANG]) {
+    if (typeof given === 'string' && given.trim()) return given.trim();
+  }
+  return undefined;
+}
+
+/** Speaks the language asked for, and says when there is no complete translation into it. */
+function speak(lang, d) {
+  if (lang === undefined) return;
+  if (d.setLocale(lang) === 'en' && !/^en(?:[-_.]|$)/i.test(lang)) {
+    note(t('Solarljos has no complete translation into {0}, so it speaks English.', lang));
+  }
+}
+
+/**
+ * What Solarljos.exe shows in a console window of its own when it is given arguments with
+ * nowhere to print them (main()): typed in a console, which a GUI program has none of.
+ */
+function commandLineHelp(exe) {
+  return [
+    t('{0} was given arguments, which makes it the command line, but it is a Windows program without a console: nothing it printed would be seen, so it did nothing.', exe),
+    '',
+    t('To use it as the command line, send what it prints to a program or a file:'),
+    `  ${exe} find budget | more`,
+    `  ${exe} find budget > found.txt 2>&1`,
+    '',
+    t('Or run the command line alone, solarljos.cjs from the same release, with Node.js 22 or later:'),
+    '  node solarljos.cjs find budget',
+    '',
+    t('Started with no arguments, {0} opens its window.', exe),
+  ];
+}
+
+// What main() reaches outside this file, replaceable for tests: the GUI server; whether this runs
+// as the single Solarljos executable, where no arguments at all -- a double-click -- means the
+// GUI rather than the help; the system, its environment, and the language t() speaks; and, as the
+// executable is a Windows GUI program with no console, whether what is written to fd 1 or 2 is
+// seen, and a console window of its own for what would not be (launch.js has the measurements).
 const DEPS = {
   gui: () => require('./gui/server'),
   isSea: () => {
@@ -448,16 +530,55 @@ const DEPS = {
       return false;
     }
   },
+  platform: process.platform,
+  env: process.env,
+  execPath: process.execPath,
+  setLocale: (code) => i18n.setLocale(code),
+  // No handle, or a character device that is no TTY: the NUL device Node puts in place of one it
+  // was not given. As launch.js's writesNowhere(), which the command line does not load for this.
+  writesNowhere: (fd) => {
+    try {
+      return fs.fstatSync(fd).isCharacterDevice() && !tty.isatty(fd);
+    } catch (_) {
+      return true;
+    }
+  },
+  tell: (lines) => require('./gui/launch').messageWindow(lines),
 };
+
+/**
+ * An error that stops the GUI before its page opens, or the program itself, shown in a console
+ * window of its own where what is written to stderr goes nowhere -- as for Solarljos.exe started
+ * by a double-click -- rather than lost. Its message comes from outside, and goes through
+ * launch.js's plain() first.
+ */
+async function unseen(message, d = DEPS) {
+  if (d.platform !== 'win32' || !d.writesNowhere(2)) return;
+  const { plain } = require('./gui/launch');
+  await d.tell([t('Solarljos stopped with an error: {0}', plain(message))]);
+}
 
 async function main(argv, deps = {}) {
   const d = { ...DEPS, ...deps };
+  const glanced = glance(argv);
+  const lang = languageOf(glanced, d.env);
+  speak(lang, d);
+  const sea = d.isSea();
+  // Solarljos.exe with no arguments, or none but --lang, is a double-click or a shortcut: the GUI.
+  let command = sea && glanced.bare ? 'gui' : glanced.first;
+  // Given arguments where nothing it prints would be seen -- typed in a console, which a GUI
+  // program does not print in -- Solarljos.exe says so in a console window, and does nothing.
+  if (sea && d.platform === 'win32' && command !== 'gui' && d.writesNowhere(1)) {
+    await d.tell(commandLineHelp(path.basename(d.execPath)));
+    return 2;
+  }
   let parsed;
   try {
     parsed = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true, strict: true });
   } catch (e) {
     note(e.message);
     note(t('Run solarljos --help for usage.'));
+    if (command === 'gui') await unseen(e.message, d);
     return 2;
   }
   const v = parsed.values;
@@ -466,7 +587,7 @@ async function main(argv, deps = {}) {
     print(pkg.version);
     return 0;
   }
-  const command = !argv.length && d.isSea() ? 'gui' : first;
+  command = sea && glanced.bare ? 'gui' : first;
   if (v.help || !command || command === 'help') {
     print(HELP());
     return 0;
@@ -481,11 +602,12 @@ async function main(argv, deps = {}) {
       case 'restore': return await cmdRestore(rest, v);
       case 'rebuild': return await cmdRebuild(rest, v);
       case 'sources': return await cmdSources(v);
-      case 'gui': return await cmdGui(v, d);
+      case 'gui': return await cmdGui(v, d, lang);
       default: throw usageError(t('Unknown command: {0}', command));
     }
   } catch (e) {
     note(e.message);
+    if (command === 'gui') await unseen(e.message, d);
     if (e.usage) {
       note(t('Run solarljos --help for usage.'));
       return 2;
@@ -494,4 +616,4 @@ async function main(argv, deps = {}) {
   }
 }
 
-module.exports = { main, _internal: { parseSince, ownDirs, kindLabel, shownPath, toJson } };
+module.exports = { main, unseen, _internal: { parseSince, ownDirs, kindLabel, shownPath, toJson, glance, commandLineHelp } };

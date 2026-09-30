@@ -287,6 +287,161 @@ test('the single executable run with no arguments opens the GUI; anything else i
   assert.strictEqual(help.loaded, false, 'the server is not even loaded for the command line');
 });
 
+/**
+ * Runs main() in a child as Solarljos.exe would run it, with every way out of it a stand-in: the
+ * GUI server (which fails with `fails`, a usage error when `usage`), whether it is the executable,
+ * the system, the environment, which of fds 1 and 2 go nowhere (`nowhere`), the language t() is
+ * set to, and the console window of its own (`tell`), which only records what it would show.
+ */
+function exe(argv, { sea = true, platform = 'win32', env = {}, nowhere = [], fails = null, usage = false } = {}) {
+  const root = workDir('cli-exe');
+  dirs.push(root);
+  const i18n = JSON.stringify(path.join(__dirname, '..', 'src', 'i18n.js'));
+  const script = write(path.join(root, 'run.js'), `
+    const { main } = require(${JSON.stringify(path.join(__dirname, '..', 'src', 'cli.js'))});
+    const i18n = require(${i18n});
+    const calls = { start: [], tell: [], setLocale: [] };
+    const server = { start: async (o) => {
+      calls.start.push(o);
+      if (${JSON.stringify(fails)}) throw Object.assign(new Error(${JSON.stringify(fails)}), { usage: ${usage} });
+      return { url: 'http://127.0.0.1:5555/?k=token', close: async () => {} };
+    } };
+    main(${JSON.stringify(argv)}, {
+      gui: () => server, isSea: () => ${sea}, platform: ${JSON.stringify(platform)}, env: ${JSON.stringify(env)},
+      execPath: 'C:\\\\Users\\\\me\\\\Downloads\\\\Solarljos.exe',
+      setLocale: (code) => { calls.setLocale.push(code); return i18n.setLocale(code); },
+      writesNowhere: (fd) => ${JSON.stringify(nowhere)}.includes(fd),
+      tell: async (lines) => { calls.tell.push(lines); return { shown: true }; },
+    }).then((code) => process.stderr.write('\\n' + JSON.stringify({ code, calls }) + '\\n'));
+  `);
+  const r = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
+  const lines = r.stderr.trim().split('\n');
+  return { ...JSON.parse(lines[lines.length - 1]), out: r.stdout, err: r.stderr };
+}
+
+test('--lang, or SOLARLJOS_LANG, sets the language, and gui passes it on; English is the default', () => {
+  assert.deepStrictEqual(exe(['--version'], { sea: false }).calls.setLocale, [], 'nothing asked for: English, whatever the system says');
+  assert.deepStrictEqual(exe(['--version', '--lang', 'ko'], { sea: false }).calls.setLocale, ['ko']);
+  assert.deepStrictEqual(exe(['--version'], { sea: false, env: { SOLARLJOS_LANG: 'ja' } }).calls.setLocale, ['ja']);
+  assert.deepStrictEqual(exe(['--version', '--lang=de'], { sea: false, env: { SOLARLJOS_LANG: 'ja' } }).calls.setLocale, ['de'],
+    'the command line wins');
+  // Read even when the rest does not parse, so that the complaint is in that language.
+  const bad = exe(['find', '--bogus', '--lang', 'fr'], { sea: false });
+  assert.deepStrictEqual([bad.code, bad.calls.setLocale], [2, ['fr']]);
+  assert.strictEqual(exe(['--version', '--lang'], { sea: false }).code, 2, '--lang needs a code');
+
+  const shown = exe(['gui', '--no-open', '--lang', 'ko'], { sea: false });
+  assert.deepStrictEqual(shown.calls.start, [{ port: 0, open: false, host: '127.0.0.1', lang: 'ko' }]);
+  const fromEnv = exe(['gui'], { sea: false, env: { SOLARLJOS_LANG: 'ja' } });
+  assert.deepStrictEqual(fromEnv.calls.start, [{ port: 0, open: true, host: '127.0.0.1', lang: 'ja' }]);
+  // Solarljos.exe with --lang alone is still a double-click: the GUI, in that language.
+  const clicked = exe(['--lang', 'ko']);
+  assert.deepStrictEqual(clicked.calls.start, [{ port: 0, open: true, host: '127.0.0.1', lang: 'ko' }]);
+  assert.deepStrictEqual(exe(['--lang', 'ko'], { sea: false }).calls.start, [], 'the command line prints its help');
+
+  // With the real catalogs: a language there is no complete translation into stays English, and says so.
+  const f = fixtures();
+  const xx = cli(['--version', '--lang', 'xx'], f);
+  assert.deepStrictEqual([xx.code, xx.out.trim()], [0, pkg().version]);
+  assert.match(xx.err, /no complete translation into xx, so it speaks English/);
+  assert.match(cli(['--version'], f, { SOLARLJOS_LANG: 'xx-YY' }).err, /translation into xx-YY/);
+  assert.strictEqual(cli(['--version', '--lang', 'en-GB'], f).err, '');
+  const help = cli(['--help'], f).out;
+  assert.match(help, /--lang <code> +the language to use/);
+  assert.match(help, /en, ko, ja, zh-CN/);
+});
+
+const pkg = () => require('../package.json');
+
+test('find lines its columns up by the columns the translated text takes', () => {
+  const i18n = require('../src/i18n');
+  const { displayWidth } = require('../src/format');
+  const f = fixtures();
+  for (const lang of ['ko', 'ja', 'th', 'hi']) {
+    const r = cli(['find', '*', '--lang', lang], f);
+    assert.strictEqual(r.code, 0, r.err);
+    const lines = r.out.split('\n');
+    // Each source's count ends at one column, however wide its translated label.
+    const ends = [];
+    for (const l of lines.slice(1)) {
+      if (!l.trim()) break;
+      const m = /^(.*?\S)( +)(\d+|-)(?=$| {3})/.exec(l);
+      if (m) ends.push(displayWidth(m[0]));
+    }
+    assert.ok(ends.length >= 10, `${lang}: ${ends.length} sources`);
+    assert.strictEqual(new Set(ends).size, 1, `${lang}: counts end at ${ends}`);
+    // The table: the path starts at one column in every row, and the header's last cell with it.
+    // (Whatever language the catalogs speak -- English, where one is not complete -- this holds.)
+    let PATH;
+    try {
+      i18n.setLocale(lang);
+      PATH = i18n.t('PATH');
+    } finally {
+      i18n.setLocale('en');
+    }
+    const first = lines.findIndex((l) => /^[0-9a-f]{8} /.test(l));
+    const header = lines[first - 1];
+    const rows = lines.slice(first).filter((l) => /^[0-9a-f]{8} /.test(l));
+    assert.strictEqual(rows.length, 2, lang);
+    const at = [displayWidth(header) - displayWidth(PATH), ...rows.map((l) => displayWidth(l.slice(0, l.indexOf('C:\\Users\\alice\\'))))];
+    assert.strictEqual(new Set(at).size, 1, `${lang}: the path column starts at ${at}`);
+  }
+});
+
+test('Solarljos.exe given arguments with nowhere to print says so in a console window, and does nothing', () => {
+  const recycle = path.join(workDir('cli-nowhere'), 'no-such-bin');
+  dirs.push(path.dirname(recycle));
+  const where = ['--no-discover', '--recycle-dir', recycle];
+  for (const argv of [['--version'], ['--help'], ['find', 'budget', ...where], ['find', '--bogus'], ['frobnicate']]) {
+    const r = exe(argv, { nowhere: [1, 2] });
+    assert.strictEqual(r.code, 2, argv.join(' '));
+    assert.deepStrictEqual([r.out, r.calls.start], ['', []], argv.join(' '));
+    assert.strictEqual(r.calls.tell.length, 1, argv.join(' '));
+    const said = r.calls.tell[0].join('\n');
+    assert.match(said, /^Solarljos\.exe was given arguments, which makes it the command line/);
+    assert.match(said, /^ {2}Solarljos\.exe find budget \| more$/m);
+    assert.match(said, /^ {2}Solarljos\.exe find budget > found\.txt 2>&1$/m);
+    assert.match(said, /^ {2}node solarljos\.cjs find budget$/m);
+  }
+  // Its output sent to a file or a program: the command line, exactly as before.
+  const piped = exe(['--version'], { nowhere: [2] });
+  assert.deepStrictEqual([piped.code, piped.out, piped.calls.tell], [0, `${pkg().version}\n`, []]);
+  // gui, with or without its name, needs nowhere to print: its page is its window.
+  for (const argv of [[], ['gui'], ['gui', '--port', '8123'], ['--lang', 'ko']]) {
+    const r = exe(argv, { nowhere: [1, 2] });
+    assert.deepStrictEqual([r.code, r.calls.start.length, r.calls.tell], [0, 1, []], argv.join(' '));
+  }
+  // Only the Windows program, which has no console, does this.
+  assert.deepStrictEqual(exe(['--version'], { nowhere: [1, 2], platform: 'linux' }).calls.tell, []);
+  assert.deepStrictEqual(exe(['--version'], { nowhere: [1, 2], sea: false }).calls.tell, []);
+});
+
+test('an error that stops the GUI before its page opens is shown in a window where stderr goes nowhere', async () => {
+  const failed = exe([], { nowhere: [1, 2], fails: 'Could not listen on 127.0.0.1 port 80: listen EACCES & "denied"' });
+  assert.strictEqual(failed.code, 1);
+  assert.deepStrictEqual(failed.calls.tell, [["Solarljos stopped with an error: Could not listen on 127.0.0.1 port 80: listen EACCES   'denied'"]]);
+  const busy = exe(['gui', '--port', '8123'], { nowhere: [1, 2], fails: 'port 8123 is taken', usage: true });
+  assert.deepStrictEqual([busy.code, busy.calls.tell.length], [2, 1]);
+  const typo = exe(['gui', '--prot', '8123'], { nowhere: [1, 2] });
+  assert.deepStrictEqual([typo.code, typo.calls.start], [2, []]);
+  assert.match(typo.calls.tell[0][0], /^Solarljos stopped with an error: Unknown option '--prot'/);
+  const port = exe(['gui', '--port', 'x'], { nowhere: [1, 2] });
+  assert.deepStrictEqual([port.code, port.calls.tell], [2, [['Solarljos stopped with an error: Give --port as a number from 0 to 65535.']]]);
+  // Where stderr is seen, it is printed there, as before, and no window opens.
+  const seen = exe([], { nowhere: [1], fails: 'Could not listen' });
+  assert.deepStrictEqual([seen.code, seen.calls.tell], [1, []]);
+  assert.match(seen.err, /^Could not listen$/m);
+
+  // bin/solarljos.js hands anything main() lets through to unseen() too.
+  const { unseen } = require('../src/cli');
+  const told = [];
+  const tell = async (lines) => told.push(lines);
+  await unseen('it broke\n  at "x" & y', { platform: 'win32', writesNowhere: () => true, tell });
+  await unseen('seen', { platform: 'win32', writesNowhere: () => false, tell });
+  await unseen('not Windows', { platform: 'linux', writesNowhere: () => true, tell });
+  assert.deepStrictEqual(told, [["Solarljos stopped with an error: it broke   at 'x'   y"]]);
+});
+
 test('rebuild says what the sources noted, above all when nothing turned up', () => {
   const f = fixtures();
   // A folder with no Linux trash in it: the trash source says so.

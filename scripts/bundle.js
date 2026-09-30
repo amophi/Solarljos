@@ -50,7 +50,8 @@
 //
 // Measured on Windows 11 with Node 22.23, 24.20 and 26.10: 0.3.0's tree is 24 modules, 380,404
 // bytes, bundled in under 30 ms, and `sources` and `--help` print the same as from the source;
-// with the front end and the media sources, 35 modules and 920,017 bytes, and 4 page files.
+// with the front end and the media sources (0.4.0), 35 modules and 920,017 bytes, and 4 page files;
+// with 0.5.0's translations, 54 modules and 2,769,774 bytes, and 21 page files.
 // test/bundle.test.js bundles the tree and runs the bundle on every run of the tests, so that
 // what would break the executable shows before a release is tagged, not after.
 

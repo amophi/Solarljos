@@ -2,7 +2,8 @@
 
 // Builds dist/Solarljos.exe: all of Solarljos in one Windows program, the bundle from
 // scripts/bundle.js made the main script of a Node single executable application inside a copy
-// of the node.exe running this script. Nothing is downloaded, and nothing from npm is used.
+// of the node.exe running this script, and made a GUI program, which opens no console window.
+// Nothing is downloaded, and nothing from npm is used.
 //
 //   node scripts/build-exe.js
 //
@@ -22,25 +23,41 @@
 //      differed between two builds of the same source) and saved about 3 ms of a 75 ms start;
 //      without it, one commit built with one Node version gives the same exe byte for byte.
 //      execArgvExtension "none" keeps NODE_OPTIONS from adding --require or anything else to the
-//      program, as it could to node.exe. The page files go in as assets (see bundle.js).
-//   4. --build-sea, then the header's checksum made right again: injecting keeps the copy's,
-//      which no longer fits. Windows checks it only for drivers, but a right one costs nothing.
-//   5. The program is tried: its version, that every source loads (search.js turns one that
-//      does not into a source that finds nothing), a search and a restore on a made-up Linux
-//      trash, and the graphical front end, opened at the address it prints as a browser would:
-//      its page must be index.html itself, byte for byte, not the notice the server shows when
-//      the exe lacks its page files, and every file the page names must come back. It is
-//      started with --no-open, so no browser opens, and never without arguments, which opens a
-//      window. It reads what changes on its own, such as the thumbnail cache, before printing
-//      the address, as it always does; nothing more. Everything written stays in dist/build.
-//   6. dist/Solarljos.exe.sha256, as `sha256sum -c` reads it -- only once every check passed, so
-//      an exe without one beside it is left from a build that failed.
+//      program, as it could to node.exe. The page files go in as assets (see bundle.js), from
+//      copies made in dist/build when the tree was bundled, so that the exe holds them as they
+//      were then, and as the tries compare them, whatever is saved in src/gui meanwhile. The blob
+//      keeps an asset's key and bytes, not the file it came from.
+//   4. --build-sea, then the header's Subsystem made the Windows GUI's (2) instead of the
+//      console's (3), which node.exe has, and only then its checksum made right again: injecting
+//      keeps the copy's, which no longer fits, and the Subsystem is among what it sums. Windows
+//      checks the checksum only for drivers, but a right one costs nothing. A console program
+//      started by Explorer gets a console window of its own, which is all a double-click showed
+//      besides the page; a GUI program gets none, nor is it given the console of one it is
+//      started from, so what it prints goes nowhere unless its output is sent to a file or a
+//      program. src/gui/launch.js says where that was measured and what makes up for it. The
+//      Subsystem is read back from the file written, which must say 2.
+//   5. The program is tried, with pipes for its output, which a GUI program is handed as any
+//      other is: its version, its help, that every source loads (search.js turns one that does
+//      not into a source that finds nothing), a search and a restore on a made-up Linux trash,
+//      and the graphical front end, opened at the address it prints as a browser would: its
+//      page must be index.html itself, byte for byte, not the notice the server shows when the
+//      exe lacks its page files; every page file bundle.js lists must come back as its own
+//      bytes, those the page fetches itself (lang/*.json, say) as well as those it names; and
+//      any other file the page names must come back too. It is started with --no-open, so no
+//      browser opens, and never without arguments, which opens a window. It reads what changes
+//      on its own, such as the thumbnail cache, before printing the address, as it always does;
+//      nothing more. Everything written stays in dist/build.
+//   6. dist/Solarljos.exe.sha256 and dist/solarljos.cjs.sha256, as `sha256sum -c` reads them --
+//      only once every check passed, so an exe without one beside it is left from a build that
+//      failed. release.yml attaches all four to the release.
 //
-// Measured on Windows 11 with Node 26.10.0, with 35 modules (a bundle of 920,017 bytes) and the 4
-// page files: an exe of 106,036,224 bytes -- node.exe's 104,714,056 less its signature, plus the
-// bundle and the page -- made and tried in 9.7 s the first time, most of it Defender looking at a
-// new 100 MB program and the front end reading the thumbnail cache before it printed its address,
-// and in 1.7 s the next. The exe names no certificate table, and its checksum is what
+// Measured on Windows 11 with Node 26.10.0, for 0.4.0 -- 35 modules (a bundle of 920,017 bytes)
+// and 4 page files: an exe of 106,036,224 bytes -- node.exe's 104,714,056 less its signature, plus
+// the bundle and the page -- made and tried in 9.7 s the first time, most of it Defender looking at
+// a new 100 MB program and the front end reading the thumbnail cache before it printed its
+// address, and in 1.7 s the next. For 0.5.0, with the translations -- 54 modules (2,769,774 bytes,
+// the 17 catalogs among them) and 21 page files (17 of them the page's language tables) -- the exe
+// is 109,127,680 bytes, made and tried in 11.4 s. The exe names no certificate table, and its checksum is what
 // CheckSumMappedFile computes (which gives the one shipped in node.exe 24.20 and 26.10). The
 // configuration names every file relative to the project: the blob keeps the main script's name
 // as given, and an absolute one put the builder's folder, user name included, into the program.
@@ -66,6 +83,10 @@ const EXE = path.join(DIST, 'Solarljos.exe');
 const BUNDLE = path.join(DIST, 'solarljos.cjs');
 const TIMEOUT = 120000;
 
+// The Subsystem values that matter here (winnt.h): a GUI program, and a console one, as node.exe is.
+const IMAGE_SUBSYSTEM_WINDOWS_GUI = 2;
+const IMAGE_SUBSYSTEM_WINDOWS_CUI = 3;
+
 // The PE header fields touched here (Microsoft's "PE Format"): the optional header starts 24 bytes
 // after "PE\0\0"; CheckSum is at +64 in it, Subsystem at +68, and the data directories follow the
 // Windows-specific fields, at +96 in PE32 and +112 in PE32+, with their count just before. The
@@ -82,6 +103,7 @@ function peHeader(buf) {
   const dirs = buf.readUInt32LE(opt + (plus ? 108 : 92));
   return {
     checksumAt: opt + 64,
+    subsystemAt: opt + 68,
     subsystem: buf.readUInt16LE(opt + 68),
     certAt: dirs > 4 ? opt + (plus ? 112 : 96) + 4 * 8 : -1,
   };
@@ -124,6 +146,21 @@ function withoutSignature(buf) {
   }
   out.writeUInt32LE(peChecksum(out, h), h.checksumAt);
   return { data: out, removed: signed ? cert.size : 0 };
+}
+
+/**
+ * A copy of a PE file with its Subsystem set -- IMAGE_SUBSYSTEM_WINDOWS_GUI, say -- and then its
+ * checksum made right, since the field is among what it sums.
+ */
+function setSubsystem(buf, subsystem) {
+  if (!Number.isInteger(subsystem) || subsystem < 1 || subsystem > 0xffff) {
+    throw new RangeError(`A PE Subsystem is a number from 1 to 65535, not ${subsystem}`);
+  }
+  const h = peHeader(buf);
+  const out = Buffer.from(buf);
+  out.writeUInt16LE(subsystem, h.subsystemAt);
+  out.writeUInt32LE(peChecksum(out, h), h.checksumAt);
+  return out;
 }
 
 function stop(message) {
@@ -184,8 +221,11 @@ async function visit(url, jar) {
 /**
  * Starts the front end with --no-open, takes the address it prints, and opens it as a browser
  * would: the page must be src/gui/<folder>/index.html itself, not the notice the server gives
- * when the exe lacks it, and every file the page names by a relative address must come back, the
- * same bytes as its page file when there is one. The process is ended afterwards either way.
+ * when the exe lacks it; every page file must come back by its key as its own bytes, whether the
+ * page names it or fetches it itself; and every other file the page names by a relative address
+ * must come back too. The process is ended afterwards either way.
+ * @param {{ key: string, file: string, bytes: Buffer }[]} pages   as they went into the exe
+ * @returns {Promise<{ pages: number, named: number }>}  how many page files, and how many files the page names
  */
 async function tryGui(pages) {
   const index = pages.find((p) => p.key === 'index.html');
@@ -216,19 +256,27 @@ async function tryGui(pages) {
     });
     const jar = new Map();
     const page = await visit(url, jar);
-    check(page.status === 200 && /text\/html/.test(page.type) && page.body.equals(fs.readFileSync(index.file)),
+    check(page.status === 200 && /text\/html/.test(page.type) && page.body.equals(index.bytes),
       `gui: the page served (${page.status}, ${page.type}, ${page.body.length} bytes) is not ${index.file}`);
+    // Every page file by its key, as the server serves it below /: the page fetches some of them
+    // itself, which it does not name in its HTML.
+    for (const p of pages) {
+      const at = new URL(p.key.split('/').map(encodeURIComponent).join('/'), page.url.origin + '/');
+      const r = await get(at.href, jar);
+      check(r.status === 200 && r.body.equals(p.bytes),
+        `gui: the page file ${p.key} came back ${r.status}, ${r.body.length} bytes, not the ${p.bytes.length} bytes of ${p.file}`);
+    }
+    const own = new Set(pages.map((p) => p.key));
     const names = [...new Set([...page.body.toString('utf8').matchAll(/\b(?:src|href)\s*=\s*["']([^"'#?]+)/g)]
       .map((m) => m[1]).filter((ref) => !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(ref)))];
     for (const ref of names) {
       const at = new URL(ref, page.url);
       check(at.origin === page.url.origin, `gui: the page names ${ref} on another origin`);
+      if (own.has(decodeURIComponent(at.pathname.slice(1)))) continue; // came back above, as its own bytes
       const r = await get(at.href, jar);
-      const own = pages.find((p) => p.key === decodeURIComponent(at.pathname.slice(1)));
-      check(r.status === 200 && (own ? r.body.equals(fs.readFileSync(own.file)) : r.body.length > 0),
-        `gui: ${ref} came back ${r.status}, ${r.body.length} bytes${own ? `, not the bytes of ${own.file}` : ''}`);
+      check(r.status === 200 && r.body.length > 0, `gui: ${ref} came back ${r.status}, ${r.body.length} bytes`);
     }
-    return names.length;
+    return { pages: pages.length, named: names.length };
   } finally {
     child.kill();
   }
@@ -273,6 +321,8 @@ async function tryAll(pkg, pages) {
   return tryGui(pages);
 }
 
+const sha256Of = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+
 async function build() {
   const started = Date.now();
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -282,9 +332,11 @@ async function build() {
   }
 
   // An exe from an earlier build must not sit beside a newer bundle when this one stops short.
-  fs.rmSync(EXE, { force: true });
-  fs.rmSync(`${EXE}.sha256`, { force: true });
-  const { code, modules, pages } = bundle();
+  for (const f of [EXE, `${EXE}.sha256`, `${BUNDLE}.sha256`]) fs.rmSync(f, { force: true });
+  const bundled = bundle();
+  const { code, modules } = bundled;
+  // The page files' bytes as the modules were read: what goes into the exe, and what it must serve.
+  const pages = bundled.pages.map((p) => ({ ...p, bytes: fs.readFileSync(p.file) }));
   fs.mkdirSync(DIST, { recursive: true });
   fs.writeFileSync(BUNDLE, code);
   console.log(`bundle   ${modules.length} modules, ${pages.length} page file(s), ${Buffer.byteLength(code)} bytes -> ${BUNDLE}`);
@@ -299,6 +351,11 @@ async function build() {
 
   fs.rmSync(WORK, { recursive: true, force: true });
   fs.mkdirSync(path.join(WORK, 'run'), { recursive: true });
+  for (const p of pages) {
+    p.copy = path.join(WORK, 'pages', ...p.key.split('/'));
+    fs.mkdirSync(path.dirname(p.copy), { recursive: true });
+    fs.writeFileSync(p.copy, p.bytes);
+  }
   const node = path.join(WORK, 'node.exe');
   const unsigned = withoutSignature(fs.readFileSync(process.execPath));
   fs.writeFileSync(node, unsigned.data);
@@ -317,7 +374,7 @@ async function build() {
     useSnapshot: false,
     execArgv: [],
     execArgvExtension: 'none',
-    assets: Object.fromEntries(pages.map((p) => [p.key, rel(p.file)])),
+    assets: Object.fromEntries(pages.map((p) => [p.key, rel(p.copy)])),
   };
   const configFile = path.join(WORK, 'sea-config.json');
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
@@ -326,22 +383,36 @@ async function build() {
     throw new Error(`node --build-sea failed: ${sea.error ? sea.error.message : `exit ${sea.status}`}\n${sea.stdout || ''}${sea.stderr || ''}`);
   }
 
-  const exe = fs.readFileSync(EXE);
-  const h = peHeader(exe);
-  const cert = certificate(exe, h);
+  const built = fs.readFileSync(EXE);
+  const h = peHeader(built);
+  const cert = certificate(built, h);
   if (cert.at || cert.size) throw new Error(`Solarljos.exe names a certificate table (${cert.size} bytes at ${cert.at}); it would not verify.`);
-  exe.writeUInt32LE(peChecksum(exe, h), h.checksumAt);
-  fs.writeFileSync(EXE, exe);
-  const sha256 = crypto.createHash('sha256').update(exe).digest('hex');
-  console.log(`exe      ${exe.length} bytes -> ${EXE}`);
+  if (h.subsystem !== IMAGE_SUBSYSTEM_WINDOWS_CUI) {
+    throw new Error(`--build-sea made a program of PE subsystem ${h.subsystem}, not a copy of node.exe, `
+      + `a console program (${IMAGE_SUBSYSTEM_WINDOWS_CUI}).`);
+  }
+  fs.writeFileSync(EXE, setSubsystem(built, IMAGE_SUBSYSTEM_WINDOWS_GUI));
+  // What is on disk, read back: a GUI program, its checksum right.
+  const exe = fs.readFileSync(EXE);
+  const w = peHeader(exe);
+  if (w.subsystem !== IMAGE_SUBSYSTEM_WINDOWS_GUI || exe.readUInt32LE(w.checksumAt) !== peChecksum(exe, w)) {
+    throw new Error(`Solarljos.exe was written as PE subsystem ${w.subsystem}, checksum 0x${exe.readUInt32LE(w.checksumAt).toString(16)}; `
+      + `a Windows GUI program (${IMAGE_SUBSYSTEM_WINDOWS_GUI}) with checksum 0x${peChecksum(exe, w).toString(16)} was to be.`);
+  }
+  const sha256 = sha256Of(exe);
+  console.log(`exe      ${exe.length} bytes, a Windows GUI program (PE subsystem ${w.subsystem}) -> ${EXE}`);
 
   const tried = Date.now();
-  const files = await tryAll(pkg, pages);
-  console.log(`tried    --version, --help, sources, find, restore, and gui with its page and ${files} file(s) it names (${((Date.now() - tried) / 1000).toFixed(1)} s)`);
+  const gui = await tryAll(pkg, pages);
+  console.log(`tried    --version, --help, sources, find, restore, and gui with its ${gui.pages} page file(s) and the `
+    + `${gui.named} file(s) its page names (${((Date.now() - tried) / 1000).toFixed(1)} s)`);
 
+  const bundleSha256 = sha256Of(fs.readFileSync(BUNDLE));
   fs.writeFileSync(`${EXE}.sha256`, `${sha256}  ${path.basename(EXE)}\n`);
+  fs.writeFileSync(`${BUNDLE}.sha256`, `${bundleSha256}  ${path.basename(BUNDLE)}\n`);
   fs.rmSync(WORK, { recursive: true, force: true });
-  console.log(`sha256   ${sha256}`);
+  console.log(`sha256   ${sha256}  ${path.basename(EXE)}`);
+  console.log(`sha256   ${bundleSha256}  ${path.basename(BUNDLE)}`);
   console.log(`done in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 }
 
@@ -352,4 +423,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { peHeader, certificate, peChecksum, withoutSignature };
+module.exports = {
+  peHeader, certificate, peChecksum, withoutSignature, setSubsystem, IMAGE_SUBSYSTEM_WINDOWS_GUI, IMAGE_SUBSYSTEM_WINDOWS_CUI,
+};
