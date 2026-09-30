@@ -173,7 +173,14 @@ before(() => {
   write(path.join(crlfRepo, 'tool.txt'), 't1\nt2\n');
   write(path.join(crlfRepo, 'mixed.txt'), 'm1\r\nm2\n');
   sh(crlfRepo, 'add', 'tool.txt', 'mixed.txt');
-  sh(crlfRepo, 'commit', '-q', '-m', 'as written');
+  // This commit takes staged.txt too, as the same blob the index holds. The index dates its copy
+  // to the millisecond and a commit to the second, so a commit that fell in a later second than
+  // the checkout above would be the newer copy of the two, and win, now and then. Dated well
+  // before, it never is.
+  execFileSync('git', ['commit', '-q', '-m', 'as written'], {
+    cwd: crlfRepo, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, GIT_AUTHOR_DATE: '2001-01-01T00:00:00Z', GIT_COMMITTER_DATE: '2001-01-01T00:00:00Z' },
+  });
   fs.unlinkSync(path.join(crlfRepo, 'tool.txt'));
   fs.unlinkSync(path.join(crlfRepo, 'mixed.txt'));
 

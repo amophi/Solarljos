@@ -160,4 +160,24 @@ function dedupeBy(list, key) {
   return list.filter((x) => (seen.has(key(x)) ? false : seen.add(key(x))));
 }
 
-module.exports = { resolveLocations, editorDataBase };
+/**
+ * Whether this process may read disks directly, as reading a memory card's free space needs. On
+ * Windows that is whether \\.\PhysicalDrive0 opens for reading, which only a process started with
+ * "Run as administrator" can do; the device is opened read-only and closed at once, and nothing
+ * is read from it or written anywhere. Elsewhere it is whether this runs as root, which needs no
+ * look at a device at all.
+ */
+function isElevated(platform = process.platform) {
+  if (platform !== 'win32') return typeof process.geteuid === 'function' && process.geteuid() === 0;
+  let fd = null;
+  try {
+    fd = fs.openSync('\\\\.\\PhysicalDrive0', fs.constants.O_RDONLY);
+    return true;
+  } catch (_) {
+    return false;
+  } finally {
+    if (fd !== null) fs.closeSync(fd);
+  }
+}
+
+module.exports = { resolveLocations, editorDataBase, isElevated };

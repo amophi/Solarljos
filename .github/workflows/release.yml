@@ -1,0 +1,58 @@
+# On a v* tag: builds Solarljos.exe on Windows with the Node version pinned below, runs the tests,
+# lets scripts/build-exe.js try the exe itself, and attaches the exe and its SHA-256 to the GitHub
+# release of that tag, making the release when there is none yet. Nothing from npm is installed.
+#
+# The Node version is exact because the exe is that very node.exe, less its signature, with the
+# bundle inside: the same tag built with the same version gives the same bytes, in whatever folder
+# it is checked out (scripts/build-exe.js names every file relative to it), so anyone can check a
+# download by building it again. --build-sea needs Node 25.5 or later. ci.yml builds and tries the
+# exe the same way on every push, so a tag rarely meets a build that fails.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write       # make the release and upload to it
+  id-token: write       # sign the build provenance (Sigstore)
+  attestations: write   # checked with: gh attestation verify Solarljos.exe -R amophi/Solarljos
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26.10.0'
+      - name: The tag is the version in package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME does not match package.json's version $version."
+            exit 1
+          fi
+      - run: npm test
+      - run: node scripts/build-exe.js
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/Solarljos.exe
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            pre=()
+            case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Solarljos ${GITHUB_REF_NAME#v}" --generate-notes "${pre[@]}"
+          fi
+          gh release upload "$GITHUB_REF_NAME" dist/Solarljos.exe dist/Solarljos.exe.sha256 --clobber

@@ -17,4 +17,20 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
+      # test/bundle.test.js bundles the tree and runs the bundle too.
       - run: npm test
+
+  # The program as release.yml builds it, with the same Node, and tried by scripts/build-exe.js
+  # itself: what breaks it -- a change in --build-sea, a page file the server cannot find -- shows
+  # here, before a v* tag is pushed rather than after. Nothing is uploaded.
+  exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26.10.0'
+      - run: node scripts/build-exe.js

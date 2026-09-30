@@ -117,6 +117,33 @@ test('a path that was a file in one copy and a folder in another brings back bot
   assert.strictEqual(fs.readFileSync(path.join(r.root, 'bin (recovered 2)'), 'utf8'), 'the old script');
 });
 
+test('a copy added to a plan that is not simply the file is written under a name that says so', async () => {
+  const s = makeSources();
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+  const plan = [
+    { rel: ['a.txt'], copy: { kind: 'claude write', text: 'a' } },
+    { rel: ['pics', 'clip.mp4'], copy: { kind: 'thumbnail', buffer: jpeg, ext: '.jpg', width: 4, height: 3 } },
+    { rel: ['pics', 'b.jpg'], copy: { kind: 'carved', buffer: jpeg } },
+  ];
+  const events = [];
+  const r = await rebuild(plan, PROJ, path.join(s.root, 'out'), [], git, { onProgress: (e) => events.push(e) });
+  assert.deepStrictEqual(r.failed, []);
+  assert.deepStrictEqual(fs.readdirSync(path.join(r.root, 'pics')).sort(), ['b (may be incomplete).jpg', 'clip (smaller copy 4x3).jpg']);
+  assert.deepStrictEqual(events.map((e) => [e.done, e.total, e.rel.join('/')]), [[1, 3, 'a.txt'], [2, 3, 'pics/clip.mp4'], [3, 3, 'pics/b.jpg']]);
+});
+
+test('a file that cannot be read to its end is reported, and leaves nothing behind in the rebuilt folder', async () => {
+  const s = makeSources();
+  const place = write(path.join(s.root, 'card.img'), Buffer.alloc(4096, 1));
+  const plan = [
+    { rel: ['ok.txt'], copy: { kind: 'claude write', text: 'fine' } },
+    { rel: ['cut.bin'], copy: { kind: 'fat undelete', extent: { place, runs: [[0, 4096], [8192, 4096]] } } },
+  ];
+  const r = await rebuild(plan, PROJ, path.join(s.root, 'out'), [], git);
+  assert.deepStrictEqual(r.failed.map((f) => f.rel[0]), ['cut.bin']);
+  assert.deepStrictEqual(fs.readdirSync(r.root), ['ok.txt'], 'no part of it, under any name');
+});
+
 function cli(args, s) {
   const r = spawnSync(process.execPath, [BIN, ...args, '--no-discover',
     '--history-dir', s.history, '--recycle-dir', s.recycle, '--claude-dir', s.claudeDir], { cwd: s.root, encoding: 'utf8' });
@@ -147,6 +174,20 @@ test('rebuild without --to is a usage error; an empty folder finds nothing', () 
   assert.strictEqual(cli(['rebuild', 'C:\\nothing\\here', '--dry-run'], s).code, 1);
   const json = JSON.parse(cli(['rebuild', PROJ, '--dry-run', '--json'], s).out);
   assert.strictEqual(json.files.length, 4);
+});
+
+test('rebuild --type brings back only files of those types', () => {
+  const s = makeSources();
+  const pictures = JSON.parse(cli(['rebuild', PROJ, '--dry-run', '--json', '--type', 'image'], s).out);
+  assert.deepStrictEqual(pictures.files.map((f) => [f.path, f.from.mediaType, f.from.tier]), [['assets/logo.svg', 'image', 0]]);
+  assert.deepStrictEqual(pictures.leftOut, []);
+  assert.ok(pictures.sources.find((p) => p.id === 'claude').skipped, 'a source that keeps only text is left out');
+  const text = JSON.parse(cli(['rebuild', PROJ, '--dry-run', '--json', '--type', 'text'], s).out);
+  assert.deepStrictEqual(text.files.map((f) => f.path), ['README.md', 'src/main.js']);
+  const r = cli(['rebuild', PROJ, '--to', path.join(s.root, 'restored'), '--type', 'image'], s);
+  assert.strictEqual(r.code, 0, r.err);
+  assert.deepStrictEqual(fs.readdirSync(path.join(s.root, 'restored', 'proj')), ['assets']);
+  assert.strictEqual(cli(['rebuild', PROJ, '--dry-run', '--type', 'photos,sheets'], s).code, 2);
 });
 
 test('a bare drive is its root, on every system', () => {

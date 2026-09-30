@@ -425,6 +425,8 @@ function roots(loc) {
 module.exports = {
   id: 'editor-backups',
   label: 'Unsaved editor buffers',
+  // Text only: a search for pictures or videos leaves it out.
+  media: false,
   discover: () => {
     try {
       return discoverIn(dataBase());

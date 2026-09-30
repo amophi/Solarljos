@@ -1,5 +1,166 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+Old photos and videos, and a graphical front end in one Windows program: three new sources, a
+search by type, two new tiers for copies that are not simply the file, and restores that stream.
+
+The Windows program and its window:
+
+- `Solarljos.exe`, attached to each release, is all of Solarljos in one file of about 100 MB,
+  Node.js included, with nothing to install and nothing written beside it. Started with no
+  arguments -- a double-click -- it opens the graphical front end; given any, it is the command
+  line. It is not signed: SmartScreen asks before its first run, and Smart App Control, where it
+  is on, blocks it. `NODE_OPTIONS` does not reach it, and neither `NODE_V8_COVERAGE` nor
+  `NODE_REDIRECT_WARNINGS` can make it write a file.
+- `npm run build:exe` (Windows, Node 25.5 or later) builds it from a copy of the node.exe running
+  it, with that node.exe's signature taken off, since it would no longer verify, and tries it --
+  its version, that every source loads, a search and a restore on a made-up Linux trash, and the
+  page served as a browser asks for it -- before it writes `Solarljos.exe.sha256`. `npm run bundle`
+  writes the command line as one script, `dist/solarljos.cjs`, which runs on Node 22 or later;
+  the page's own files go only into the exe. One commit built with one Node version gives the
+  same exe byte for byte in any folder: built with Node 26.10.0 in two folders of different
+  names, it came out with the same SHA-256 both times.
+  `.github/workflows/release.yml` builds it with that Node on every `v*` tag, runs the tests, and
+  attaches the exe, its SHA-256 and a build attestation to the release; CI builds and tries it on
+  every push, and `npm test` bundles the tree and runs the bundle.
+- `solarljos gui`, with `--no-open` and `--port <n>`, starts a web server on 127.0.0.1 only and
+  opens its page: in an Edge InPrivate app window where Edge is installed, which keeps no history
+  of the visit but writes what Edge writes whenever it starts; otherwise, and always when run as
+  administrator, in the default browser through Explorer, which records the visit like any other.
+  `--no-open` only prints the address.
+- The page finds a file by name, by a word it contained or by kind of file, with the copies of
+  each file together and the best one first; shows photos and videos in a grid by month, the
+  undated ones in a group of their own; lists everything below a folder as a tree to tick;
+  previews a copy as a picture, a video, text in its encoding, or bytes; and restores or rebuilds
+  through the library and its checks, suggesting a folder on another drive and asking before it
+  writes onto the drive a file was on. It keeps nothing in the browser and downloads nothing: a
+  download would land in Downloads on the Windows drive, past every check a restore makes. It
+  starts no program but the browser window, and does not open Explorer to show what it restored,
+  which would make new thumbnails in the very cache a search for photos reads.
+- Only its own window can use it. The address carries a token that works once, traded for an
+  HttpOnly, SameSite=Strict cookie named after the port. Every request must name exactly
+  127.0.0.1 and that port, come from that origin and carry the cookie, and one that changes
+  anything must be a JSON POST with the page's own header. No reply is cached; a copy is shown
+  only as a picture, a video, text -- an `.html` or `.svg` copy as its text -- or its bytes; and
+  the page runs under a Content-Security-Policy with Trusted Types. Run as administrator, it
+  refuses to write into Windows, Program Files and ProgramData, however they are reached.
+- Before any window opens, it reads Explorer's thumbnail cache into memory, so that what the
+  browser or Explorer writes afterwards cannot change what is found. It stops a few seconds after
+  its page is closed, 30 s after the page went without saying goodbye, and 10 minutes after it
+  started when no window connected, but never in the middle of a restore or a rebuild; Ctrl+C,
+  or closing its console, waits up to 8 s for a write, and removes the temporary file of one it
+  has to cut.
+
+New sources:
+
+- Explorer thumbnails (`thumbcache`): the smaller pictures Windows made of the files Explorer
+  showed, from `thumbcache_*.db` in every format from Vista to 11, each entry checked by both of
+  its CRC-64s and by its picture's own structure. Each is a smaller copy (tier 4), restored as
+  `<name> (smaller copy WxH)<ext>` in its own format. The shortcuts and jump lists in `Recent`
+  name the pictures whose key they hash to, with the path and the time of the version shown; the
+  rest are listed only by a search by type for pictures with no name. The same folders in each
+  shadow copy are read too. The key has the file's time rounded up to the next two seconds, and
+  from Windows 8.1 on how far: rounded down, as the algorithm is usually read, only 16 of the 260
+  files on disk here whose key is in the cache matched. On the machine this was written on, all
+  1,775 entries of the live cache passed both checksums and all 810 pictures their own checks; a
+  search for pictures offered 306, and 31 of them were named.
+- Snipping Tool (`snips`): with saving turned off, the screenshots and screen recordings Windows
+  11's Snipping Tool keeps in its own `TempState`, and those of Windows 10's Snip & Sketch in
+  `ScreenClip`, exactly as taken, under the name the tool gave them. Each is dated by its file, or
+  by the time in its name when the two are further apart than any two time zones. Nothing was
+  there to read on the machine this was written on, where saving is on; of the 309 screenshots
+  the tool had saved, every name's time was the file's to within five seconds.
+- Cards and USB drives (`removable`): memory cards, USB sticks and disk images of them with
+  FAT12, FAT16, FAT32 or exFAT, read only when named with `--location removable=<place>` -- a
+  drive letter, `\\.\PhysicalDriveN`, a `/dev` node, or an image. Deleted files still in their
+  folders come back with their names, sizes and times (`fat undelete`, `exfat undelete`), checked
+  by their format's own structure; one whose clusters hold another format now is left out, and
+  its clusters are left to carving. A search by type with no name carves free space (`carved`):
+  pictures from JPEG to camera RAW, MP4, MOV, AVI and WMV video, WAV and WMA sound, PDF and
+  ZIP-based documents, each followed through its own structure. A drive is read directly only
+  when Solarljos runs as administrator; otherwise a note says to, or to give an image of it.
+  Nothing is written to it, and restore and rebuild refuse to write onto it however it, or the
+  destination, is named. On the public DFTT #11 image, all 7 photos and videos, both PDFs and the
+  ZIP were carved with their published MD5s; on test images built here and formatted again with
+  the same layout, 20 of 20 pictures came back byte for byte. It has not been tried on a real
+  card.
+
+Photos and videos:
+
+- `--type image,video,audio,document,archive,text` -- `photos`, `pictures`, `videos`, `music`,
+  `documents` and a few more words work too -- for `find` and `rebuild`, and for `show` and
+  `restore` to find the same copies. A copy with a name is of a type by its extension; with no
+  name, copies whose name was lost are offered too, told by their first 4 KB (`src/types.js`). An
+  extension of two meanings -- `.ts` and `.mts`, `.mod`, `.key` -- is settled by the bytes where
+  that decides. An unknown type is a usage error, exit code 2. Over the first 4 KB of 60,000 of
+  the user's files here, the bytes agreed with the extension for every picture and video, and
+  none of the 19,496 files whose extension says nothing was taken for a picture, a video or sound.
+- A search by type that asks for neither text nor documents leaves out the six sources that keep
+  only text: Editor Local History, Unsaved editor buffers, Claude Code, Antigravity, Eclipse Local
+  History and Windows Notepad. The list shows `-` for them, with a note, and `--json` has
+  `skipped: true`.
+- Two new tiers: *may be incomplete* (3), read from free space or from clusters taken to follow
+  each other, and *smaller copy* (4), made from the file, such as a thumbnail. `rebuild` never
+  takes either. It lists those paths apart, `N file(s) are left out: ...`, to be restored one by
+  one, and `--json` and planFolder() give them as `leftOut`. The kind in the list adds
+  `(smaller copy)` or `(may be incomplete)`, and `rebuild --dry-run` shows `(never saved)` too.
+- Restored names say what a copy is: `<stem> (smaller copy WxH)<ext>` in the smaller copy's own
+  format, `<stem> (may be incomplete)<ext>`, the name a source knows for a copy with no folder,
+  or `recovered-<id><ext>` with the extension of its format.
+- `--since` keeps the copies that carry no date -- a thumbnail usually has none -- and says how
+  many: `! N copy(ies) carry no date; they were kept, since how old they are cannot be told`.
+- Every result carries `mediaType`, and one with no name, or in a format of its own, the
+  extension of its format. The PATH column adds a picture's width and height, and shows
+  `(name unknown, a .jpg file)` for a copy with neither a name nor a path. `--json` adds `tier`,
+  `mediaType`, `derived`, `unverified`, `width`, `height` and the search's `notes`.
+- Shadow copies: a search by name or type walks the user's Pictures, Videos and Music, those in
+  `C:\Users\Public`, the OneDrive folders, `Dropbox` and the folder KakaoTalk saves chat photos
+  into, as well as Desktop, Documents and Downloads, and with `--type` the folders that mostly
+  hold those types first. With no name to go on, a snapshot copy of the same size and time as the
+  file still in its place is left out, and counted. Measured here, a search for pictures from
+  this source alone read about 4,750 folders in each of two snapshots in 1.1 s in all, left out
+  2,986 unchanged copies, and offered 4 pictures, all four gone from disk.
+
+Corrections:
+
+- Restore and rebuild stream every copy, so one over 2 GiB comes back; before, a copy was read
+  whole into memory, which fails there. A copy is written into `.~solarljos-<random>.part` beside
+  where it goes and given its name -- by a hard link, or on FAT and exFAT by a rename -- only once
+  all of it is there, and a failure removes the temporary file. Before, it was written under its
+  own name from the first byte, so a restore cut short by a full disk or a killed process left a
+  short file that looked like the copy.
+- A destination that is a protected folder under another name -- `\\localhost\C$\...`, a SUBST or
+  a mapped letter -- is refused, told by the folder's volume and file ID; before, only paths and
+  the links on the way were compared.
+- Shadow copies: in a search by name, a file in a folder that was both walked and read for
+  another source's hit was offered twice, so its row counted it as two copies. A search for
+  `package.json` here got 22 copies from the snapshots with 0.3.0 and 18 now, the other 4 being
+  such doubles. The one-level reads of folders where the other sources found something stop after
+  5,000, with a note; before, they had no limit.
+- In a search by content alone, shadow copies no longer offer a copy that is the same size and
+  time as the file still in its place.
+- A copy whose name was lost is restored with the extension of its format; before, it had none.
+- `--help` names the programs a search starts, git and `mountvol.exe`, and says what the browser
+  window writes.
+
+Core:
+
+- `src/index.js` adds `openCopy()`, any part of any copy as a stream; `checkDestination()`;
+  `freeze()`; `removeUnfinished()`; `sniff()`; `TYPES`; `tier()`; and `isElevated()`. `sources`
+  entries gain `media` and `needsAdmin`. `search()` takes `types`, and `signal`, an AbortSignal
+  that stops it at its next step, and returns `notes`; a source it leaves out reports
+  `source-done` with `skipped: true`. `planFolder()` returns `leftOut` and `notes`, and
+  `rebuildFolder()` takes `{ onProgress }`.
+- When identical copies merge, each flag -- never saved, inexact, may be incomplete, smaller copy
+  -- holds only when every copy has it, counting what its kind implies, and a copy whose name was
+  lost adds to the row of the same bytes under a name.
+- A copy read from a card is checked as it is written against what the search read: its whole
+  hash for one of 32 MB or less, its first 4 KiB otherwise. One that changed fails, and nothing
+  is left under its name.
+- Telling whether it runs as administrator opens `\\.\PhysicalDrive0` for reading and closes it
+  at once; nothing is read from it.
+
 ## 0.3.0 (unreleased)
 
 Seven new sources, corrections to existing ones that made copies wrong or read the wrong thing,

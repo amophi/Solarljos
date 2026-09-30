@@ -3,13 +3,27 @@
 What Solarljos reads in each place, what it checks before it offers a copy, and what was measured
 on the machine it was written on. The short version is in the [README](../README.md#what-it-searches).
 
-Every copy carries a *kind*, shown under FOUND IN. The kinds, and how rebuild ranks copies of the
+Every copy carries a *kind*, shown under FOUND IN. The kinds, how far each can be trusted -- exact,
+inexact, never saved, may be incomplete, a smaller copy -- and how rebuild ranks copies of the
 same file against each other, are listed in [src/quality.js](../src/quality.js).
+
+Every copy has a *type* too: image, video, audio, document, archive or text, or none that can be
+told. A copy with a name is of the type of its extension, so `holiday.jpg` is a picture whatever
+its bytes are; one whose name was lost -- a thumbnail, a carved file, a git object -- is of the type
+its first 4 KB show, read by [src/types.js](../src/types.js), and gets that format's extension to
+be restored under. `--type` searches by it. Measured on this machine, over the first 4 KB of 60,000
+files in the user's Pictures, Documents, Downloads, Desktop and Videos, the bytes agreed with the
+extension for all 1,001 pictures and all 3 videos, 315 of 323 documents (the other 8 were Office's
+lock files) and 190 of 195 archives (the other 5 ISO images, whose mark lies at 32 KB), and none
+of the 19,496 files whose extension says nothing was taken for a picture, a video or sound. Six
+sources keep nothing but text -- Editor Local History, Unsaved editor buffers, Claude Code,
+Antigravity, Eclipse Local History and Windows Notepad -- and a search by type that asks for
+neither text nor documents leaves them out and says so.
 
 Each section ends with what the source finds on its own and, after "Given by hand:", the places
 it takes from `--location <id>=<place>` and its own options. Places given are added to the ones
 found, except for git; `--no-discover` leaves out what would be found. `--location` with an id
-that is not one of the twelve below (or `repos`, an older name for `git`), or with nothing after
+that is not one of the fifteen below (or `repos`, an older name for `git`), or with nothing after
 the `=`, is a usage error, exit code 2.
 
 ## Recycle Bin
@@ -132,7 +146,7 @@ Text from transcripts is the file as Claude saw it; backups are the bytes on dis
 
 A search reads all transcripts, but only lines that can carry a file and contain the plain part
 of the name are parsed. On the machine this was written on, a search for `package.json` went
-through 1,537 transcripts totalling 918 MB in 3.8 to 4.0 seconds.
+through 1,906 transcripts totalling 1,326 MB in 5.0 to 6.4 seconds.
 
 Found on its own: `CLAUDE_CONFIG_DIR`, or `~/.claude` when that is not set.
 
@@ -249,15 +263,35 @@ matches no letter, or more than one, is skipped rather than guessed at.
 
 A whole snapshot is never walked. For `rebuild <folder>` the folder is mapped into each snapshot
 on the matching drive and only that subtree is read; a drive's root is not walked at all, and
-the notes say so. A name search runs after the other sources
-and looks only where they point: at the files directly in each folder where they found something,
-and at everything below the current user's Desktop, Documents and Downloads and any
-`--location vss=walk=<folder>`, skipping `AppData`, `node_modules` and `.git`. So `--source vss`
-on its own, or with sources that found nothing, looks through those folders only, and a file
-elsewhere is not found in any snapshot. Walking the three user folders inside one snapshot here
-(25,820 files under them) took about 0.3 to 0.7 seconds; a walk stops after 50,000 folders, with
-a note saying so. `Windows`, `System Volume Information` and any `System32\config` are
-never read.
+the notes say so. A search by name or by type runs after the other sources and looks only in
+known folders, in this order:
+
+1. every folder given with `--location vss=walk=<folder>`;
+2. the current user's Desktop, Documents, Downloads, Pictures, Videos and Music -- Pictures is
+   where Camera Roll, Saved Pictures, Screenshots and the folders the Photos app's import makes
+   are -- then Pictures, Videos and Music in `C:\Users\Public`, the OneDrive folders that
+   `%OneDrive%`, `%OneDriveConsumer%` and `%OneDriveCommercial%` name, `%USERPROFILE%\Dropbox`,
+   and the folder KakaoTalk saves the photos and videos opened from a chat into. That one is
+   `download_path` in the `[KAKAO_TALK]` section of each account's `user_pref.ini` below
+   `%LOCALAPPDATA%\Kakao\KakaoTalk\users`, read for at most 16 accounts and only from a file of
+   64 KB or less; nothing else of KakaoTalk's is opened, and its own cache, which it encrypts, is
+   not read;
+3. the files directly in each folder where the other sources found something -- unless a walk
+   above reads that folder already, which would offer one file twice.
+
+The folders in 1 and 2 are walked whole, skipping `AppData`, `node_modules` and `.git`. With
+`--type`, the folders that mostly hold those types come first -- Pictures for pictures, Videos for
+videos, Music for sound -- so that a limit, when one is reached, cuts where fewest of them are; and
+a name of another type is passed over before anything about it is read, so a search for pictures
+looks only at files named as pictures. The walks stop after 50,000 folders in all, and the
+one-level reads after 5,000, each with a note saying so. So `--source vss` on its own, or with
+sources that found nothing, looks through those folders only, and a file elsewhere is not found
+in any snapshot. `Windows`, `System Volume Information` and any `System32\config` are never read.
+
+With no name to go on -- `--type` or `--containing` alone -- nearly every file walked is still on
+disk as it was, which leaves nothing to recover. A snapshot copy whose file is still at the same
+place with the same size and last-write time is left out, and a note gives their count; a search
+by name, and `rebuild`, still offer every copy.
 
 Windows resolves a junction or an absolute symbolic link inside a snapshot against the live
 drive, so reading through one gives today's files: measured here, `Users\<user>\My Documents`, the
@@ -280,7 +314,14 @@ counted.
 Measured on this machine: two snapshots were readable without elevation, both mapping to C:. In
 one of them an older `package.json` of this project was found -- 809 bytes against 854 live, a
 different blob -- read back at its full length; it was absent from the other. A `rebuild`-style
-search over the project folder returned 22 rows across the two snapshots in 33 ms.
+search over the project folder returned 22 rows across the two snapshots in 33 ms. A search for
+pictures with no name, from this source alone, read 4,730 and 4,774 folders in the two snapshots
+-- about 1,590 in Desktop and 2,900 in Documents in each, 238 in Downloads, 2 in Pictures -- in
+1.1 s in all; 2,986 copies were the same as the file on disk, and 4 pictures were offered, all
+four gone from disk. Pictures, Videos, Music and Public added about 0.1 s per snapshot. A search
+for `package.json` took 1.1 to 1.4 s here, and got 18 copies from the snapshots where 0.3.0's walk
+got 22: the other 4 were files it had read twice, once in a walk and once for another source's
+hit, which made their rows count one copy as two.
 
 Found on its own, on Windows: every shadow-copy device from 1 to 1024 that lists.
 
@@ -293,7 +334,8 @@ Given by hand: `--location vss=<entry>`, repeatable, in one of three forms.
   `vss=\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy5=C:\`. A folder that is not a device root
   has to be given this way, since every folder on C: reports C:'s serial.
 - `vss=walk=<folder>`: a folder, written as a Windows path, to walk in every snapshot of its drive
-  during a name search, as the user's Desktop, Documents and Downloads are.
+  during a search by name or type, before the user's own folders. A folder moved elsewhere
+  through its Properties > Location tab is not found by its usual name, and is given this way.
 
 ## Windows Notepad
 
@@ -490,3 +532,324 @@ The machine this was written on has no trash folder of this kind: one NTFS drive
 Found on its own, on Linux: the trash folders listed above.
 
 Given by hand: `--location trash=<place>`, repeatable. The place is a trash folder itself -- one named `Trash`, `.Trash-<uid>` or `.Trash/<uid>` holding `info/` or `files/`, or any folder holding both -- or a folder that holds some: a data folder (`<place>/Trash`), a home folder (`.local/share/Trash` and every snap's), or a drive or mount point (`.Trash-<uid>` and `.Trash/<uid>`, for any user). A shared `.Trash/<uid>` that fails the spec's checks is reported instead of read, and is read when it is given itself.
+
+## Explorer thumbnails
+
+Windows Explorer, and every file dialog, keeps a small picture of each file it has shown as a
+thumbnail -- a photo, a video, a PDF, an Office document -- in one folder per user:
+
+```
+%LOCALAPPDATA%\Microsoft\Windows\Explorer\
+  thumbcache_<size>.db   the pictures, one file per size; on Windows 10 and 11: 16, 32, 48, 96,
+                         256, 768, 1280, 1920, 2560, sr, wide, exif, wide_alternate, custom_stream
+  thumbcache_idx.db      an index of them, which is never needed
+  iconcache_<size>.db    programs' icons, in the same format; never read
+```
+
+Deleting or changing a file does not remove its pictures: every entry that two older shadow
+copies of one cache held was still in the live cache, byte for byte. What comes back is not the
+file, though. It is a smaller picture Windows made of it and encoded again -- a 32-bit BMP of up
+to 96 pixels, or a JPEG with no EXIF or a PNG of up to 1,280 on the machine this was written on --
+and the cache keeps no name, no path and no time for it.
+
+Every entry is checked three ways before its picture is offered
+([src/lib/thumbcache.js](../src/lib/thumbcache.js) has the format, byte by byte):
+
+- the CRC-64 of its header;
+- the CRC-64 of its data, which covers the first 1,024 bytes and then 4 bytes of every 400: about
+  2 KB of a 100 KB picture;
+- the picture's own structure: a JPEG's segments and scans up to its end marker, which must be its
+  last two bytes; every PNG chunk's CRC-32 up to IEND; a BMP's recorded size and its rows; and the
+  width and height the entry records.
+
+A cache file caught half-written, as in a shadow copy taken while Explorer was writing, is read up
+to where it breaks and on from the next whole entry, a file whose header was lost included. The
+formats of Windows Vista to 11 are read; only Windows 10 and 11's was checked against real files.
+
+Each item is offered once, as the largest picture the cache holds of it, in its own format and
+with its width and height. Every one is a *smaller copy* (tier 4): `rebuild` never takes one, and
+`restore` writes it under a name that says what it is, in the picture's own format --
+`IMG_0412 (smaller copy 256x192).jpg`, or `recovered-1a2b3c4d (smaller copy 96x72).bmp` for one
+with no name. An entry of something that is not a file -- a phone or a camera seen over MTP, a
+drive, an app -- is left out and counted, and so is one that holds no JPEG, PNG or BMP.
+
+**Names.** An entry's key is the file's ThumbnailCacheId, a 64-bit hash of
+
+1. its volume's GUID,
+2. its NTFS file ID,
+3. its extension, spelled as it is,
+4. its last-write time as a DOS time, rounded up to the next two seconds,
+5. from Windows 8.1 on, how far step 4 rounded up
+([src/lib/shelllink.js](../src/lib/shelllink.js)).
+
+Windows keeps a shortcut in `%APPDATA%\Microsoft\Windows\Recent` for each file opened from
+Explorer or a file dialog, and each program's jump list in `Recent\AutomaticDestinations` and
+`Recent\CustomDestinations`. They hold no content, but they outlive the file, and they record 2, 3
+and 4, and the serial number of the file's volume. The volume GUIDs are those `mountvol.exe` lists;
+it only lists, and it is run only when some shortcut can be hashed.
+
+- A picture whose key a shortcut hashes to is kind `thumbnail`, with the shortcut's path and the
+  file's last-write time, which the 64-bit match proves: the picture shows the file as it was then.
+- An entry keyed `Windows?<volume serial>?<file ID>` holds no time. One whose file ID a shortcut
+  records gets its path and no time, since the picture may be of an earlier or a later version.
+- Every other picture is `thumbnail, name unknown`, with no path and no time. It is listed only by
+  a search by type for pictures with no name, `solarljos find --type image`; a search by name says
+  how many there are. Shortcuts that lead to no picture are never listed.
+
+Rounded down, as the published algorithm is usually read, step 4 gives the key of a file whose time
+falls on an even second only: of 57,842 files in the user's folders here, read by `stat` alone, 260
+hashed to an entry in the cache, and only 16 of them did so with the time rounded down.
+
+A thumbnail with no name is not proof that its file was deleted: a file written to since has
+another key, and so has one on a drive that is not attached. Of the items in the cache here, 313
+hashed to a file still in the user's profile, 100 of them among the 617 that hold a picture, so
+Solarljos says only that the name is unknown. Files on FAT and exFAT have no lasting file ID, and
+what Windows hashes for them is not known.
+
+**Read it before anything adds to it.** The cache is live: Explorer adds to it whenever it shows a
+picture -- one just restored, in a folder opened to look at it -- and may drop older ones to make
+room, and Disk Cleanup and Storage Sense can empty it. The graphical front end reads the cache
+folder and the Recent folder into memory before it opens its window (`freeze()` in the API), and
+every search in that run reads those bytes; a note gives the time they were taken. The same two
+folders inside each readable shadow copy are read too, reached the way the shadow-copy source
+reaches any folder, and a note says how many pictures were found only there.
+
+Measured on the machine this was written on (Windows 11 26200), read-only, counting only:
+
+- On copies of the live cache, 14 files of version 0x20 held 1,775 entries, and every header and
+  data checksum passed. All 810 pictures in them passed their own checks: 688 BMPs, 93 JPEGs and 29
+  PNGs. Reading the 15.7 MB took about 20 ms, and checking it 8 ms.
+- A shadow copy taken while Explorer was writing: 2 of its 14 files began with zeros where the
+  header belongs, and 5 ran into zeros part way. 1,721 entries were still read from it, 1,716 of
+  them passing both checksums.
+- A search by type for pictures from this source alone offered 306 pictures, 8 MB in all, in 0.3 s.
+  By the long side: 36 of 1,024 pixels or more, 67 of 256 to 1,023, 1 between 97 and 255, 139 of 48
+  to 96 and 63 smaller; 202 BMPs, 80 JPEGs and 24 PNGs. 31 were named by a shortcut, 30 of them with
+  the time the key proves, and 15 of those 31 paths are not there now.
+
+Found on its own, on Windows: `%LOCALAPPDATA%\Microsoft\Windows\Explorer` and
+`%APPDATA%\Microsoft\Windows\Recent`, and the same folders in each shadow copy searched.
+
+Given by hand: `--location thumbcache=<place>`, repeatable. The place is the Explorer folder, the
+Recent folder, or any folder on the way down to them from a user profile, such as
+`thumbcache=D:\Users\me` for a profile on another machine's disk; one that leads to neither gets a
+note. `thumbcache=volume={00112233-4455-6677-8899-aabbccddeeff}` adds a volume GUID to hash
+shortcuts with, for a disk whose volumes are not mounted here. Restore refuses the two folders
+behind each place, and their real paths; a profile given as a place does not keep restores out of
+the rest of it.
+
+## Snipping Tool
+
+When saving is turned off in the Snipping Tool's settings, Windows 11 still writes every
+screenshot and screen recording to the tool's own folder, and leaves it there:
+
+```
+%LOCALAPPDATA%\Packages\Microsoft.ScreenSketch_8wekyb3d8bbwe\TempState\
+  Snips\         screenshots, PNG
+  Recordings\    screen recordings, MP4
+%LOCALAPPDATA%\Packages\Microsoft.Windows.ShellExperienceHost_cw5n1h2txyewy\TempState\
+  ScreenClip\    Windows 10's Snip & Sketch
+```
+
+`TempState` and every folder directly in it are read, since a newer version of the tool may use
+others; of the Windows 10 shell's `TempState`, only `ScreenClip`. A plain file is offered when its
+first bytes are a picture or a video, whatever it is called; other files are counted in a note,
+and a folder, link or pipe under a capture's name is not read. Each is kind
+`snipping tool capture`: the capture exactly as it was taken (tier 0).
+
+- **Names.** A capture is named with the moment it was taken, in the local time and the language
+  of the Windows that took it: `Screenshot 2025-01-02 030405.png`, or
+  `스크린샷 2025-01-02 030405.png` on Korean Windows. Where it would have been saved is not known,
+  so it is listed as `<name> (folder unknown)` and restored under that name. A name with no
+  extension of its format gets one, so that a file named by a GUID in `ScreenClip` comes back as
+  `<guid>.png`. A PNG's width and height are read from its header.
+- **Dates.** The date is the file's own last-write time. When that is further from the time in the
+  name than two time zones can be apart -- 26 hours and a minute -- the folder was copied by
+  something that did not keep file times, and the name's time is used instead, read in this
+  machine's time zone, and the copy's note says so.
+- A capture that was also saved, and deleted from where it was saved, is found there too -- in the
+  Recycle Bin, say -- under its full path, and the copy here counts as a copy of that row.
+- A search by type for anything but pictures and videos reads nothing here.
+
+With saving on, which is the default, captures go to `Pictures\Screenshots` and
+`Videos\Screen Recordings`, and the tool's folder stays empty: a deleted screenshot is then found
+in the Recycle Bin or in a shadow copy, not here.
+
+Measured on Windows 11 with Snipping Tool 11.2607, where saving is on: `TempState` was empty, the
+older Snip & Sketch folder was not there, and the tool's `LocalState` and `LocalCache` held no
+file, so nothing was found; a search took 65 ms. For each of the 309 captures the tool had saved to
+`Pictures\Screenshots`, the time in the name was the file's creation time to within a second, and
+its last-write time to within five seconds. Given that folder by hand, this source offered all 309,
+each with its width and height and dated by its own file, in 0.27 s, and left out its
+`desktop.ini`. The layout of the tool's own folders is from published forensic notes
+(insiderthreatmatrix DT130, forscie), not seen here.
+
+Found on its own, on Windows: the two folders above, in this user's `%LOCALAPPDATA%\Packages`.
+
+Given by hand: `--location snips=<dir>`, repeatable, which is how another machine's captures are
+searched. The place is any folder on the way down from a user profile to the tool's folders --
+the profile, `AppData`, `AppData\Local`, `Packages`, a package folder, its `TempState`, or
+`Snips`, `Recordings` or `ScreenClip` -- such as `snips=D:\Users\alice`; or any folder holding
+files named as captures are, as one copied off an old drive may be. A place that leads to none gets
+a note, `<place>: no Snipping Tool folder there`. Restore refuses the folders behind each place,
+and their real paths.
+
+## Cards, USB sticks and disk images
+
+Windows sends no TRIM to FAT or exFAT, the file systems of memory cards, USB sticks and cameras, so
+what was deleted there stays until something new is written over it. Solarljos reads such a card
+only when it is named with `--location removable=<place>`; it never looks for one on its own.
+
+- A drive letter -- `E:`, `E:\`, `\\.\E:` -- is read as the device `\\.\E:`, and a whole disk as
+  `\\.\PhysicalDrive1`, or elsewhere as `/dev/sdb`. That needs administrator rights on Windows,
+  and root or the disk group elsewhere. Without them nothing is opened, and a note says to run as
+  administrator, or to make an image of the card with another tool and give its path.
+- Anything else is taken as a disk image: a raw copy of a card or a stick (`.img`, `.dd`, `.raw`,
+  `.bin`), with a partition table or without one. An image needs no rights.
+
+Everything is opened for reading only, and the file system's tables are read into memory in
+pieces of 1 MiB. A volume is found behind a bare boot sector, an MBR (the logical partitions of an
+extended one included) or a GPT, whose CRC-32s are checked; a damaged boot sector is replaced by
+its backup -- FAT32's at sector 6, exFAT's boot region at sector 12 -- when the backup passes the
+same checks. An NTFS volume is noted and not read. One with no FAT or exFAT file system known
+here, its boot sector gone, is carved whole. [src/lib/fat.js](../src/lib/fat.js) has the formats.
+
+**Deleted files** (`fat undelete`, `exfat undelete`) are entries marked deleted that are still in
+their folders, with their names, sizes and times, read from where the file system says the file
+lay:
+
+- exFAT keeps a deleted file's entries whole, and their checksum still matches once the InUse bits
+  are put back -- or as stored, from a driver that recomputed it; the names' hashes are checked
+  through the volume's own up-case table. A file in one piece, which Windows writes whenever it can
+  and marks as having no FAT chain, keeps its exact clusters, and so does one whose old chain still
+  runs exactly as far as its size; the allocation bitmap says whether any of them is in use now.
+  Times carry the UTC offset the camera or computer recorded. A deleted entry whose first cluster
+  and size a live file has is that file, moved or renamed, and is left out.
+- FAT12, FAT16 and FAT32 mark the entry 0xE5 and free its chain, so where a file of more than one
+  cluster lay is an assumption: the clusters from its first one on, as many as its size needs. That
+  is refused when any of them is in use now, or when another deleted file's first cluster lies
+  inside them. A long name comes back when its checksum ties it to the short entry. Otherwise the
+  first character of the short name, which deleting writes over, is shown as `_`, and a name
+  searched for matches whatever it was: `IMG_0412` finds `_MG_0412.JPG`. Windows also clears the
+  upper half of a FAT32 file's first cluster, so on a volume of more than 65,536 clusters every
+  start the file may have had is read, and one is offered only when its content checks out whole.
+  Short names beyond ASCII are read in the OEM code page of this machine's language.
+
+Each is checked by its format (lib/carve.js, below) before it is offered, and that, with what the
+file system records, decides how far it can be trusted:
+
+| The bytes | Tier |
+| --- | --- |
+| a stream whose checksums cover every byte (PNG, ZIP), whole, ending exactly at the size recorded | exact (0) |
+| content that checks out, or that no check covers, where the file system records every piece of it: exFAT, a FAT file of one cluster, an old chain left intact | inexact (1): a later file may have been written there, and deleted in turn |
+| the same where the pieces after the first are only taken to follow on, as a deleted FAT file's are; content that is damaged, or that needs more than the size recorded; a file read around clusters in use now | may be incomplete (3) |
+
+- A deleted file whose bytes are not of the format its name says -- a `.jpg` that is no JPEG, a
+  `.mov` whose first cluster a later picture took -- was written over, and is left out; its clusters
+  are carved, since what took them may have no entry left. The exception is another format that is
+  whole, checksummed over every byte and exactly the size recorded, such as a PNG saved as `.jpg`:
+  it is offered as that format, with a note.
+- A PNG, GIF or ZIP that ends before the size recorded may be a shorter file written over the start
+  of this one, and it may be incomplete whatever the file system records.
+- Files in pieces, moved, damaged or empty are left out, and each is counted in a note for its
+  volume.
+
+**Carved files** (`carved`) are found in free space by their format alone, with no entry left to
+name them. Carving runs only in a search by type with no name -- a search for `IMG_0412` wants no
+list of every photo the card ever held -- and probes the start of every free cluster of each FAT
+or exFAT volume, but those of the deleted files it offered, and the whole of a volume with no file
+system known here at every 512 bytes. Each format is followed through its own structure as far as
+it holds ([src/lib/carve.js](../src/lib/carve.js)):
+
+| Format | What must hold |
+| --- | --- |
+| JPEG | every segment from start to end marker, and every block of a baseline or extended picture decoded; the further images of a Multi-Picture file, and a motion photo's video after it (Google's and Samsung's), are taken along |
+| PNG | every chunk's CRC-32, the image data's Adler-32, and exactly the rows the header needs |
+| GIF | every block up to the trailer, and every frame decoded to its pixels |
+| BMP | its header |
+| WebP, AVI, WAV | chunks that fit together exactly, down to every list |
+| MP4, MOV, M4V, 3GP, M4A, HEIC, AVIF, CR3 | boxes by their sizes, every sample inside the media data, and H.264, H.265 and AV1 units that fill each sample exactly |
+| WMV, WMA | objects that end at the size the header records, every packet where it belongs |
+| TIFF, and the camera RAW files built on it | every directory, and everything it points to, inside the file |
+| PDF | an end whose cross-reference is where it says |
+| ZIP, DOCX, XLSX, PPTX, ODF, EPUB, HWPX | every member's CRC-32 |
+
+A carved file has no name and no folder -- but a file a damaged ZIP stored keeps the name the ZIP
+gave it -- and is restored as `recovered-<id> (may be incomplete).jpg`. Its time is the one its
+content records -- the time a photo was taken, from its Exif; the time a movie was made -- or none.
+It is always *may be incomplete* (tier 3), and `rebuild` never takes it: nothing but its content
+says where it ended, and a file stored in pieces carves as its first piece followed by whatever lay
+after it. JPEG and video carry no checksum. With one 512-byte piece of their data swapped for a
+piece of another photo, the checks of three real photos caught 1,670 of 1,726 such swaps, 336 of
+382 and 114 of 114; with a 4 KiB piece, 214 of 214, 44 of 46 and 12 of 12.
+
+A picture kept inside another file is not listed as a photo of its own -- the preview inside a RAW
+file, a photo's Exif thumbnail, the frames of a Motion JPEG video, the pictures of a document --
+and each is counted in the notes instead. A RAW file is listed with its largest preview beside it
+as a *smaller copy*, since a RAW cannot be shown as it is, and so is the thumbnail of a photo too
+damaged to show. A JPEG whose own bytes show it was made to live inside something else -- with no
+APP segment at all, or right after a PDF's `stream` -- is a smaller copy too.
+
+One search carves at most 10,000 files over every place given, and at most 256 GiB of each volume,
+with a note when a limit stops it. A stretch that cannot be read is read again in pieces of 64 KiB,
+so a bad sector costs the 64 KiB around it, and is counted.
+
+**After a format.** A quick format writes new tables and an empty root folder and leaves the rest
+of the card as it was. What was on it then lies in free space, with no entry, and only carving
+finds it. Carving probes the start of each cluster of the file system the card has now, so it
+finds every file that began at such a start: all of them when the card was formatted again with
+the same file system and the same cluster size, or a smaller one. On test images built here with 20
+pictures each, formatted again that way -- exFAT, FAT32 and FAT16, and exFAT from 32 KiB clusters to
+4 KiB -- 20 of 20 came back byte for byte; formatted again from 4 KiB clusters to 32 KiB, 1 of 20. A
+full format, which Windows does since Vista by writing zeros over the whole volume, and a camera's
+low-level format leave nothing to find.
+
+**Keeping the card as it is.**
+
+- Restore and rebuild refuse to write onto the drive being recovered, however it was given: a drive
+  letter by its root and its volume; an image by its path; a whole disk, or a volume given as
+  `\\?\Volume{...}\`, by the serial number of each FAT or exFAT volume on it -- the volume Windows
+  reports for a file on it -- read when the search opened it, or else when restore asks, which then
+  needs the same rights; a Linux device by the folders it is mounted at and by its device number. A
+  SUBST or a mapped letter for the card is the card as well, since it has the card's volume.
+- A copy read from a card is checked as it is written: one of 32 MB or less against the hash the
+  search took of it, a larger one's first 4 KiB against theirs. Windows and other programs can
+  write to a card while it is in, and a card swapped for another in the same reader reads as the
+  same drive; a copy that changed since the search fails, saying that the card no longer holds
+  what the search found there, and nothing is left under its name.
+- Nothing more can be done from here: Windows and other programs may write to a card while it is
+  in. Every drive and device searched gets a note that says what to do about it: take an SD card
+  out, slide its lock switch to Lock and put it back, and never save or copy anything onto it --
+  recovered files and Solarljos.exe included -- until everything you need is back.
+
+Paths are the drive's own for a drive (`E:\DCIM\100CANON\IMG_0001.JPG`), and start with the image's
+name in brackets for an image (`[card.img]\DCIM\...`), with the volume's number when it holds more
+than one (`[disk.img, volume 2]\...`). `solarljos sources` says what each place holds -- its file
+system, size, cluster size and free clusters -- or why it cannot be read.
+
+Not measured on a real card: the machine this was written on has none, only an SSD. Measured on
+public test images and on files that ship with Windows:
+
+- DFTT #6, a FAT16 image whose files Windows XP created and deleted: of the four deleted files
+  offered, the one of a single cluster and two assumed to lie in one piece match their published
+  MD5s. The fourth, assumed to lie in one piece with nothing to show it did not, does not match --
+  which is why an assumed extent is never called more than *may be incomplete*. Two more were
+  refused as in pieces.
+- DFTT #11, a FAT32 stick with its boot sectors zeroed on purpose, carved whole in 0.1 s for 62 MB:
+  all 7 photos and videos (3 JPEGs, a GIF, a MOV and 2 WMVs, one of them a deleted 8 MB file), both
+  PDFs and the ZIP matched their published MD5s; the damaged JPEG was left out; the WAV came back
+  one byte short of its file, which held a byte after the end of its RIFF.
+- 6,558 pictures, videos, sounds and archives that ship with Windows and installed programs, each
+  checked on its own: every one was complete at exactly its length, but for two 69-byte PNGs whose
+  image data fails its CRC, as Python's zlib finds too.
+- On the exFAT entries Windows 10 wrote in Vandermeer et al. (2018), the set checksums and name
+  hashes computed here are Windows' own, and the deleted sets match only with the InUse bits put
+  back.
+- A 64 MiB FAT32 image built the tests' way, holding 300 pictures of which 150 were deleted: a
+  search for pictures took 0.23 s, the command's start included, and carved 58 MiB of free space.
+
+Found on its own: nothing.
+
+Given by hand: `--location removable=<place>`, repeatable: a drive letter (`E:`, `E:\`, `\\.\E:`,
+`\\?\E:`), another Windows device path such as `\\.\PhysicalDrive1`, a `/dev` node, or a disk image
+file.

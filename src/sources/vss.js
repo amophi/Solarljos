@@ -56,11 +56,25 @@ const { isWindowsPath } = require('../paths');
 // machines where the CVE-2021-36934 ACLs remain; Windows.old keeps one too) are never read;
 // here those ACLs are fixed, and config gives EPERM in both snapshots. In rebuild/under mode it
 // maps the target folder into each snapshot on the matching drive and walks only that
-// subtree. For a name search (it runs as a follow-up, after the other sources) it looks in the
-// parent folders of what they found, plus the current user's Desktop, Documents and Downloads
-// and any folder given with --location vss=walk=<folder>, skipping AppData, node_modules and
-// .git. Walking those three folders inside a snapshot took ~0.3-0.7 s each here (25,820 files
-// under them in one snapshot), so the walk is bounded and what it cuts is reported.
+// subtree. For a search by name or type (it runs as a follow-up, after the other sources) it
+// walks any folder given with --location vss=walk=<folder>, then the current user's folders --
+// Desktop, Documents, Downloads, Pictures, Videos and Music, the same three media folders of
+// Users\Public, OneDrive's folder from its variables, Dropbox, and the folder KakaoTalk saves
+// chat photos into -- skipping AppData, node_modules and .git; then it reads the folders where
+// the other sources found something, one level each. With types asked for, the folders that
+// mostly hold them go first, and the matcher leaves out every name of another type before
+// anything is read, so a search for pictures stats only files named as pictures. Both kinds of
+// folder have a budget, shared across snapshots, and what it cuts is reported.
+//
+// With no name to go on (--type image and no pattern) nearly every file walked is still on disk
+// as it was, which is no loss to recover; a copy whose live file at the same place has the same
+// size and mtime is left out and counted in a note. Measured here, read-only, over the two
+// snapshots: a search for pictures read 4,730 and 4,774 folders (Desktop ~1,590 and Documents
+// ~2,900 each, Downloads 238, Pictures 2) in 1.1 s in all, search included; 2,986 copies were
+// the same as the live file and 4 pictures were offered, all four gone from disk. Pictures,
+// Videos, Music and Public added ~0.1 s per snapshot. Before the live look, the three folders
+// alone gave 2,404 copies in 3.1 s, each then read whole to be hashed. For videos: 1.1-1.4 s,
+// none offered.
 //
 // The snapshot's own creation time is not readable without admin, so candidate times are each
 // file's mtime; an approximate snapshot time (the newest mtime seen) is kept for notes only,
@@ -82,10 +96,39 @@ const DEVICE_ROOT = /^\\\\[?.]\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy\d+\
 const DRIVE_ROOT = /^[A-Za-z]:[\\/]?$/;
 const DEVICE_PROBE_MAX = 1024;
 const MAX_WALK_DIRS = 50000;
+const MAX_PRIOR_FOLDERS = 5000;
 const MAX_TOP_FOLDERS = 8;
 const NOTE_LIST = 3;
-const USER_FOLDERS = ['Desktop', 'Documents', 'Downloads'];
 const SKIP_DIRS = new Set(['appdata', 'node_modules', '.git']);
+
+// The folders below the profile walked in a search by name or type, with the types each mostly
+// holds (null: anything). Pictures holds what a phone or camera import leaves -- Camera Roll,
+// Saved Pictures, Screenshots, and the dated folders Photos' import makes -- videos among them.
+const USER_FOLDERS = [
+  ['Desktop', null], ['Documents', null], ['Downloads', null],
+  ['Pictures', ['image', 'video']], ['Videos', ['video']], ['Music', ['audio']],
+];
+// The same three in the profile every user shares, C:\Users\Public.
+const PUBLIC_FOLDERS = [['Pictures', ['image', 'video']], ['Videos', ['video']], ['Music', ['audio']]];
+// OneDrive's own folder, from the variables its client sets; with folder backup on, Desktop,
+// Documents and Pictures live inside it, under names in the system's language.
+const ONEDRIVE_VARS = ['OneDrive', 'OneDriveConsumer', 'OneDriveCommercial'];
+// KakaoTalk's settings, one folder per account; each file is a few hundred bytes.
+const KAKAO_USERS = ['Kakao', 'KakaoTalk', 'users'];
+const MAX_KAKAO_USERS = 16;
+const MAX_INI_BYTES = 64 * 1024;
+
+/**
+ * This machine as the walk sees it: whether it is Windows, the profile, the environment, and how
+ * to look at a live file. Tests put a fixture profile in its place, so no real one is read.
+ */
+const HOST = {
+  windows: process.platform === 'win32',
+  home: () => os.homedir(),
+  env: process.env,
+  // A Windows original path can be looked up only on Windows.
+  stat: process.platform === 'win32' ? (p) => fs.statSync(p) : null,
+};
 
 // --- path helpers ---------------------------------------------------------
 // Physical paths (what we read) use the running platform: a device path on Windows, a fixture
@@ -394,11 +437,36 @@ function candidate(snap, phys, segs, st) {
 
 /** What a scan left out, for its notes. */
 function newSkipped() {
-  return { unreadable: 0, outside: new Set(), system: new Set(), whole: new Set() };
+  return { unreadable: 0, unchanged: 0, outside: new Set(), system: new Set(), whole: new Set() };
 }
 
-/** One matched file, added unless it cannot be read. Returns 0 or 1. */
-function offerFile(snap, phys, segs, ctx, out, skipped) {
+/** Throws when the search this scan is part of has been stopped. */
+function stopIfAsked(ctx) {
+  if (ctx.signal) ctx.signal.throwIfAborted();
+}
+
+/**
+ * Whether the file still at a copy's original place has the copy's size and time, so that the
+ * copy has nothing to give that the live file does not. Never true where that cannot be looked
+ * up: off Windows, or when the live file is not there.
+ */
+function sameAsLive(original, st) {
+  if (!HOST.stat) return false;
+  try {
+    const live = HOST.stat(original);
+    return live.isFile() && live.size === st.size && live.mtimeMs === st.mtimeMs;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * One matched file, added unless it cannot be read -- or, with `dropUnchanged`, unless the file
+ * at its original place is the same size and time. Returns 0 or 1. The matcher tests the name,
+ * and with ctx.types its extension, before anything is read, so a search for pictures stats
+ * only files named as pictures.
+ */
+function offerFile(snap, phys, segs, ctx, out, skipped, dropUnchanged) {
   const original = toOriginal(snap.driveRoot, segs);
   if (!ctx.matcher.test(original)) return 0;
   let st;
@@ -408,6 +476,10 @@ function offerFile(snap, phys, segs, ctx, out, skipped) {
     return 0;
   }
   if (!st.isFile()) return 0;
+  if (dropUnchanged && sameAsLive(original, st)) {
+    skipped.unchanged++;
+    return 0;
+  }
   if (!bytesPresent(phys, st.size)) {
     skipped.unreadable++;
     return 0;
@@ -440,8 +512,15 @@ function enterFolder(snap, segs, skipped) {
   return where.segs;
 }
 
-/** The direct files of one folder inside a snapshot (no recursion). */
-function scanFolderShallow(snap, folderSegs, ctx, out, skipped) {
+/**
+ * The direct files of one folder inside a snapshot (no recursion). `budget` is { dirs, max, cut },
+ * shared by the folders of one search, one folder read each.
+ */
+function scanFolderShallow(snap, folderSegs, ctx, out, skipped, budget, dropUnchanged) {
+  if (budget.dirs >= budget.max) {
+    budget.cut = true;
+    return;
+  }
   const phys = enterFolder(snap, folderSegs, skipped);
   if (!phys) return;
   const dir = snapDir(snap.root, phys);
@@ -451,9 +530,10 @@ function scanFolderShallow(snap, folderSegs, ctx, out, skipped) {
   } catch (_) {
     return;
   }
+  budget.dirs++;
   for (const e of entries) {
     if (e.isSymbolicLink() || !e.isFile()) continue;
-    offerFile(snap, path.join(dir, e.name), [...folderSegs, e.name], ctx, out, skipped);
+    offerFile(snap, path.join(dir, e.name), [...folderSegs, e.name], ctx, out, skipped, dropUnchanged);
   }
 }
 
@@ -461,7 +541,7 @@ function scanFolderShallow(snap, folderSegs, ctx, out, skipped) {
  * Every file below one folder inside a snapshot, skipping AppData, node_modules, .git and the
  * system folders. `budget` is { dirs, max, cut }, shared by the walks of one search.
  */
-function walkSubtree(snap, folderSegs, ctx, out, skipped, budget) {
+function walkSubtree(snap, folderSegs, ctx, out, skipped, budget, dropUnchanged) {
   if (!folderSegs.length) {
     skipped.whole.add(shown(snap.driveRoot, []));
     return;
@@ -475,6 +555,7 @@ function walkSubtree(snap, folderSegs, ctx, out, skipped, budget) {
       budget.cut = true;
       return;
     }
+    stopIfAsked(ctx);
     const rel = stack.pop();
     const dir = snapDir(snap.root, [...start, ...rel]);
     let entries;
@@ -495,7 +576,7 @@ function walkSubtree(snap, folderSegs, ctx, out, skipped, budget) {
         }
         stack.push([...rel, e.name]);
       } else if (e.isFile()) {
-        offerFile(snap, path.join(dir, e.name), segs, ctx, out, skipped);
+        offerFile(snap, path.join(dir, e.name), segs, ctx, out, skipped, dropUnchanged);
       }
     }
   }
@@ -533,25 +614,115 @@ function estimateSnapshotTime(snap) {
 
 // --- the two search modes -------------------------------------------------
 
-/** The folders to look in for a name search: prior hits' parents, and the user/walk folders. */
+/** One value of an INI file, from its section; a BOM, the case of names and the space around '=' do not matter. */
+function iniValue(text, section, key) {
+  let inSection = false;
+  const body = String(text);
+  const noBom = body.charCodeAt(0) === 0xfeff ? body.slice(1) : body;
+  for (const line of noBom.split(/\r?\n/)) {
+    const head = /^\s*\[([^\]]*)\]\s*$/.exec(line);
+    if (head) {
+      inSection = head[1].trim().toLowerCase() === section.toLowerCase();
+      continue;
+    }
+    const at = line.indexOf('=');
+    if (inSection && at > 0 && line.slice(0, at).trim().toLowerCase() === key.toLowerCase()) return line.slice(at + 1).trim();
+  }
+  return null;
+}
+
+/**
+ * The folders KakaoTalk saves the photos and videos opened from a chat into, as plain files named
+ * KakaoTalk_<date>_<time>.<ext>: [KAKAO_TALK] download_path in each account's user_pref.ini
+ * below %LOCALAPPDATA%\Kakao\KakaoTalk\users. An empty value means its default folder, which is
+ * below Documents and walked with it. Only those small files are read; nothing else of
+ * KakaoTalk's is opened, and a file that is not as expected gives no folder rather than an error.
+ */
+function kakaoFolders(host) {
+  const base = host.env && host.env.LOCALAPPDATA;
+  if (!base) return [];
+  const users = path.join(base, ...KAKAO_USERS);
+  let entries;
+  try {
+    entries = fs.readdirSync(users, { withFileTypes: true });
+  } catch (_) {
+    return [];
+  }
+  const out = [];
+  for (const e of entries.filter((x) => x.isDirectory()).slice(0, MAX_KAKAO_USERS)) {
+    const ini = path.join(users, e.name, 'user_pref.ini');
+    try {
+      const st = fs.lstatSync(ini);
+      if (!st.isFile() || st.size > MAX_INI_BYTES) continue;
+      const folder = iniValue(fs.readFileSync(ini, 'utf8'), 'KAKAO_TALK', 'download_path');
+      if (folder) out.push(folder);
+    } catch (_) {
+      /* no settings for this account */
+    }
+  }
+  return out;
+}
+
+/**
+ * The folders a search by name or type walks in every snapshot on their drive, in the order
+ * walked: with types asked for, first the folders that mostly hold them, then those that hold
+ * anything, then the rest -- so that when the folder budget runs out, it has been spent where
+ * what is wanted mostly is. A drive root is never among them.
+ */
+function userFolders(types, host = HOST) {
+  if (!host.windows) return [];
+  const home = host.home();
+  if (!home || !isWindowsPath(home)) return [];
+  const list = [];
+  const add = (folder, holds) => {
+    if (typeof folder !== 'string' || !isWindowsPath(folder) || DRIVE_ROOT.test(folder)) return;
+    const key = folder.toLowerCase().replace(/[\\/]+$/, '');
+    if (!list.some((x) => x.key === key)) list.push({ folder, holds, key });
+  };
+  for (const [name, holds] of USER_FOLDERS) add(path.win32.join(home, name), holds);
+  const shared = path.win32.join(path.win32.dirname(home), 'Public');
+  for (const [name, holds] of PUBLIC_FOLDERS) add(path.win32.join(shared, name), holds);
+  for (const name of ONEDRIVE_VARS) add(host.env && host.env[name], null);
+  add(path.win32.join(home, 'Dropbox'), null);
+  for (const folder of kakaoFolders(host)) add(folder, null);
+  const rank = (holds) => (!types ? 0 : !holds ? 1 : holds.some((x) => types.includes(x)) ? 0 : 2);
+  return list
+    .map((x, i) => ({ ...x, i, rank: rank(x.holds) }))
+    .sort((a, b) => a.rank - b.rank || a.i - b.i)
+    .map((x) => x.folder);
+}
+
+/** Whether a deep walk of `deep` reads `folder`: it is that folder or below it, past no skipped one. */
+function walkedBy(folder, deep) {
+  const f = String(folder).toLowerCase().replace(/[\\/]+$/, '');
+  const d = String(deep).toLowerCase().replace(/[\\/]+$/, '');
+  if (f === d) return true;
+  if (!f.startsWith(d + '\\')) return false;
+  return !f.slice(d.length + 1).split('\\').some((s) => SKIP_DIRS.has(s));
+}
+
+/**
+ * The folders to look in for a name search: the walk folders given, then this user's folders
+ * (userFolders), walked deep; and the parents of prior hits, read one level each, unless a deep
+ * walk reads them already -- a file found twice would count as two copies of itself.
+ */
 function nameSearchFolders(ctx, walkFolders) {
   const shallow = new Map();
   const deep = new Map();
   const add = (map, original) => {
-    const key = String(original).toLowerCase();
+    const key = String(original).toLowerCase().replace(/[\\/]+$/, '');
     if (!map.has(key)) map.set(key, original);
   };
-  for (const c of ctx.prior || []) {
-    if (!c.path || !isWindowsPath(c.path)) continue;
-    add(shallow, path.win32.dirname(c.path));
-  }
-  const users = process.platform === 'win32'
-    ? USER_FOLDERS.map((f) => path.win32.join(os.homedir(), f))
-    : [];
-  for (const f of [...users, ...walkFolders]) {
+  for (const f of [...walkFolders, ...userFolders(ctx.types || null)]) {
     if (isWindowsPath(f)) add(deep, f);
   }
-  return { shallow: [...shallow.values()], deep: [...deep.values()] };
+  const deepList = [...deep.values()];
+  for (const c of ctx.prior || []) {
+    if (!c.path || !isWindowsPath(c.path)) continue;
+    const parent = path.win32.dirname(c.path);
+    if (!deepList.some((d) => walkedBy(parent, d))) add(shallow, parent);
+  }
+  return { shallow: [...shallow.values()], deep: deepList };
 }
 
 /** Notes for what a scan left out: a few folders by name, then a count. */
@@ -565,6 +736,9 @@ function noteSkipped(ctx, skipped) {
   list(skipped.outside, (f) => t('{0}: skipped; inside the snapshot this path goes through a link or .. that leads out of it, to live files.', f));
   list(skipped.system, (f) => t('{0}: skipped; system folders are not read from a snapshot.', f));
   if (skipped.unreadable) ctx.notes.push(t('{0} file(s) in the snapshot could not be read and were skipped.', skipped.unreadable));
+  if (skipped.unchanged) {
+    ctx.notes.push(t('{0} snapshot copy(ies) have the same size and time as the file still in their place, and were left out: with no name to go on, only what is gone or changed is offered.', skipped.unchanged));
+  }
 }
 
 async function scan(ctx) {
@@ -582,26 +756,41 @@ async function scan(ctx) {
     const folder = ctx.matcher.pattern;
     const wantDrive = driveKeyOf(folder) || ctx.matcher.folder.slice(0, 2);
     const segs = relBelowDrive(folder);
-    for (const snap of snaps) {
-      if (snap.driveKey !== wantDrive) continue;
+    const mine = snaps.filter((snap) => snap.driveKey === wantDrive);
+    mine.forEach((snap, i) => {
+      stopIfAsked(ctx);
       const budget = { dirs: 0, max: MAX_WALK_DIRS, cut: false };
       walkSubtree(snap, segs, ctx, out, skipped, budget);
       if (budget.cut) ctx.notes.push(t('{0}: stopped after {1} folders; some were not searched.', snap.root, MAX_WALK_DIRS));
-    }
+      ctx.progress(i + 1, mine.length);
+    });
   } else {
-    // name search (a follow-up): known-interesting folders only, never a whole snapshot.
+    // name or type search (a follow-up): known folders only, never a whole snapshot. With no
+    // name to go on, a file just as it still is in its place is not worth a row.
     const { walkFolders } = parseLocations(ctx.locations.vss);
     const { shallow, deep } = nameSearchFolders(ctx, walkFolders);
+    const dropUnchanged = !!ctx.unnamed;
     const budget = { dirs: 0, max: MAX_WALK_DIRS, cut: false };
+    const priorBudget = { dirs: 0, max: MAX_PRIOR_FOLDERS, cut: false };
+    const on = (snap) => (f) => driveKeyOf(f) === snap.driveKey;
+    const total = snaps.reduce((n, snap) => n + deep.filter(on(snap)).length + shallow.filter(on(snap)).length, 0);
+    let done = 0;
     for (const snap of snaps) {
-      for (const original of shallow) {
-        if (driveKeyOf(original) === snap.driveKey) scanFolderShallow(snap, relBelowDrive(original), ctx, out, skipped);
+      for (const original of deep.filter(on(snap))) {
+        stopIfAsked(ctx);
+        walkSubtree(snap, relBelowDrive(original), ctx, out, skipped, budget, dropUnchanged);
+        ctx.progress(++done, total);
       }
-      for (const original of deep) {
-        if (driveKeyOf(original) === snap.driveKey) walkSubtree(snap, relBelowDrive(original), ctx, out, skipped, budget);
+      for (const original of shallow.filter(on(snap))) {
+        stopIfAsked(ctx);
+        scanFolderShallow(snap, relBelowDrive(original), ctx, out, skipped, priorBudget, dropUnchanged);
+        ctx.progress(++done, total);
       }
     }
     if (budget.cut) ctx.notes.push(t('Stopped after {0} folders; some snapshot folders were not searched.', MAX_WALK_DIRS));
+    if (priorBudget.cut) {
+      ctx.notes.push(t('Stopped after reading {0} snapshot folders where the other sources found something; the rest were not searched.', MAX_PRIOR_FOLDERS));
+    }
   }
 
   noteSkipped(ctx, skipped);
@@ -642,8 +831,15 @@ module.exports = {
     pickDrive,
     bytesPresent,
     nameSearchFolders,
+    userFolders,
+    kakaoFolders,
+    iniValue,
+    walkedBy,
     walkSubtree,
+    scanFolderShallow,
+    newSkipped,
     probeDevices,
     discover,
+    HOST,
   },
 };

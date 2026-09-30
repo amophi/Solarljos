@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
-const { compile } = require('../src/match');
+const { compile, under } = require('../src/match');
 const { fileUriToPath, pathKey, isInside, absoluteFolder, splitPath, baseName } = require('../src/paths');
 
 test('a plain word matches inside the file name, in any case', () => {
@@ -52,6 +52,29 @@ test('an empty pattern or * matches everything', () => {
   assert.ok(compile('*').everything);
   assert.ok(compile('').test('/any/file'));
   assert.ok(!compile('x').everything);
+});
+
+test('with types, a name must also be of one of them; testName tests the name alone', () => {
+  const m = compile('*', { types: ['image'] });
+  assert.ok(m.everything, 'still no name to go on');
+  assert.deepStrictEqual(m.types, ['image']);
+  assert.ok(m.test('C:\\DCIM\\IMG_0001.JPG'));
+  assert.ok(!m.test('C:\\DCIM\\notes.txt'));
+  assert.ok(!m.test('/home/u/Makefile'), 'a name with no extension is of no type');
+  assert.ok(m.testName('C:\\DCIM\\notes.txt'));
+  const v = compile('clip', { types: ['video'] });
+  assert.ok(v.test('/v/clip.mp4'));
+  assert.ok(!v.test('/v/clip.txt'));
+  assert.ok(!v.test('/v/other.mp4'), 'the name still has to match');
+  assert.ok(v.test('/v/clip.MTS'), 'an extension of two meanings passes for either');
+  assert.ok(compile('*.mts', { types: ['text'] }).test('/src/app.mts'));
+  const u = under('C:\\work', { types: ['document'] });
+  assert.ok(u.test('C:\\work\\a\\b.docx'));
+  assert.ok(!u.test('C:\\work\\a\\b.js'));
+  assert.strictEqual(u.folder, 'c:/work', 'what the sources read to walk only the folder');
+  assert.strictEqual(u.literal, 'work');
+  assert.strictEqual(compile('x').types, null);
+  assert.ok(compile('x').testName('/a/x.txt'));
 });
 
 test('file URIs become paths; other schemes are kept', () => {

@@ -404,6 +404,8 @@ function roots(loc) {
 module.exports = {
   id: 'antigravity',
   label: 'Antigravity',
+  // Text only: a search for pictures or videos leaves it out.
+  media: false,
   scan,
   describe,
   roots,

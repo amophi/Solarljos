@@ -179,6 +179,114 @@ test('a mistyped --location is refused before a search is announced', () => {
   assert.doesNotMatch(r.err, /Searching/);
 });
 
+test('--type finds files of those types, with no name needed, and --json says what each copy is', () => {
+  const f = fixtures();
+  const json = JSON.parse(cli(['find', '--type', 'image', '--json'], f).out);
+  assert.deepStrictEqual(json.results.map((c) => c.path), ['C:\\Users\\alice\\chart.png'], 'by its name, whatever its bytes');
+  const c = json.results[0];
+  assert.deepStrictEqual([c.mediaType, c.tier, c.derived, c.unverified, c.width, c.height], ['image', 0, false, false, null, null]);
+  assert.deepStrictEqual(JSON.parse(cli(['find', 'budget', '--json'], f).out).results[0].mediaType, 'text');
+  const r = cli(['find', '--type', 'photos,documents'], f);
+  assert.strictEqual(r.code, 0, r.err);
+  assert.match(r.err, /Searching for any file of type image, document\.\.\./);
+  // Quoted on Windows, where PowerShell would take a,b for a list.
+  assert.match(r.out, /solarljos restore --type ("photos,documents"|photos,documents) .*<id> --to <folder>/, 'the follow-up repeats the types');
+  assert.strictEqual(cli(['find', 'budget', '--type', 'image'], f).code, 1);
+});
+
+test('a copy found by type alone is shown and restored by its ID', () => {
+  const f = fixtures();
+  const id = JSON.parse(cli(['find', '--type', 'text', '--json'], f).out).results[0].id;
+  assert.strictEqual(cli(['show', id, '--type', 'text'], f).out, 'numbers\n');
+  const out = path.join(f.root, 'recovered');
+  const r = cli(['restore', id, '--type', 'text', '--to', out], f);
+  assert.strictEqual(r.code, 0, r.err);
+  assert.strictEqual(fs.readFileSync(path.join(out, 'budget.txt'), 'utf8'), 'numbers');
+});
+
+test('a type that does not exist is a usage error, refused before a search is announced', () => {
+  const f = fixtures();
+  const r = cli(['find', 'x', '--type', 'image,sheets'], f);
+  assert.strictEqual(r.code, 2);
+  assert.match(r.err, /^Unknown type: sheets\. Known: image, video, audio, document, archive, text$/m);
+  assert.doesNotMatch(r.err, /Searching/);
+  assert.strictEqual(cli(['find'], f).code, 2, 'nothing to go on at all');
+});
+
+test('the list says what a copy is when it is not simply the file, and --since says what it kept undated', () => {
+  const { kindLabel, shownPath } = require('../src/cli')._internal;
+  assert.strictEqual(kindLabel({ kind: 'thumbnail', copies: 1 }), 'thumbnail (smaller copy)');
+  assert.strictEqual(kindLabel({ kind: 'carved', copies: 2 }), 'carved (may be incomplete) x2');
+  assert.strictEqual(kindLabel({ kind: 'fat undelete', unverified: true, copies: 1 }), 'fat undelete (may be incomplete)');
+  assert.strictEqual(kindLabel({ kind: 'claude, before an edit', draft: true, copies: 1 }), 'claude, before an edit (never saved)');
+  assert.strictEqual(kindLabel({ kind: 'unsaved editor buffer', draft: true, copies: 1 }), 'unsaved editor buffer');
+  assert.strictEqual(kindLabel({ kind: 'recycle bin', copies: 1 }), 'recycle bin');
+  assert.strictEqual(shownPath({ path: null, ext: '.jpg', width: 256, height: 192 }), '(name unknown, a .jpg file)  256x192');
+  assert.strictEqual(shownPath({ path: null }), '(name unknown)');
+  assert.strictEqual(shownPath({ path: 'C:\\a.jpg', width: 1, height: 2 }), 'C:\\a.jpg  1x2');
+
+  const f = fixtures();
+  const bin = path.join(f.recycle, 'S-1-5-21-9-9-9-1001');
+  write(path.join(bin, '$IUNDATE.txt'), infoV2('C:\\Users\\alice\\undated.txt', 1, -11644473600000));
+  write(path.join(bin, '$RUNDATE.txt'), 'u');
+  const r = cli(['find', '*.txt', '--since', '2026-09-01'], f);
+  assert.strictEqual(r.code, 0, r.err);
+  assert.match(r.out, /! 1 copy\(ies\) carry no date; they were kept/);
+  assert.match(r.out, /undated\.txt/);
+});
+
+/**
+ * Runs main() in a child with a stand-in GUI server, which says where it is as the real one
+ * does, and says what it was started with.
+ */
+function gui(argv, { sea = false } = {}) {
+  const root = workDir('cli-gui');
+  dirs.push(root);
+  const script = write(path.join(root, 'run.js'), `
+    const { main } = require(${JSON.stringify(path.join(__dirname, '..', 'src', 'cli.js'))});
+    const calls = [];
+    const server = { start: async (o) => {
+      calls.push(o);
+      process.stdout.write('stand-in running at http://127.0.0.1:5555/?k=token\\n');
+      return { url: 'http://127.0.0.1:5555/?k=token', close: async () => {} };
+    } };
+    main(${JSON.stringify(argv)}, { gui: () => server, isSea: () => ${sea} }).then((code) => {
+      const loaded = Object.keys(require.cache).some((k) => /[\\\\/]gui[\\\\/]/.test(k));
+      process.stderr.write('\\n' + JSON.stringify({ code, calls, loaded }) + '\\n');
+    });
+  `);
+  const r = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
+  const lines = r.stderr.trim().split('\n');
+  return { ...JSON.parse(lines[lines.length - 1]), out: r.stdout, err: r.stderr };
+}
+
+test('gui starts the server on 127.0.0.1, with no window for --no-open, and leaves the telling to it', () => {
+  const quiet = gui(['gui', '--no-open', '--port', '0']);
+  assert.strictEqual(quiet.code, 0, quiet.err);
+  assert.deepStrictEqual(quiet.calls, [{ port: 0, open: false, host: '127.0.0.1' }]);
+  // The server prints the address, and how it stops; the command line adds nothing to it.
+  assert.strictEqual(quiet.out, 'stand-in running at http://127.0.0.1:5555/?k=token\n');
+  const shown = gui(['gui', '--port', '8123']);
+  assert.deepStrictEqual(shown.calls, [{ port: 8123, open: true, host: '127.0.0.1' }]);
+  assert.strictEqual(shown.out, 'stand-in running at http://127.0.0.1:5555/?k=token\n');
+  for (const port of ['x', '70000', '-1', '1.5']) {
+    const bad = gui(['gui', '--port', port]);
+    assert.strictEqual(bad.code, 2, port);
+    assert.deepStrictEqual(bad.calls, [], port);
+  }
+});
+
+test('the single executable run with no arguments opens the GUI; anything else is the command line', () => {
+  const clicked = gui([], { sea: true });
+  assert.deepStrictEqual(clicked.calls, [{ port: 0, open: true, host: '127.0.0.1' }]);
+  const plain = gui([], { sea: false });
+  assert.deepStrictEqual(plain.calls, []);
+  assert.match(plain.out, /solarljos gui +open the graphical front end/);
+  const help = gui(['--help'], { sea: true });
+  assert.deepStrictEqual(help.calls, []);
+  assert.strictEqual(help.loaded, false, 'the server is not even loaded for the command line');
+});
+
 test('rebuild says what the sources noted, above all when nothing turned up', () => {
   const f = fixtures();
   // A folder with no Linux trash in it: the trash source says so.

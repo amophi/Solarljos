@@ -13,10 +13,28 @@ const vss = require('../src/sources/vss');
 const {
   parseLocations, resolveSnapshots, relBelowDrive, driveKeyOf, normalizeDriveRoot, toOriginal, snapDir,
   isSystemFolder, pickDrive, bytesPresent, walkSubtree, probeDevices, discover,
+  nameSearchFolders, userFolders, kakaoFolders, iniValue, walkedBy, newSkipped, HOST,
 } = vss._internal;
 
 const dirs = [];
 after(() => dirs.forEach(cleanup));
+
+// The walk's view of this machine is a made-up Windows profile on every platform, so no test
+// reads the real one -- its folders, OneDrive's variables or KakaoTalk's settings -- and no live
+// file is looked up. A test that needs a live file puts its own `stat` in for its length.
+const FAKE_HOME = 'C:\\Users\\me';
+Object.assign(HOST, { windows: true, home: () => FAKE_HOME, env: {}, stat: null });
+
+/** Runs `fn` with some of HOST replaced, then puts it back. */
+async function withHost(change, fn) {
+  const saved = { ...HOST };
+  Object.assign(HOST, change);
+  try {
+    return await fn();
+  } finally {
+    Object.assign(HOST, saved);
+  }
+}
 
 const at = (file, ms) => fs.utimesSync(file, new Date(ms), new Date(ms));
 const T1 = Date.parse('2026-01-01T00:00:00Z');
@@ -41,7 +59,7 @@ const notesOf = (perSource) => (perSource.find((s) => s.id === 'vss') || {}).not
 
 /** A scan context built by hand, to give the source prior hits as another source would. */
 const ctxOf = (vssLocations, matcher, prior = []) => ({
-  matcher, containing: null, unnamed: false, locations: { vss: vssLocations },
+  matcher, containing: null, types: matcher.types || null, unnamed: false, locations: { vss: vssLocations },
   notes: [], stats: {}, progress() {}, prior,
 });
 
@@ -428,6 +446,208 @@ test('describe lists a mapped snapshot with its time in local time, and reports 
   assert.ok(lines.some((l) => l.endsWith('taken about ' + fmt.when(T2))), 'the same local form as WHEN');
   const empty = vss.describe({ locations: { vss: [] } });
   assert.ok(empty.some((l) => /No shadow copies/.test(l)));
+});
+
+// --- pictures and videos ----------------------------------------------------
+
+/** A snapshot of C: holding a profile at FAKE_HOME, with `files` ({ 'rel\\path': content }) below its root. */
+function makeProfile(name, files) {
+  const base = workDir(name);
+  dirs.push(base);
+  const snap = path.join(base, 'snap');
+  for (const [rel, content] of Object.entries(files)) at(write(path.join(snap, ...rel.split('\\')), content), T1);
+  return { base, snap, loc: (extra = []) => only({ dirs: { vss: [snap + '=C:\\', ...extra] } }) };
+}
+
+const PROFILE = {
+  'Users\\me\\Pictures\\Camera Roll\\IMG_0001.jpg': 'jpeg bytes 1',
+  'Users\\me\\Pictures\\notes.txt': 'not a picture',
+  'Users\\me\\Videos\\clip.mp4': 'mp4 bytes',
+  'Users\\me\\Music\\song.mp3': 'mp3 bytes',
+  'Users\\me\\Documents\\scan.png': 'png bytes',
+  'Users\\me\\AppData\\Local\\cache.jpg': 'app cache',
+  'Users\\Public\\Pictures\\shared.jpg': 'shared picture',
+  'Other\\elsewhere.jpg': 'outside the user folders',
+  'Users\\other\\Pictures\\theirs.jpg': 'another user',
+};
+const names = (results) => results.map((r) => r.path).sort();
+
+test('a search by type with no name walks the user folders, Pictures, Videos and Music among them, and nothing else', async () => {
+  const p = makeProfile('vss-types', PROFILE);
+  const images = await search({ types: ['image'], sources: ['vss'], locations: p.loc() });
+  assert.deepStrictEqual(names(images.results), [
+    'C:\\Users\\Public\\Pictures\\shared.jpg',
+    'C:\\Users\\me\\Documents\\scan.png',
+    'C:\\Users\\me\\Pictures\\Camera Roll\\IMG_0001.jpg',
+  ]);
+  assert.ok(images.results.every((r) => r.mediaType === 'image' && r.kind === 'shadow copy'));
+  const videos = await search({ types: ['video'], sources: ['vss'], locations: p.loc() });
+  assert.deepStrictEqual(names(videos.results), ['C:\\Users\\me\\Videos\\clip.mp4']);
+  const audio = await search({ types: ['audio'], sources: ['vss'], locations: p.loc() });
+  assert.deepStrictEqual(names(audio.results), ['C:\\Users\\me\\Music\\song.mp3']);
+  // A name search goes through the same folders.
+  const named = await search({ pattern: '*.jpg', sources: ['vss'], locations: p.loc() });
+  assert.deepStrictEqual(names(named.results), ['C:\\Users\\Public\\Pictures\\shared.jpg', 'C:\\Users\\me\\Pictures\\Camera Roll\\IMG_0001.jpg']);
+});
+
+test('with types, only names of those types are looked at while walking', async () => {
+  const p = makeProfile('vss-prefilter', PROFILE);
+  const stats = [];
+  const statSync = fs.statSync;
+  fs.statSync = function (...args) {
+    stats.push(String(args[0]));
+    return statSync.apply(this, args);
+  };
+  let found;
+  try {
+    found = await vss.scan(ctxOf([p.snap + '=C:\\'], compile('', { types: ['video'] })));
+  } finally {
+    fs.statSync = statSync;
+  }
+  assert.deepStrictEqual(found.map((c) => c.path), ['C:\\Users\\me\\Videos\\clip.mp4']);
+  const inSnapshot = stats.filter((s) => s.startsWith(p.snap) && /\.[a-z0-9]+$/i.test(s));
+  assert.deepStrictEqual(inSnapshot.map((s) => path.basename(s)), ['clip.mp4'], 'no file of another type was stat\'d');
+});
+
+test('with no name to go on, a copy the same as the file still in its place is left out, and counted', async () => {
+  const p = makeProfile('vss-unchanged', {
+    'Users\\me\\Pictures\\same.jpg': 'same bytes',
+    'Users\\me\\Pictures\\changed.jpg': 'older bytes',
+    'Users\\me\\Pictures\\gone.jpg': 'deleted since',
+  });
+  // The live disk, as the source would see it: same.jpg as it was, changed.jpg rewritten since,
+  // gone.jpg gone.
+  const live = {
+    'C:\\Users\\me\\Pictures\\same.jpg': { size: 10, mtimeMs: T1 },
+    'C:\\Users\\me\\Pictures\\changed.jpg': { size: 11, mtimeMs: T2 },
+  };
+  const stat = (p2) => {
+    if (!live[p2]) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    return { ...live[p2], isFile: () => true };
+  };
+  await withHost({ stat }, async () => {
+    const typed = await search({ types: ['image'], sources: ['vss'], locations: p.loc() });
+    assert.deepStrictEqual(names(typed.results), ['C:\\Users\\me\\Pictures\\changed.jpg', 'C:\\Users\\me\\Pictures\\gone.jpg']);
+    assert.ok(notesOf(typed.perSource).includes('1 snapshot copy(ies) have the same size and time as the file still in their place, and were left out: with no name to go on, only what is gone or changed is offered.'));
+    // Asked for by name, it is offered as before: an older copy may be what is wanted.
+    const named = await search({ pattern: 'same.jpg', types: ['image'], sources: ['vss'], locations: p.loc() });
+    assert.deepStrictEqual(names(named.results), ['C:\\Users\\me\\Pictures\\same.jpg']);
+    assert.ok(!notesOf(named.perSource).some((n) => /same size and time/.test(n)));
+    // Rebuilding a folder takes every file, as before.
+    const under = await search({ under: 'C:\\Users\\me\\Pictures', sources: ['vss'], locations: p.loc() });
+    assert.strictEqual(under.results.length, 3);
+  });
+});
+
+test('the user folders: the profile\'s, Public\'s, OneDrive\'s and Dropbox, the ones of the types asked for first', () => {
+  const base = workDir('vss-folders');
+  dirs.push(base);
+  const host = { windows: true, home: () => FAKE_HOME, env: { OneDrive: 'C:\\Users\\me\\OneDrive', OneDriveCommercial: 'D:\\Work OneDrive' } };
+  const all = [
+    'C:\\Users\\me\\Desktop', 'C:\\Users\\me\\Documents', 'C:\\Users\\me\\Downloads',
+    'C:\\Users\\me\\Pictures', 'C:\\Users\\me\\Videos', 'C:\\Users\\me\\Music',
+    'C:\\Users\\Public\\Pictures', 'C:\\Users\\Public\\Videos', 'C:\\Users\\Public\\Music',
+    'C:\\Users\\me\\OneDrive', 'D:\\Work OneDrive', 'C:\\Users\\me\\Dropbox',
+  ];
+  assert.deepStrictEqual(userFolders(null, host), all);
+  assert.deepStrictEqual(userFolders(['image'], host), [
+    'C:\\Users\\me\\Pictures', 'C:\\Users\\Public\\Pictures',
+    'C:\\Users\\me\\Desktop', 'C:\\Users\\me\\Documents', 'C:\\Users\\me\\Downloads',
+    'C:\\Users\\me\\OneDrive', 'D:\\Work OneDrive', 'C:\\Users\\me\\Dropbox',
+    'C:\\Users\\me\\Videos', 'C:\\Users\\me\\Music', 'C:\\Users\\Public\\Videos', 'C:\\Users\\Public\\Music',
+  ]);
+  assert.deepStrictEqual(userFolders(['audio'], host).slice(0, 2), ['C:\\Users\\me\\Music', 'C:\\Users\\Public\\Music']);
+  assert.deepStrictEqual(userFolders(['text'], host), all.filter((f) => !/Pictures|Videos|Music/.test(f))
+    .concat(all.filter((f) => /Pictures|Videos|Music/.test(f))));
+  // A drive root is never walked, a folder named twice is walked once, and off Windows there are none.
+  const odd = { ...host, env: { OneDrive: 'C:\\Users\\me\\OneDrive', OneDriveConsumer: 'c:\\users\\ME\\onedrive\\', OneDriveCommercial: 'E:\\' } };
+  assert.deepStrictEqual(userFolders(null, odd).filter((f) => /onedrive|^E:/i.test(f)), ['C:\\Users\\me\\OneDrive']);
+  assert.deepStrictEqual(userFolders(null, { ...host, windows: false }), []);
+  assert.deepStrictEqual(userFolders(null, { ...host, home: () => '/home/me' }), []);
+});
+
+test('the folder KakaoTalk saves chat photos into is walked, read from its settings and nothing else', () => {
+  const base = workDir('vss-kakao');
+  dirs.push(base);
+  const users = path.join(base, 'Kakao', 'KakaoTalk', 'users');
+  const id = (n) => n.repeat(40);
+  write(path.join(users, id('a'), 'user_pref.ini'), '\uFEFF[KAKAO_TALK]\r\ndownload_path =D:\\kakao\r\nfiledialog_path =D:\\elsewhere\r\n');
+  write(path.join(users, id('b'), 'user_pref.ini'), '[OTHER]\ndownload_path=D:\\not this\n[KAKAO_TALK]\ndownload_path=\n');
+  write(path.join(users, id('c'), 'user_pref.ini'), '[kakao_talk]\n  Download_Path = C:\\Users\\me\\Pictures\\Kakao  \n');
+  write(path.join(users, id('d'), 'user_pref.ini'), '[KAKAO_TALK]\ndownload_path=D:\\too big\n' + ' '.repeat(70 * 1024));
+  write(path.join(users, id('e'), 'chat_data', 'x.edb'), 'not read');
+  write(path.join(users, 'user_pref.ini'), '[KAKAO_TALK]\ndownload_path=D:\\not in an account folder\n');
+  const before = snapshot(base);
+  const host = { windows: true, home: () => FAKE_HOME, env: { LOCALAPPDATA: base } };
+  assert.deepStrictEqual(kakaoFolders(host).sort(), ['C:\\Users\\me\\Pictures\\Kakao', 'D:\\kakao']);
+  assert.ok(userFolders(null, host).includes('D:\\kakao'));
+  assert.deepStrictEqual(snapshot(base), before, 'nothing written');
+  // No KakaoTalk, or no LOCALAPPDATA at all: no folder, no error.
+  assert.deepStrictEqual(kakaoFolders({ env: { LOCALAPPDATA: path.join(base, 'none') } }), []);
+  assert.deepStrictEqual(kakaoFolders({ env: {} }), []);
+
+  assert.strictEqual(iniValue('\uFEFF[A]\r\nk = v \r\n', 'a', 'K'), 'v');
+  assert.strictEqual(iniValue('k=v\n[A]\nj=w\n', 'A', 'k'), null, 'a key outside the section');
+  assert.strictEqual(iniValue('[A]\nk=\n', 'A', 'k'), '');
+});
+
+test('a folder a prior hit is in is not read again when a user folder\'s walk reads it', async () => {
+  const p = makeProfile('vss-overlap', {
+    'Users\\me\\Pictures\\a.jpg': 'a',
+    'Users\\me\\Documents\\proj\\node_modules\\pkg\\logo.png': 'logo',
+  });
+  const prior = [
+    { path: 'C:\\Users\\me\\Pictures\\a.jpg' },
+    { path: 'C:\\Users\\me\\Documents\\proj\\node_modules\\pkg\\gone.png' },
+  ];
+  const ctx = ctxOf([p.snap + '=C:\\'], compile('', { types: ['image'] }), prior);
+  const { shallow, deep } = nameSearchFolders(ctx, ['C:\\Users\\me\\Given']);
+  assert.deepStrictEqual(shallow, ['C:\\Users\\me\\Documents\\proj\\node_modules\\pkg'], 'node_modules is not walked, so it is read on its own');
+  assert.strictEqual(deep[0], 'C:\\Users\\me\\Given', 'a folder given comes first');
+  assert.strictEqual(deep[1], 'C:\\Users\\me\\Pictures');
+  const found = await vss.scan(ctx);
+  assert.deepStrictEqual(found.map((c) => c.path).sort(), ['C:\\Users\\me\\Documents\\proj\\node_modules\\pkg\\logo.png', 'C:\\Users\\me\\Pictures\\a.jpg']);
+
+  assert.strictEqual(walkedBy('C:\\Users\\me\\Pictures\\x', 'c:\\users\\me\\pictures\\'), true);
+  assert.strictEqual(walkedBy('C:\\Users\\me\\Pictures', 'C:\\Users\\me\\Pictures'), true);
+  assert.strictEqual(walkedBy('C:\\Users\\me\\PicturesOld', 'C:\\Users\\me\\Pictures'), false);
+  assert.strictEqual(walkedBy('C:\\Users\\me\\Desktop\\AppData\\x', 'C:\\Users\\me\\Desktop'), false);
+});
+
+test('a scan says how far it is, and stops when the search is stopped', async () => {
+  const p = makeProfile('vss-progress', PROFILE);
+  const ctx = ctxOf([p.snap + '=C:\\'], compile('', { types: ['image'] }), [{ path: 'C:\\Other\\gone.jpg' }]);
+  const steps = [];
+  ctx.progress = (done, total) => steps.push([done, total]);
+  const found = await vss.scan(ctx);
+  assert.ok(found.some((c) => c.path === 'C:\\Other\\elsewhere.jpg'), 'a prior hit\'s folder is still read');
+  assert.ok(steps.length > 1);
+  assert.deepStrictEqual(steps[steps.length - 1], [steps.length, steps.length]);
+  assert.ok(steps.every(([done, total], i) => done === i + 1 && total === steps.length));
+
+  const stopped = new AbortController();
+  stopped.abort();
+  const halted = ctxOf([p.snap + '=C:\\'], compile('', { types: ['image'] }));
+  halted.signal = stopped.signal;
+  await assert.rejects(vss.scan(halted), (e) => e.name === 'AbortError');
+  const under = ctxOf([p.snap + '=C:\\'], compile('x'));
+  under.matcher = require('../src/match').under('C:\\Users\\me');
+  under.signal = stopped.signal;
+  await assert.rejects(vss.scan(under), (e) => e.name === 'AbortError');
+});
+
+test('reading the folders of prior hits has a budget of its own, and says when it is cut', () => {
+  const base = workDir('vss-prior-budget');
+  dirs.push(base);
+  const snap = { root: path.join(base, 'snap'), driveRoot: 'C:\\', driveKey: 'c:' };
+  for (const d of ['a', 'b', 'c']) at(write(path.join(snap.root, d, 'f.txt'), d), T1);
+  const { scanFolderShallow } = vss._internal;
+  const ctx = ctxOf([], compile('*.txt'));
+  const out = [];
+  const budget = { dirs: 0, max: 2, cut: false };
+  for (const d of ['a', 'b', 'c']) scanFolderShallow(snap, [d], ctx, out, newSkipped(), budget);
+  assert.strictEqual(budget.cut, true);
+  assert.strictEqual(out.length, 2);
 });
 
 test('the device probe takes what lists, stops at its ceiling and writes nothing', () => {

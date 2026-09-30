@@ -1,7 +1,7 @@
 {
   "name": "solarljos",
-  "version": "0.3.0",
-  "description": "Find deleted files in the places copies survive: the Recycle Bin, shadow copies, editor and IDE history, unsaved buffers, Notepad tabs, Hancom autosaves, Claude Code and Antigravity records, git, and the Linux trash.",
+  "version": "0.4.0",
+  "description": "Finds files you have lost, deleted or saved over, in the copies Windows and your programs keep on their own, and brings back the ones you choose into a folder you choose, changing nothing else on the computer.",
   "license": "MIT",
   "author": "amophi",
   "homepage": "https://github.com/amophi/Solarljos#readme",
@@ -16,8 +16,11 @@
     "recover",
     "undelete",
     "deleted files",
+    "file recovery",
+    "data recovery",
     "recycle bin",
     "shadow copy",
+    "restore point",
     "local history",
     "jetbrains",
     "android studio",
@@ -26,7 +29,20 @@
     "claude code",
     "antigravity",
     "git",
-    "trash"
+    "trash",
+    "photo recovery",
+    "video recovery",
+    "thumbnail cache",
+    "thumbcache",
+    "snipping tool",
+    "sd card",
+    "usb stick",
+    "fat32",
+    "exfat",
+    "file carving",
+    "windows",
+    "portable",
+    "gui"
   ],
   "main": "src/index.js",
   "bin": {
@@ -41,6 +57,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "bundle": "node scripts/bundle.js",
+    "build:exe": "node scripts/build-exe.js"
   }
 }

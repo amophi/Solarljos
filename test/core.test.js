@@ -7,12 +7,12 @@ const path = require('path');
 const { workDir, cleanup, write } = require('./helpers');
 const { compile } = require('../src/match');
 const { pathKey } = require('../src/paths');
-const { planRebuild, restore } = require('../src/restore');
+const { planRebuild, leftOutOf, restore } = require('../src/restore');
 const { safeName } = require('../src/restore')._internal;
 const { resolveLocations } = require('../src/locations');
 const { dedupe } = require('../src/search')._internal;
 const { git } = require('../src/search');
-const { tier, fidelity } = require('../src/quality');
+const { FIDELITY, tier, fidelity, better, isDerived, isUnverified } = require('../src/quality');
 
 const dirs = [];
 after(() => dirs.forEach(cleanup));
@@ -149,4 +149,108 @@ test('an editor\'s text of a file is not exact, so an older exact copy is taken 
   assert.deepStrictEqual(plan.map((p) => p.copy.text), ['exact', 'only this']);
   assert.strictEqual(tier({ kind: 'jetbrains history, as text' }), tier({ kind: 'git, line endings differ' }));
   assert.strictEqual(fidelity({ kind: 'git, Git LFS pointer' }), 0, 'checkout writes the pointer itself');
+});
+
+test('five tiers -- exact, inexact, draft, unverified, derived -- set by a copy\'s flags or its kind', () => {
+  assert.strictEqual(tier({ kind: 'recycle bin' }), 0);
+  assert.strictEqual(tier({ kind: 'git, filter not run' }), 1);
+  assert.strictEqual(tier({ kind: 'fat undelete', inexact: true }), 1);
+  assert.strictEqual(tier({ kind: 'unsaved editor buffer', draft: true }), 2);
+  assert.strictEqual(tier({ kind: 'fat undelete', unverified: true }), 3);
+  assert.strictEqual(tier({ kind: 'carved' }), 3, 'carved out of free space is never more, whatever its flags');
+  assert.strictEqual(tier({ kind: 'carved', inexact: true }), 3);
+  assert.strictEqual(tier({ kind: 'thumbnail' }), 4);
+  assert.strictEqual(tier({ kind: 'thumbnail, name unknown' }), 4);
+  assert.strictEqual(tier({ kind: 'web image', derived: true, draft: true }), 4, 'the least trusted flag decides');
+  assert.strictEqual(tier({ kind: 'exfat undelete' }), 0, 'an undelete says with its flags what it is');
+  assert.strictEqual(tier({ kind: 'snipping tool capture' }), 0, 'the capture itself');
+  assert.ok(isDerived({ kind: 'thumbnail' }) && isDerived({ kind: 'x', derived: true }) && !isDerived({ kind: 'carved' }));
+  assert.ok(isUnverified({ kind: 'carved' }) && isUnverified({ kind: 'x', unverified: true }) && !isUnverified({ kind: 'thumbnail' }));
+  for (const kind of ['thumbnail', 'thumbnail, name unknown', 'fat undelete', 'exfat undelete', 'carved', 'snipping tool capture']) {
+    assert.ok(kind in FIDELITY, kind);
+  }
+  assert.ok(fidelity({ kind: 'exfat undelete' }) < fidelity({ kind: 'fat undelete' }), 'a recorded extent before an assumed one');
+  assert.ok(fidelity({ kind: 'fat undelete' }) < fidelity({ kind: 'carved' }));
+});
+
+test('any copy of a better tier wins, however old; a newer one wins only within its tier', () => {
+  const copies = [
+    { kind: 'thumbnail', time: 50 },
+    { kind: 'carved', time: 40 },
+    { kind: 'unsaved editor buffer', draft: true, time: 30 },
+    { kind: 'git, line endings differ', time: 20 },
+    { kind: 'recycle bin', time: 10 },
+  ];
+  const ranked = [...copies].sort((a, b) => (better(a, b) ? -1 : better(b, a) ? 1 : 0));
+  assert.deepStrictEqual(ranked.map((c) => c.kind), ['recycle bin', 'git, line endings differ', 'unsaved editor buffer', 'carved', 'thumbnail']);
+  assert.ok(better({ kind: 'carved', time: 2 }, { kind: 'carved', time: 1 }));
+  assert.ok(better({ kind: 'fat undelete', unverified: true, time: 1 }, { kind: 'carved', time: 1 }), 'fidelity breaks a tie');
+  assert.ok(better({ kind: 'thumbnail', time: 1 }, { kind: 'thumbnail', time: null }), 'a dated copy before an undated one');
+});
+
+test('rebuild takes no copy that may be incomplete or is only a smaller copy, and lists those paths apart', () => {
+  const results = [
+    { path: 'C:\\p\\a.jpg', time: 9, kind: 'thumbnail', text: 'small' },
+    { path: 'C:\\p\\a.jpg', time: 1, kind: 'recycle bin', text: 'whole' },
+    { path: 'C:\\p\\b.jpg', time: 9, kind: 'thumbnail', text: 'only small' },
+    { path: 'C:\\p\\c.mp4', time: 9, kind: 'fat undelete', unverified: true, text: 'maybe' },
+    { path: 'C:\\p\\c.mp4', time: 8, kind: 'thumbnail', text: 'a frame' },
+    { path: 'C:\\p\\d.txt', time: 9, kind: 'unsaved editor buffer', draft: true, text: 'draft' },
+  ];
+  assert.deepStrictEqual(planRebuild(results, 'C:\\p').map((p) => [p.rel[0], p.copy.text]), [['a.jpg', 'whole'], ['d.txt', 'draft']]);
+  assert.deepStrictEqual(leftOutOf(results, 'C:\\p').map((p) => [p.rel[0], p.copy.text]), [['b.jpg', 'only small'], ['c.mp4', 'maybe']],
+    'each with its best copy: one that may be whole before a smaller one');
+});
+
+test('merged identical copies are unverified, or derived, only when every one of them is', () => {
+  const base = { path: 'E:\\DCIM\\a.jpg', hash: 'h' };
+  const [whole] = dedupe([{ ...base, kind: 'fat undelete', unverified: true, time: 2 }, { ...base, kind: 'recycle bin', time: 1 }]);
+  assert.strictEqual(whole.unverified, false, 'the same bytes found whole elsewhere');
+  assert.strictEqual(whole.kind, 'recycle bin');
+  assert.strictEqual(tier(whole), 0);
+  const [both] = dedupe([{ ...base, kind: 'fat undelete', unverified: true, time: 2 }, { ...base, kind: 'carved', unverified: true, time: 2 }]);
+  assert.strictEqual(both.unverified, true);
+  assert.strictEqual(both.kind, 'fat undelete');
+  const [small] = dedupe([{ ...base, kind: 'x', derived: true, time: 1 }, { ...base, kind: 'y', derived: true, time: 1 }]);
+  assert.strictEqual(small.derived, true);
+});
+
+test('a kind that is always unverified counts as one when merged, flag or no flag', () => {
+  const base = { path: 'E:\\DCIM\\a.jpg', hash: 'h', time: 2 };
+  // The undelete ranks first (fidelity 5 before 6), and the carve says what it is by its kind alone.
+  for (const list of [[{ ...base, kind: 'fat undelete', unverified: true }, { ...base, kind: 'carved' }],
+    [{ ...base, kind: 'carved' }, { ...base, kind: 'fat undelete', unverified: true }]]) {
+    const [one] = dedupe(list);
+    assert.strictEqual(one.kind, 'fat undelete');
+    assert.strictEqual(tier(one), 3, 'two copies that may be incomplete are not one that is exact');
+    assert.deepStrictEqual([one.copies, one.seen.sort()], [2, ['carved', 'fat undelete']]);
+  }
+  // A copy with an inexact kind and one flagged inexact are inexact together, in either order.
+  const git = { ...base, kind: 'git, filter not run', time: 1 };
+  const fat = { ...base, kind: 'exfat undelete', inexact: true, time: 3 };
+  for (const list of [[git, fat], [fat, git]]) assert.strictEqual(tier(dedupe(list)[0]), 1);
+  // One exact copy among them makes the bytes exact.
+  assert.strictEqual(tier(dedupe([git, fat, { ...base, kind: 'recycle bin', time: 0 }])[0]), 0);
+  // A copy found once keeps its own fields as they are.
+  const [alone] = dedupe([{ ...base, kind: 'carved' }]);
+  assert.strictEqual(alone.unverified, undefined);
+  assert.strictEqual(tier(alone), 3);
+});
+
+test('a copy with no name that proves a named one whole counts as a copy of it', () => {
+  // An undelete that may be incomplete, and the same bytes found whole where the name was lost.
+  const named = { path: 'E:\\DCIM\\a.jpg', hash: 'h1', kind: 'fat undelete', unverified: true, time: 2 };
+  const nameless = { path: null, hash: 'h1', kind: 'trash, name unknown', time: 1 };
+  for (const list of [[named, nameless], [nameless, named]]) {
+    const out = dedupe(list.map((c) => ({ ...c })));
+    assert.strictEqual(out.length, 1);
+    const [row] = out;
+    assert.deepStrictEqual([row.path, row.kind, tier(row), row.copies, row.seen.sort()],
+      ['E:\\DCIM\\a.jpg', 'fat undelete', 0, 2, ['fat undelete', 'trash, name unknown']]);
+  }
+  // A nameless copy no better than the named one leaves it as it was, but counted.
+  const [still] = dedupe([{ ...named }, { path: null, hash: 'h1', kind: 'carved', time: 1 }]);
+  assert.deepStrictEqual([tier(still), still.copies], [3, 2]);
+  // Other bytes change nothing.
+  assert.strictEqual(dedupe([{ ...named }, { ...nameless, hash: 'h2' }]).length, 2);
 });

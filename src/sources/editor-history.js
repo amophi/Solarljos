@@ -83,6 +83,8 @@ function describe(ctx) {
 module.exports = {
   id: 'history',
   label: 'Editor Local History',
+  // Text only: a search for pictures or videos leaves it out.
+  media: false,
   scan,
   describe,
   roots: (loc) => loc.history.map((h) => h.dir),

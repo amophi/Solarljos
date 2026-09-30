@@ -7,8 +7,9 @@ const { t } = require('./i18n');
 const { compile, under } = require('./match');
 const { resolveLocations } = require('./locations');
 const { pathKey, isWindowsPath, absoluteFolder } = require('./paths');
-const { HASH_LIMIT, blobHash, load, asText } = require('./content');
-const { better } = require('./quality');
+const { HASH_LIMIT, blobHash, load, head, asText } = require('./content');
+const { better, isDerived, isInexact, isUnverified } = require('./quality');
+const { SNIFF_BYTES, parseTypes, typeOfExt, typesOfName, sniff } = require('./types');
 
 /**
  * A source that cannot even be loaded -- a bug in one module -- should cost that one source,
@@ -41,12 +42,18 @@ const SOURCES = [
   source('./sources/editor-backups', 'editor-backups'),
   source('./sources/hancom', 'hancom'),
   source('./sources/trash', 'trash'),
+  source('./sources/thumbcache', 'thumbcache'),
+  source('./sources/snips', 'snips'),
+  source('./sources/removable', 'removable'),
   source('./sources/vss', 'vss'),
 ];
 
 // A source can look for its own places (`discover`), and can ask to run after the others
 // (`followUp`) to look where they found something -- a shadow copy is searched folder by
-// folder, never whole.
+// folder, never whole. One that keeps nothing but text says so with `media: false`, and a search
+// for pictures or videos leaves it out; one that reads disks directly says `needsAdmin`. One that
+// reads a store other programs keep rewriting -- Explorer's thumbnail cache -- can take it into
+// memory once with `freeze`, so that nothing written after that changes what it finds.
 const DISCOVERERS = Object.fromEntries(
   SOURCES.filter((s) => typeof s.discover === 'function').map((s) => [s.id, s.discover]));
 
@@ -87,7 +94,7 @@ function selectSources(ids) {
 }
 
 /** Reads what is needed to hash a copy, unless it is too big to be worth it. */
-function hashOf(c) {
+async function hashOf(c) {
   if (c.hash !== undefined && c.hash !== null) return c.hash;
   if (c.isDir || c.gone) return null;
   if (c.buffer) return blobHash(c.buffer);
@@ -99,7 +106,118 @@ function hashOf(c) {
       return null;
     }
   }
+  // Pieces of a disk are read only when their size says it is worth it.
+  if (c.extent && c.size != null && c.size <= HASH_LIMIT) {
+    try {
+      return blobHash(await load(c, git));
+    } catch (_) {
+      return null;
+    }
+  }
   return null;
+}
+
+/** What a copy's first bytes say it is, or nulls when they cannot be read or say nothing known. */
+async function sniffed(c) {
+  try {
+    const first = await head(c, git, SNIFF_BYTES);
+    if (first) return sniff(first);
+  } catch (_) {
+    /* unreadable: what it is cannot be told */
+  }
+  return { mediaType: null, ext: null };
+}
+
+/**
+ * The type a copy with a name is of, by its extension; for an extension of two meanings, such as
+ * .mts, the one its first bytes say, where they can be read without git -- every TypeScript file
+ * in a repository's history is not worth a read -- or where `always`, and the usual one otherwise.
+ */
+async function typeByName(c, name, always) {
+  const [usual, other] = typesOfName(name);
+  if (!other || !(always || c.buffer || typeof c.text === 'string' || c.file || c.extent)) return usual || null;
+  if (c.gitBlob && !c.buffer && (c.size || 0) > HASH_LIMIT) return usual;
+  const got = (await sniffed(c)).mediaType;
+  return got === other ? other : usual;
+}
+
+/**
+ * Only the copies of the types asked for. A copy with a name is one when its name's extension
+ * is of one of them -- or, for one in a format of its own such as a thumbnail, when that format
+ * is. One whose name was lost is one when the type its source gave it says so, or else its first
+ * bytes (types.js), and it is given the type and, when it has none, the extension they name. What
+ * cannot be read to tell is left out.
+ *
+ * A name of two meanings, such as .mts, is read to tell only when the answer decides: when the
+ * other meaning is asked for and the usual one is not. With the usual one asked for, the bytes
+ * are looked at where that is cheap, so that a camcorder's clip in the Recycle Bin is not taken
+ * for text, but not in git, where a TypeScript project's history would all be read. A smaller
+ * copy's bytes are of its own format and say nothing about its name, so it passes for either.
+ * `stop` is called before each copy, to throw when the search is to end.
+ */
+async function keepTypes(list, types, stop = () => {}) {
+  const wanted = new Set(types);
+  const mustRead = (c) => {
+    const name = c.path || c.name;
+    if (!name) return true;
+    const [usual, other] = typesOfName(name);
+    return !!other && !isDerived(c) && wanted.has(other) && !wanted.has(usual);
+  };
+  // Git objects to be told by their bytes are read in one call per repository, not one each.
+  await git.preload(list.filter((c) => !c.isDir && !c.gone && mustRead(c)));
+  const kept = [];
+  for (const c of list) {
+    stop();
+    if (c.isDir) continue;
+    const name = c.path || c.name;
+    if (name) {
+      if (wanted.has(typeOfExt(c.ext)) || wanted.has(c.mediaType)) {
+        kept.push(c);
+        continue;
+      }
+      const [usual, other] = typesOfName(name);
+      if (!wanted.has(usual) && !wanted.has(other)) continue;
+      if (!other || isDerived(c)) {
+        kept.push(c);
+        continue;
+      }
+      const type = await typeByName(c, name, mustRead(c));
+      if (wanted.has(type)) kept.push(type === usual ? c : { ...c, mediaType: type });
+      continue;
+    }
+    if (c.gone || (c.gitBlob && !c.buffer && (c.size || 0) > HASH_LIMIT)) continue;
+    const got = await sniffed(c);
+    // A type the source gave comes from a closer look than the first 4 KB: carving walks an MP4's
+    // tracks, and one with sound alone is audio, where its brand alone says video.
+    const mediaType = c.mediaType || got.mediaType || null;
+    if (!wanted.has(mediaType)) continue;
+    kept.push({ ...c, mediaType, ...(c.ext || !got.ext ? {} : { ext: got.ext }) });
+  }
+  return kept;
+}
+
+/**
+ * What kind of thing a result is (types.js), as `mediaType`: the type its source gave, or that
+ * of the format it is in, or that of its name's extension. A copy in a format of its own -- a
+ * thumbnail of a video is a picture -- and one with no name are told by their first bytes when
+ * they are at hand, and then get the extension of that format too, to be restored under. It is
+ * null for a folder and for what cannot be told without reading more.
+ */
+async function describeMedia(c) {
+  if (c.isDir) {
+    c.mediaType = null;
+    return;
+  }
+  const name = c.path || c.name || null;
+  const own = !name || isDerived(c);
+  let type = c.mediaType || typeOfExt(c.ext) || (own ? null : await typeByName(c, name, false));
+  const first = c.buffer || (typeof c.text === 'string' ? Buffer.from(c.text.slice(0, SNIFF_BYTES), 'utf8') : null);
+  if (first && (!type || (own && !c.ext))) {
+    const got = sniff(first);
+    type = type || got.mediaType;
+    if (own && !c.ext && got.ext) c.ext = got.ext;
+  }
+  c.mediaType = type || null;
 }
 
 function dedupeKey(c) {
@@ -114,27 +232,61 @@ function dedupeKey(c) {
  *
  * `draft` marks text that was never saved -- an editor's unsaved buffer, say. The same bytes
  * found anywhere else prove they were saved once, so a merged result is a draft only when
- * every copy of it is. The same goes for `inexact`.
+ * every copy of it is. The same goes for `inexact`, and for `unverified`: a carved file whose
+ * bytes are also found whole is whole. And for `derived`, though a smaller copy and the file
+ * never have the same bytes. A kind can be one of these without the flag -- 'carved' always
+ * is unverified -- so each copy is asked as tier() asks it, and all of them at once: an undelete
+ * flagged unverified and a carve of the same bytes are unverified together, whichever of them
+ * represents the two.
+ *
+ * A nameless copy dropped for the same bytes under a name counts as a copy of that named one: it
+ * is added to its `copies` and `seen`, and the flags are asked of both as above -- an undelete
+ * that may be incomplete is whole when the same bytes were also found whole with no name.
  */
 function dedupe(list) {
-  const byKey = new Map();
+  const groups = new Map();
   for (const c of list) {
     const key = dedupeKey(c);
-    const prev = byKey.get(key);
-    if (!prev) {
-      byKey.set(key, { ...c, key, copies: 1, seen: [c.kind] });
+    if (groups.has(key)) groups.get(key).push(c);
+    else groups.set(key, [c]);
+  }
+  const out = [];
+  for (const [key, group] of groups) {
+    const best = group.reduce((a, c) => (better(c, a) ? c : a));
+    const seen = [...new Set(group.map((c) => c.kind))];
+    if (group.length === 1) {
+      out.push({ ...best, key, copies: 1, seen });
       continue;
     }
-    const seen = prev.seen.includes(c.kind) ? prev.seen : [...prev.seen, c.kind];
-    const merged = better(c, prev) ? { ...c, key } : prev;
-    byKey.set(key, {
-      ...merged, copies: prev.copies + 1, seen,
-      draft: !!(prev.draft && c.draft), inexact: !!(prev.inexact && c.inexact),
+    const every = (is) => group.every((c) => is(c));
+    out.push({
+      ...best, key, copies: group.length, seen,
+      draft: every((c) => !!c.draft), inexact: every(isInexact), unverified: every(isUnverified), derived: every(isDerived),
     });
   }
-  const named = new Set();
-  for (const c of byKey.values()) if (c.path && c.hash) named.add(c.hash);
-  return [...byKey.values()].filter((c) => c.path || !c.hash || !named.has(c.hash));
+  const named = new Map();
+  for (const c of out) {
+    if (!c.path || !c.hash) continue;
+    if (named.has(c.hash)) named.get(c.hash).push(c);
+    else named.set(c.hash, [c]);
+  }
+  const kept = [];
+  for (const c of out) {
+    const same = !c.path && c.hash ? named.get(c.hash) : null;
+    if (!same) {
+      kept.push(c);
+      continue;
+    }
+    for (const n of same) {
+      n.copies += c.copies;
+      n.seen = [...new Set([...n.seen, ...c.seen])];
+      n.draft = !!n.draft && !!c.draft;
+      n.inexact = isInexact(n) && isInexact(c);
+      n.unverified = isUnverified(n) && isUnverified(c);
+      n.derived = isDerived(n) && isDerived(c);
+    }
+  }
+  return kept;
 }
 
 /**
@@ -244,38 +396,67 @@ function idOf(key) {
 
 /**
  * @param {object} o
- * @param {string} [o.pattern]       name or path pattern; may be empty when `containing` is set
+ * @param {string} [o.pattern]       name or path pattern; may be empty when `containing` or `types` is set
  * @param {string} [o.under]         instead of a pattern: everything below this folder
  * @param {string} [o.containing]    only copies whose text contains this, any case
+ * @param {string[]} [o.types]       only copies of these types (types.js TYPES): a copy with a name
+ *   by its extension, one without by its first bytes. With no name to go on, copies whose name
+ *   was lost are offered too. Without 'text' and 'document', the sources that keep only text
+ *   are not searched, and say so.
  * @param {string[]} [o.sources]     source ids to search; all by default
  * @param {boolean} [o.deletedOnly]  only copies whose original path is gone
- * @param {number} [o.since]         only copies from this time (ms) on
+ * @param {number} [o.since]         only copies from this time (ms) on. A copy that carries no
+ *   time -- a thumbnail, say -- is kept, since how old it is cannot be told, and counted in `notes`
  * @param {object} [o.locations]     passed to resolveLocations
  * @param {function} [o.onProgress]  called with events as the search goes, for a front end
  *   to show: { type: 'source-start', id, label }, { type: 'source-progress', id, done, total },
- *   { type: 'source-done', id, label, count, error? }, { type: 'filtering' }, { type: 'done', count }
+ *   { type: 'source-done', id, label, count, error?, skipped? }, { type: 'filtering' },
+ *   { type: 'done', count }. A source left out for the types asked for has only 'source-done',
+ *   with `skipped: true`.
+ * @param {AbortSignal} [o.signal]   a front end's way to stop a search it no longer wants: once it
+ *   fires, the search stops before its next step -- the next source, the next copy looked into --
+ *   and rejects with the signal's reason. Sources see it as ctx.signal.
+ * @returns {Promise<{ results: object[], perSource: object[], locations: object, stats: object, notes: string[] }>}
+ *   `notes` says what applies to the whole search rather than to one source
  */
 async function search(o) {
   const report = typeof o.onProgress === 'function' ? o.onProgress : () => {};
-  const matcher = o.under ? under(absoluteFolder(o.under)) : compile(o.pattern);
+  const signal = o.signal || null;
+  const stop = () => signal && signal.throwIfAborted();
+  const types = parseTypes(o.types);
+  const matcher = o.under ? under(absoluteFolder(o.under), { types }) : compile(o.pattern, { types });
   const containing = o.containing ? String(o.containing).toLowerCase() : null;
   const ctx = {
     matcher,
     containing,
-    // With no name to go on, copies whose name was lost are worth offering.
-    unnamed: !!containing && matcher.everything,
+    // The types asked for, or null: a source can leave out early what cannot be one of them.
+    types,
+    // With no name to go on, copies whose name was lost are worth offering: by what they
+    // contain, or by what their bytes say they are.
+    unnamed: matcher.everything && (!!containing || !!types),
     locations: locate(o.locations || {}),
     notes: [],
     stats: {},
     progress: () => {},
     prior: [],
+    signal,
   };
+  const notes = [];
 
   const selected = selectSources(o.sources);
   const sources = [...selected.filter((s) => !s.followUp), ...selected.filter((s) => s.followUp)];
+  // A search for pictures, videos, sound or archives has nothing to find where only text is kept.
+  const textless = !!types && !types.includes('text') && !types.includes('document');
   const perSource = [];
   let all = [];
   for (const s of sources) {
+    stop();
+    if (textless && s.media === false) {
+      const said = t('Not searched: it keeps only text, and the search is for {0}.', types.join(', '));
+      perSource.push({ id: s.id, label: s.label, count: 0, skipped: true, notes: [said] });
+      report({ type: 'source-done', id: s.id, label: s.label, count: 0, skipped: true });
+      continue;
+    }
     const notesBefore = ctx.notes.length;
     // A follow-up source sees what the others found, to know where to look.
     if (s.followUp) ctx.prior = all.slice();
@@ -293,12 +474,14 @@ async function search(o) {
     }
   }
   ctx.progress = () => {};
+  stop();
   report({ type: 'filtering' });
 
   if (containing) {
     await git.preload(all);
     const kept = [];
     for (const c of all) {
+      stop();
       if (c.isDir || c.gone || (c.size || 0) > HASH_LIMIT) continue;
       try {
         const buf = await load(c, git);
@@ -309,16 +492,29 @@ async function search(o) {
     }
     all = kept;
   }
+  if (types) all = await keepTypes(all, types, stop);
 
-  for (const c of all) c.hash = hashOf(c);
+  for (const c of all) {
+    stop();
+    c.hash = await hashOf(c);
+  }
   let results = dedupe(all);
   const stateOf = stateChecker();
   for (const c of results) {
+    stop();
     c.state = stateOf(c);
     c.id = idOf(c.key);
+    await describeMedia(c);
   }
   if (o.deletedOnly) results = results.filter((c) => c.state === 'deleted');
-  if (o.since) results = results.filter((c) => c.time != null && c.time >= o.since);
+  if (o.since) {
+    // Thumbnails and carved files often carry no time at all. Leaving them out would hide what
+    // may be the only copy of an old photo behind a date it may well be from; they are kept, and
+    // counted, so the list can say why they are there.
+    const undated = results.filter((c) => c.time == null).length;
+    results = results.filter((c) => c.time == null || c.time >= o.since);
+    if (undated) notes.push(t('{0} copy(ies) carry no date; they were kept, since how old they are cannot be told', undated));
+  }
 
   results.sort((a, b) =>
     (b.time == null ? -Infinity : b.time) - (a.time == null ? -Infinity : a.time)
@@ -327,13 +523,26 @@ async function search(o) {
     || a.id.localeCompare(b.id));
 
   report({ type: 'done', count: results.length });
-  return { results, perSource, locations: ctx.locations, stats: ctx.stats };
+  return { results, perSource, locations: ctx.locations, stats: ctx.stats, notes };
 }
 
-/** Every folder a source reads from. Restoring into one of them is refused. */
+/**
+ * Every folder a source reads from, and every volume a source reads directly that names no folder
+ * -- a card given as a whole disk -- as { volume, label } (restore.js). Restoring onto one of them
+ * is refused.
+ */
 async function sourceRoots(locations) {
   const roots = [];
-  for (const s of SOURCES) roots.push(...s.roots(locations));
+  for (const s of SOURCES) {
+    roots.push(...s.roots(locations));
+    if (typeof s.volumes === 'function') {
+      try {
+        roots.push(...s.volumes(locations));
+      } catch (_) {
+        /* its folders still stand */
+      }
+    }
+  }
   roots.push(...(await git.gitDirs(locations)));
   return roots;
 }
@@ -346,4 +555,29 @@ async function describeAll(o) {
   return out;
 }
 
-module.exports = { search, sourceRoots, describeAll, locate, git, SOURCES, _internal: { dedupe, source, mountOf, onNetwork } };
+/**
+ * Has each selected source that reads a store other programs keep rewriting take it into memory
+ * now. Explorer adds to its thumbnail cache whenever it shows a picture -- one just restored, in
+ * a folder opened to look at it, among them -- and may drop older ones to make room; after this,
+ * searches read what was there at this moment. Nothing is written.
+ * @returns {Promise<{ id: string, label: string, error?: string }[]>} the sources that took theirs
+ */
+async function freezeAll(o = {}) {
+  const locations = locate(o.locations || {});
+  const out = [];
+  for (const s of selectSources(o.sources)) {
+    if (typeof s.freeze !== 'function') continue;
+    try {
+      await s.freeze(locations);
+      out.push({ id: s.id, label: s.label });
+    } catch (e) {
+      out.push({ id: s.id, label: s.label, error: e.message });
+    }
+  }
+  return out;
+}
+
+module.exports = {
+  search, sourceRoots, describeAll, freezeAll, locate, git, SOURCES,
+  _internal: { dedupe, source, mountOf, onNetwork, keepTypes, describeMedia },
+};

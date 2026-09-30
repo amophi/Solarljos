@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  Solarljos's page. The words below are only what shows before app.js runs: it puts every
+  string in from strings.js by its data-i18n key. No script or style is inline, and nothing is
+  loaded from anywhere but the server that sent this page: the three files beside this one, by
+  names relative to it, which are also the names they have in the built program.
+-->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
+<meta name="color-scheme" content="light dark">
+<title data-i18n="app.name">Solarljos</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="app.skip">Skip to main content</a>
+<header class="top">
+  <a class="brand" href="#/" data-route=""><span class="logo" aria-hidden="true">☀</span> <span data-i18n="app.name">Solarljos</span></a>
+  <nav aria-label="Main" data-i18n-attr="aria-label:nav.label">
+    <ul class="nav">
+      <li><a href="#/find" data-route="find" data-i18n="nav.find">Find a file</a></li>
+      <li><a href="#/media" data-route="media" data-i18n="nav.media">Photos and videos</a></li>
+      <li><a href="#/folder" data-route="folder" data-i18n="nav.folder">Bring back a folder</a></li>
+      <li><a href="#/sources" data-route="sources" data-i18n="nav.sources">What is searched</a></li>
+      <li><a href="#/help" data-route="help" data-i18n="nav.help">Help</a></li>
+    </ul>
+  </nav>
+  <button type="button" id="quit" class="btn quiet" data-i18n="nav.quit">Quit</button>
+</header>
+<main id="main" tabindex="-1"></main>
+<div id="status" class="sr-only" role="status" aria-live="polite"></div>
+<div id="alert" class="sr-only" role="alert" aria-live="assertive"></div>
+<script src="strings.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

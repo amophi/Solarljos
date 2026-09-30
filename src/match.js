@@ -1,6 +1,7 @@
 'use strict';
 
 const { baseName, pathKey, slashed } = require('./paths');
+const { typesOfName } = require('./types');
 
 // What a search pattern means, kept deliberately small:
 //
@@ -11,6 +12,13 @@ const { baseName, pathKey, slashed } = require('./paths');
 //
 // `literal` is the longest plain run in the pattern. Sources use it to skip data cheaply
 // before parsing it: a transcript line that does not contain it cannot be a match.
+//
+// With `types` (see types.js), a name must also have an extension of one of those types, so
+// that every source leaves out what is of no use as early as it tests a name. An extension of
+// two meanings, such as .mts, passes for either; search() then tells by content. A copy with no
+// name at all never meets a matcher; search() tells its type by its content instead. `testName`
+// tests the name alone, for a source whose copies are in a format of their own: a thumbnail of
+// report.pptx is a picture, and belongs in a search for pictures named "report".
 
 function escapeRe(s) {
   return s.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -30,7 +38,19 @@ const norm = (p) => p.normalize('NFC').replace(/\\/g, '/').toLowerCase();
 const normPath = (p) => slashed(p).normalize('NFC').toLowerCase();
 const nameOf = (p) => baseName(p).normalize('NFC').toLowerCase();
 
-function compile(pattern) {
+/** A matcher that also asks for a name of one of `types`, when there are any. */
+function ofTypes(m, types) {
+  const test = m.test;
+  if (!types || !types.length) return { ...m, types: null, testName: test };
+  const wanted = new Set(types);
+  return { ...m, types: [...wanted], testName: test, test: (p) => test(p) && typesOfName(p).some((x) => wanted.has(x)) };
+}
+
+/**
+ * @param {string} pattern
+ * @param {{ types?: string[] }} [o]  only names of these types (types.js), by extension
+ */
+function compile(pattern, { types } = {}) {
   const raw = String(pattern == null ? '' : pattern).trim() || '*';
   const lower = norm(raw);
   const onPath = lower.includes('/');
@@ -48,12 +68,12 @@ function compile(pattern) {
   }
 
   const literal = lower.split(/[*?/]+/).reduce((a, b) => (b.length > a.length ? b : a), '');
-  return {
+  return ofTypes({
     pattern: raw,
     everything: /^[*]+$/.test(raw),
     literal,
     test: (p) => typeof p === 'string' && p.length > 0 && test(p),
-  };
+  }, types);
 }
 
 /**
@@ -61,17 +81,19 @@ function compile(pattern) {
  * folder's own path, then a separator. Its last segment is the literal, since every path below
  * it contains that name -- cut at a backslash too, even where one is part of the name: a
  * transcript writes a backslash doubled, and the literal must still be found in the line.
+ * @param {string} folder
+ * @param {{ types?: string[] }} [o]  only names of these types, as for compile()
  */
-function under(folder) {
+function under(folder, { types } = {}) {
   // pathKey writes both kinds of path with forward slashes.
   const prefix = pathKey(String(folder)).replace(/[\\/]+$/, '');
-  return {
+  return ofTypes({
     pattern: folder,
     everything: false,
     folder: prefix,
     literal: prefix.split(/[\\/]/).pop().toLowerCase(),
     test: (p) => typeof p === 'string' && p.length > 0 && pathKey(p).startsWith(prefix + '/'),
-  };
+  }, types);
 }
 
 module.exports = { compile, under };

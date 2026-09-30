@@ -622,6 +622,8 @@ function roots(loc) {
 module.exports = {
   id: 'eclipse-history',
   label: 'Eclipse Local History',
+  // Text only: a search for pictures or videos leaves it out.
+  media: false,
   discover,
   scan,
   describe,
