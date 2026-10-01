@@ -634,6 +634,7 @@
   <!-- ==== a card of more options, which opens when its title is clicked ==== -->
   <Style x:Key="MoreHeader" TargetType="ToggleButton">
     <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template">
       <Setter.Value>

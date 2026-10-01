@@ -124,6 +124,9 @@ public sealed class JobStore
     public Job Adopt(JsonElement snap)
     {
         var job = JobOf(snap.GetProperty("id").ToString());
+        // A job that has ended stays ended: the reply that started it can come after the event that
+        // said it ended, when it ended at once, and says it is running.
+        if (!job.Running && snap.TryGetProperty("state", out var said) && said.GetString() == "running") return job;
         if (snap.TryGetProperty("kind", out var kind) && kind.GetString() is { } k) job.Kind = k;
         if (job.Mode == "") job.Mode = ModeOf(snap);
         if (snap.TryGetProperty("request", out var req)) job.Request = req.Clone();
