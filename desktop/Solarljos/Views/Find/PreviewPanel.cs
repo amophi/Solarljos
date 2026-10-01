@@ -126,6 +126,8 @@ public sealed class PreviewPanel : UserControl
             var headTask = session.Client.ReadBytesAsync(copy.Uid, 0, HexPage, cancel.Token);
             a = About.From(await aboutTask);
             head = await headTask;
+            // Closed after the engine answered, before this goes on: nothing is made, no video opened, no picture read.
+            cancel.Token.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
@@ -134,6 +136,7 @@ public sealed class PreviewPanel : UserControl
         }
         catch (Exception e) when (Arrangement.IsTrouble(e))
         {
+            if (cancel.IsCancellationRequested) return;
             body.Children.Clear();
             body.Children.Add(Say("error", e is CoreException { Status: 410 } ? T["empty.noLongerThere"] : Formats.ErrorText(e)));
             body.Children.Add(PreviewParts.InfoList(copy, null));

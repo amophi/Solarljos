@@ -32,6 +32,8 @@ public sealed class PreviewWindow : Window
         SetResourceReference(FontFamilyProperty, "UiFont");
         FontSize = 15;
         SourceInitialized += (_, _) => Theme.TitleBar(this, round: true);
+        // The preview's look -- its tabs, a copy's text, a video's line -- is Find a file's, which a window of its own does not inherit.
+        Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/Solarljos;component/Views/Find/FindStyles.xaml", UriKind.Relative) });
         panel = new PreviewPanel(session, copy, Close, 0, (c) => new RestoreDialog(this, session, [c]).ShowDialog());
         Content = new ScrollViewer
         {
@@ -39,9 +41,10 @@ public sealed class PreviewWindow : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
-        PreviewKeyDown += (_, e) =>
+        // Esc closes it once what has the focus has not taken the key: an open list of encodings closes first, not the whole window.
+        KeyDown += (_, e) =>
         {
-            if (e.Key != Key.Escape) return;
+            if (e.Key != Key.Escape || e.Handled) return;
             e.Handled = true;
             Close();
         };

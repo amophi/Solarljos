@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Solarljos.Ui;
@@ -18,8 +19,10 @@ public sealed record TableColumn(bool Fill = false, double Min = 0, bool End = f
 /// A table as the page draws its own (table.copies, table.hex): a row of headings, then rows,
 /// each column as wide as its widest cell -- the columns that fill sharing what room is left --
 /// and, where even their least is more than the room there is, wider than it, for a scroller
-/// around it to move sideways (the page's .table-wrap). Each row is a TableRow; assistive
-/// technology knows the table, its heading row and each row, named by what it says.
+/// around it to move sideways (the page's .table-wrap). Each row is a TableRow, each cell a
+/// TableCell; assistive technology knows the table as a grid, as it knows the page's: how many
+/// rows and columns it has, each cell's row and column, and the heading of each column, for a
+/// screen reader to move through it by row or by column and say the heading it comes to.
 /// </summary>
 public sealed class Table : Panel
 {
@@ -190,13 +193,36 @@ public sealed class Table : Panel
         return new Size(width, y);
     }
 
+    /// <summary>Its rows below the headings, as they are shown.</summary>
+    internal List<TableRow> DataRows() => InternalChildren.OfType<TableRow>().Where((r) => !r.IsHeader && r.Visibility != Visibility.Collapsed).ToList();
+
+    internal TableRow? HeaderRow => InternalChildren.OfType<TableRow>().FirstOrDefault((r) => r.IsHeader);
+
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
 
-    sealed class Peer(Table owner) : FrameworkElementAutomationPeer(owner)
+    sealed class Peer(Table owner) : FrameworkElementAutomationPeer(owner), IGridProvider, ITableProvider
     {
         protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Table;
         protected override string GetClassNameCore() => "Table";
         protected override bool IsControlElementCore() => true;
+
+        public override object GetPattern(PatternInterface pattern) =>
+            pattern is PatternInterface.Grid or PatternInterface.Table ? this : base.GetPattern(pattern);
+
+        public int RowCount => owner.DataRows().Count;
+        public int ColumnCount => owner.Columns.Count;
+
+        public IRawElementProviderSimple? GetItem(int row, int column) =>
+            owner.DataRows().ElementAtOrDefault(row)?.Cells.ElementAtOrDefault(column) is { } cell ? Provider(cell) : null;
+
+        public RowOrColumnMajor RowOrColumnMajor => RowOrColumnMajor.RowMajor;
+
+        public IRawElementProviderSimple[] GetRowHeaders() => [];
+
+        public IRawElementProviderSimple[] GetColumnHeaders() =>
+            owner.HeaderRow?.Cells.Select(Provider).OfType<IRawElementProviderSimple>().ToArray() ?? [];
+
+        IRawElementProviderSimple? Provider(UIElement e) => CreatePeerForElement(e) is { } p ? ProviderFromPeer(p) : null;
     }
 
     internal double CellPad(int i, bool start) => i == 0 && start ? EdgeStart : i == Columns.Count - 1 && !start ? EdgeEnd : PadX;
@@ -209,7 +235,7 @@ public sealed class Table : Panel
 /// </summary>
 public sealed class TableRow : Panel
 {
-    public List<FrameworkElement> Cells { get; } = new();
+    public List<TableCell> Cells { get; } = new();
     public bool IsHeader { get; }
     bool last;
 
@@ -237,7 +263,7 @@ public sealed class TableRow : Panel
         last = !lineBelow;
         foreach (var c in cells)
         {
-            var cell = c ?? new TextBlock();
+            var cell = new TableCell(c ?? new TextBlock());
             Cells.Add(cell);
             Children.Add(cell);
         }
@@ -251,7 +277,7 @@ public sealed class TableRow : Panel
         }
     }
 
-    Table? Owner => Parent as Table;
+    internal Table? Owner => Parent as Table;
 
     protected override Size MeasureOverride(Size available)
     {
@@ -319,5 +345,65 @@ public sealed class TableRow : Panel
         var tb = new TextBlock { Text = text, FontSize = 14, LineHeight = 20, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap };
         tb.SetResourceReference(TextBlock.ForegroundProperty, colour);
         return tb;
+    }
+}
+
+/// <summary>
+/// A cell of a TableRow, around what it shows, which takes the place in its column that what it
+/// holds asks for. To assistive technology it is a heading of its column (the page's th), or a
+/// cell (td) with its row, its column and that column's heading; named by what it says -- its
+/// words, or the name of what it holds, a badge's -- for a row is not named for all its cells at once.
+/// </summary>
+public sealed class TableCell : Decorator
+{
+    public TableCell(FrameworkElement content)
+    {
+        Child = content;
+        HorizontalAlignment = content.HorizontalAlignment;
+    }
+
+    TableRow? Row => Parent as TableRow;
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+
+    sealed class Peer(TableCell owner) : FrameworkElementAutomationPeer(owner), IGridItemProvider, ITableItemProvider
+    {
+        bool Head => owner.Row?.IsHeader == true;
+
+        protected override AutomationControlType GetAutomationControlTypeCore() => Head ? AutomationControlType.HeaderItem : AutomationControlType.DataItem;
+        protected override string GetClassNameCore() => Head ? "HeaderItem" : "DataItem";
+        protected override bool IsControlElementCore() => true;
+        protected override bool IsContentElementCore() => true;
+
+        protected override string GetNameCore()
+        {
+            if (base.GetNameCore() is { Length: > 0 } name) return name;
+            return owner.Child switch
+            {
+                TextBlock tb => tb.Text,
+                UIElement e => AutomationProperties.GetName(e),
+                _ => "",
+            };
+        }
+
+        protected override string GetHelpTextCore() =>
+            base.GetHelpTextCore() is { Length: > 0 } help ? help : owner.Child is { } e ? AutomationProperties.GetHelpText(e) : "";
+
+        public override object GetPattern(PatternInterface pattern) =>
+            !Head && (pattern is PatternInterface.GridItem or PatternInterface.TableItem) ? this : base.GetPattern(pattern);
+
+        public int Row => owner.Row is { Owner: { } t } r ? t.DataRows().IndexOf(r) : -1;
+        public int Column => owner.Row?.Cells.IndexOf(owner) ?? -1;
+        public int RowSpan => 1;
+        public int ColumnSpan => 1;
+
+        public IRawElementProviderSimple? ContainingGrid => owner.Row?.Owner is { } t ? Provider(t) : null;
+
+        public IRawElementProviderSimple[] GetRowHeaderItems() => [];
+
+        public IRawElementProviderSimple[] GetColumnHeaderItems() =>
+            owner.Row?.Owner?.HeaderRow?.Cells.ElementAtOrDefault(Column) is { } head && Provider(head) is { } p ? [p] : [];
+
+        IRawElementProviderSimple? Provider(UIElement e) => CreatePeerForElement(e) is { } p ? ProviderFromPeer(p) : null;
     }
 }

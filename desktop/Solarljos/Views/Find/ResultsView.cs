@@ -80,6 +80,11 @@ public sealed class ResultsView : UserControl
     PreviewPanel? preview;
     UIElement? opener;
     bool rendered;
+    // The file each card of the list is for, or the copy each row of the table of every copy: to
+    // find them again once they are drawn anew.
+    readonly Dictionary<FrameworkElement, string> keyOf = new();
+    // The preview's shadow over the list in a narrow window: the theme's, as the page's --shadow.
+    readonly DropShadowEffect overShadow = new() { BlurRadius = 48, ShadowDepth = 8, Direction = 180 };
 
     public string Heading { get; }
 
@@ -212,6 +217,13 @@ public sealed class ResultsView : UserControl
         root.Children.Add(pane);
         Content = root;
         SizeChanged += (_, _) => Place();
+        Loaded += (_, _) =>
+        {
+            Theme.Changed -= Shade;
+            Theme.Changed += Shade;
+            Shade();
+        };
+        Unloaded += (_, _) => Theme.Changed -= Shade;
 
         narrow = IsNarrow();
         Render(false);
@@ -281,6 +293,7 @@ public sealed class ResultsView : UserControl
         summary.Text = T.Get("results.summary", ("files", files), ("copies", T.Get("results.copies", ("count", f.Kept.Count))));
         ShowHidden(f);
         list.Children.Clear();
+        keyOf.Clear();
         fullTable = null;
         if (f.Kept.Count == 0 && q.Length > 0) list.Children.Add(Build.Text(T["results.noMatch"], "Muted").Margin(0, 16, 0, 16));
         if (view == "copies" && copyRows.Count > 0)
@@ -329,7 +342,12 @@ public sealed class ResultsView : UserControl
             void add(int n, string label, Build.SwitchRow row)
             {
                 if (n == 0) return;
-                var b = Build.Button(label, () => row.IsOn = !row.IsOn);
+                var b = Build.Button(label, () =>
+                {
+                    row.IsOn = !row.IsOn;
+                    // This note goes as the copies it spoke of come back: the focus goes to the switch it turned.
+                    row.Input.Focus();
+                });
                 b.Margin = new Thickness(0, 0, 8, 0);
                 buttons.Children.Add(b);
             }
@@ -473,6 +491,7 @@ public sealed class ResultsView : UserControl
         var card = new Labeled { Child = body, Padding = new Thickness(24, 20, 24, 16), CornerRadius = new CornerRadius(20), Kind = AutomationControlType.Group };
         card.SetResourceReference(Border.BackgroundProperty, "Card");
         AutomationProperties.SetName(card, name);
+        keyOf[card] = g.Key;
         return card;
     }
 
@@ -573,35 +592,19 @@ public sealed class ResultsView : UserControl
         var sizeCell = TableRow.Cell(size, wrap: false);
         sizeCell.TextAlignment = TextAlignment.Right;
         cells.Add(sizeCell);
-        string? was = null;
         if (full)
         {
             var state = Build.StateBadge(c.State);
             state.HorizontalAlignment = HorizontalAlignment.Left;
             cells.Add(state);
-            TextBlock wasCell;
-            if (c.Path is { Length: > 0 } p)
-            {
-                wasCell = TableRow.Cell(p).AsPath();
-                was = p;
-            }
-            else
-            {
-                was = c.Name is { } n ? T.Get("results.nameOnly", ("name", n)) : T["results.nameUnknown"];
-                wasCell = TableRow.Cell(was);
-            }
-            cells.Add(wasCell);
+            cells.Add(c.Path is { Length: > 0 } p
+                ? TableRow.Cell(p).AsPath()
+                : TableRow.Cell(c.Name is { } n ? T.Get("results.nameOnly", ("name", n)) : T["results.nameUnknown"]));
         }
         cells.Add(Actions(c, full));
+        // Not named for all its cells at once: a screen reader says each with its column's heading (TableCell).
         var row = new TableRow(false, cells, !lastRow);
-        var words = new List<string> { when, found, Formats.TierText(c) };
-        if (size.Length > 0) words.Add(size);
-        if (full)
-        {
-            words.Add(Formats.StateText(c.State));
-            if (was is not null) words.Add(was);
-        }
-        AutomationProperties.SetName(row, string.Join(", ", words));
+        if (full) keyOf[row] = c.Uid;
         return row;
     }
 
@@ -642,10 +645,20 @@ public sealed class ResultsView : UserControl
         narrow = IsNarrow();
         if (wasNarrow != narrow && rendered)
         {
-            // The cards are drawn again for the width, as many as were shown.
+            // The cards are drawn again for the width, as many as were shown. The focus stays where it
+            // was, on the same button of the same file, and the preview, closed, goes back to the
+            // button that opened it as it is drawn now.
+            var focus = SpotOf(Keyboard.FocusedElement as DependencyObject);
+            var from = SpotOf(opener);
             int keep = shown;
             Render(false);
             while (shown < keep && shown < RowCount) ShowMore();
+            if (focus is not null || from is not null)
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (from is { } o) opener = AtSpot(o) ?? opener;
+                    if (focus is { } f) AtSpot(f)?.Focus();
+                }, DispatcherPriority.Loaded);
         }
         bool beside = WindowWidth >= Beside;
         double room = ActualWidth;
@@ -685,8 +698,50 @@ public sealed class ResultsView : UserControl
             pane.HorizontalAlignment = HorizontalAlignment.Right;
             pane.Margin = new Thickness(0);
             pane.CornerRadius = new CornerRadius(0);
-            pane.Effect = new DropShadowEffect { BlurRadius = 48, ShadowDepth = 8, Opacity = 0.4, Direction = 180 };
+            pane.Effect = overShadow;
         }
+    }
+
+    void Shade()
+    {
+        overShadow.Color = Application.Current.TryFindResource("ShadowColor") is Color c ? c : Colors.Black;
+        overShadow.Opacity = Application.Current.TryFindResource("ShadowOpacity") is double o ? o : 0.4;
+    }
+
+    /// <summary>Where an element is in the list: the file or copy of the card or row it is in, and which there of what takes the focus.</summary>
+    (string Key, int At)? SpotOf(DependencyObject? d)
+    {
+        if (d is not UIElement e) return null;
+        for (DependencyObject? at = e; at is not null && at != list; at = VisualTreeHelper.GetParent(at))
+            if (at is FrameworkElement holder && keyOf.TryGetValue(holder, out var key))
+                return (key, Focusables(holder).IndexOf(e));
+        return null;
+    }
+
+    /// <summary>What is at a place in the list as it is drawn now, if anything is.</summary>
+    UIElement? AtSpot((string Key, int At) spot)
+    {
+        var holder = keyOf.FirstOrDefault((kv) => kv.Value == spot.Key).Key;
+        if (holder is null) return null;
+        var all = Focusables(holder);
+        return spot.At >= 0 && spot.At < all.Count ? all[spot.At] : null;
+    }
+
+    /// <summary>What takes the focus in an element and is in sight, in the order it is drawn in.</summary>
+    static List<UIElement> Focusables(DependencyObject root)
+    {
+        var found = new List<UIElement>();
+        void walk(DependencyObject d)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            {
+                var child = VisualTreeHelper.GetChild(d, i);
+                if (child is UIElement { Focusable: true, IsVisible: true } e) found.Add(e);
+                walk(child);
+            }
+        }
+        walk(root);
+        return found;
     }
 
     // ---- restoring ----------------------------------------------------------------------------
