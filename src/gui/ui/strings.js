@@ -791,6 +791,9 @@
     'help.keys.title': 'Keyboard',
     'help.keys.body': 'Tab moves between controls. In the photo grid and the folder list, arrow keys move, Space selects and Enter opens. Esc closes a preview or a dialog.',
     'help.version': 'Version {version}',
+    'desktop.help.window.title': 'This window',
+    'desktop.help.window.body': 'Solarljos is a program of its own and opens no browser. It has no folder picker and never opens File Explorer: both show small pictures of what a folder holds, which Windows keeps in the very thumbnail cache a search for photos reads. Type or paste a folder instead. To keep a copy, use Restore, which checks where it writes.',
+    'desktop.help.keys.rail': 'In the menu, Up and Down go to the part above or below, and Ctrl+1 to Ctrl+5 go to each part from anywhere in the window.',
   };
 
   const STRINGS = { en };
