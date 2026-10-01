@@ -805,7 +805,9 @@ function describe(ctx) {
   }
   const lines = snaps.map((snap) => {
     const approx = estimateSnapshotTime(snap);
-    return t('{0} (drive {1}): readable; taken about {2}', snap.root, snap.driveRoot, approx || t('an unknown time'));
+    return approx
+      ? t('{0} (drive {1}): readable; taken about {2}', snap.root, snap.driveRoot, approx)
+      : t('{0} (drive {1}): readable; when it was taken is not known', snap.root, snap.driveRoot);
   });
   return lines.concat(notes);
 }

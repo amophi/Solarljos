@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `scripts/build-desktop.js` builds the window from nothing every time: an incremental build kept
+  the compiled XAML of the build before, which named the version that one had. The release was
+  right, being built from a clean checkout; a local build right after a new version was not.
+- One list with bullets for the whole window: a search's failed places and notes, a folder's
+  empty plan, the files a folder or a restore could not write are now lists to screen readers,
+  which read no "bullet" before each line; a photo tile's badge and caption are not read again.
+- A shadow copy whose time is not known says so, rather than "taken about an unknown time"; in
+  Chinese (Simplified) a shadow copy was said to be photographed rather than made.
+
 ## 0.9.0 (2026-10-01)
 
 The release before 1.0: what is in it is made ready to be relied on, and to be tried on real
