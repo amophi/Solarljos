@@ -809,6 +809,25 @@ test('FAT12 and FAT16: the fixed root folder, long names tied by their checksum,
   }
 });
 
+test('a volume\'s serial number from either extended boot record, and its label only from the newer', () => {
+  for (const type of [16, 32]) {
+    const img = new FatImage({ type, sectors: type === 32 ? 70000 : 40000 });
+    img.file('', 'KEEP.TXT', Buffer.from('keep'), 10);
+    const buf = img.image();
+    const sig = type === 32 ? 66 : 38;
+    assert.strictEqual(fat.openVolume(fat.memoryReader(buf)).serial, 0x1234abcd);
+    // 0x28, as DOS 4 and some cameras wrote it: the serial number, and no label after it.
+    buf[sig] = 0x28;
+    if (type === 32) buf.copy(buf, 6 * SECTOR, 0, SECTOR);
+    const old = fat.openVolume(fat.memoryReader(buf));
+    assert.strictEqual(old.serial, 0x1234abcd);
+    // Neither: no serial number to go by.
+    buf[sig] = 0;
+    if (type === 32) buf.copy(buf, 6 * SECTOR, 0, SECTOR);
+    assert.strictEqual(fat.openVolume(fat.memoryReader(buf)).serial, null);
+  }
+});
+
 test('long names: the checksum picks one first byte, taken only when the long name calls for it', () => {
   const name11 = Buffer.from('BIRTHD~1JPG', 'latin1');
   const entry = (text, sum, ord) => {

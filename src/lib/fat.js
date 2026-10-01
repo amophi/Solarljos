@@ -341,11 +341,12 @@ function fatBpb(b) {
   } else {
     g.activeFat = 0;
   }
+  // The extended boot record: 0x29 has the serial number, the label and the file system's name;
+  // 0x28, which older systems wrote, the serial number alone. Either serial is the one Windows
+  // reports for the volume, which keeps restore from writing onto the card being read.
   const sig = type === 32 ? 66 : 38;
-  if (b[sig] === 0x29) {
-    g.serial = b.readUInt32LE(sig + 1);
-    g.label = b.toString('latin1', sig + 5, sig + 16).trim();
-  }
+  if (b[sig] === 0x29 || b[sig] === 0x28) g.serial = b.readUInt32LE(sig + 1);
+  if (b[sig] === 0x29) g.label = b.toString('latin1', sig + 5, sig + 16).trim();
   return g;
 }
 
