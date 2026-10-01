@@ -118,7 +118,8 @@ public partial class MainWindow : Window
     /// </summary>
     static void FocusInto(FrameworkElement page)
     {
-        if (!page.IsVisible || Keyboard.FocusedElement is UIElement { IsVisible: true }) return;
+        // The window itself is where WPF puts the focus of a button hidden with its part: no place.
+        if (!page.IsVisible || Keyboard.FocusedElement is UIElement { IsVisible: true } and not Window) return;
         if (FirstHeading(page) is not { } h) return;
         h.Focusable = true;
         h.FocusVisualStyle = null;

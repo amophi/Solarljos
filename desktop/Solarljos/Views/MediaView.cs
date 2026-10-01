@@ -335,7 +335,8 @@ public sealed class MediaView : UserControl, IPage
     void Restore(IInputElement? was, TextBlock? heading)
     {
         // Not away from the rail when that is where the person is, going along it with the arrow keys.
-        if (arriving && Keyboard.FocusedElement is UIElement { IsVisible: true } now && !IsAncestorOf(now)) return;
+        // The window itself, where WPF puts the focus of a button hidden with another part, is no place.
+        if (arriving && Keyboard.FocusedElement is UIElement { IsVisible: true } now and not Window && !IsAncestorOf(now)) return;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
         {
             if (was is UIElement e && e.IsVisible && IsAncestorOf(e) && e.Focusable)
