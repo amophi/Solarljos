@@ -269,6 +269,7 @@ public partial class MainWindow : Window
     public void Connected(Session s)
     {
         session = s;
+        Starting.Visibility = Visibility.Collapsed;
         foreach (var p in pages.Values) p.Connected(s);
     }
 
@@ -285,6 +286,7 @@ public partial class MainWindow : Window
 
     void ShowFatal(string title, string body, string? said)
     {
+        Starting.Visibility = Visibility.Collapsed;
         FatalTitle.Text = title;
         FatalBody.Text = body;
         bool any = !string.IsNullOrWhiteSpace(said);

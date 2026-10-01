@@ -127,6 +127,29 @@
     </Border>
 
     <!-- What stops everything: the engine missing, or stopped. -->
+    <!-- While the engine starts, which reads ahead what changes on its own first: a few seconds. -->
+    <Border x:Name="Starting" Grid.Column="1" Background="{DynamicResource Card}" CornerRadius="14" Padding="16,10"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24" Panel.ZIndex="4"
+            AutomationProperties.LiveSetting="Polite">
+      <StackPanel Orientation="Horizontal">
+        <u:Icon Glyph="arc" Width="18" Height="18" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" RenderTransformOrigin="0.5,0.5">
+          <u:Icon.RenderTransform>
+            <RotateTransform x:Name="StartingTurn" />
+          </u:Icon.RenderTransform>
+          <u:Icon.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+              <BeginStoryboard>
+                <Storyboard RepeatBehavior="Forever">
+                  <DoubleAnimation Storyboard.TargetName="StartingTurn" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:1" />
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+          </u:Icon.Triggers>
+        </u:Icon>
+        <TextBlock Text="{u:T desktop.starting}" Foreground="{DynamicResource Text2}" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
     <Border x:Name="Fatal" Grid.Column="1" Background="{DynamicResource Bg}" Visibility="Collapsed" Panel.ZIndex="5">
       <Border Style="{StaticResource PanelCard}" MaxWidth="640" VerticalAlignment="Center" Margin="40">
         <StackPanel>
