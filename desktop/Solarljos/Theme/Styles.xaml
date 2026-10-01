@@ -675,7 +675,7 @@
         <ControlTemplate TargetType="Expander">
           <Border x:Name="Box" Background="{TemplateBinding Background}" CornerRadius="20">
             <StackPanel>
-              <ToggleButton Style="{StaticResource MoreHeader}" Content="{TemplateBinding Header}"
+              <ToggleButton x:Name="HeaderSite" Style="{StaticResource MoreHeader}" Content="{TemplateBinding Header}"
                             IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                             AutomationProperties.Name="{TemplateBinding Header}" />
               <ContentPresenter x:Name="Body" Visibility="Collapsed" />

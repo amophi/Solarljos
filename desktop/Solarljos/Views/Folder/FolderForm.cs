@@ -29,7 +29,7 @@ sealed class FolderForm : Part
     readonly OtherDiskField disk;
     readonly Expander more;
     readonly Button submit;
-    readonly Border errorBox = new() { Visibility = Visibility.Collapsed, Focusable = true, FocusVisualStyle = null, Margin = new Thickness(0, 0, 0, 16) };
+    readonly Labeled errorBox = new() { Visibility = Visibility.Collapsed, Focusable = true, FocusVisualStyle = null, Margin = new Thickness(0, 0, 0, 16) };
     readonly Button back;
     readonly TextBlock backText = new() { VerticalAlignment = VerticalAlignment.Center };
     string? folderError;

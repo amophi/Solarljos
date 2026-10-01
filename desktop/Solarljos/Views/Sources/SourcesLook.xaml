@@ -56,7 +56,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="Expander">
           <StackPanel>
-            <ToggleButton Style="{StaticResource NotesHeader}" Content="{TemplateBinding Header}"
+            <ToggleButton x:Name="HeaderSite" Style="{StaticResource NotesHeader}" Content="{TemplateBinding Header}"
                           IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                           AutomationProperties.Name="{TemplateBinding Header}" />
             <Border x:Name="Body" Visibility="Collapsed" Background="{DynamicResource Raised}" CornerRadius="10"

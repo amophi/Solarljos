@@ -111,7 +111,14 @@ public sealed partial class Tr : INotifyPropertyChanged
         {
             try
             {
-                return CultureInfo.GetCultureInfo(name);
+                var c = CultureInfo.GetCultureInfo(name);
+                if (!Regex.IsMatch(locale, "-u-(.*-)?nu-latn")) return c;
+                // Latin digits, which .NET writes anyway, with the separators that go with them:
+                // "1,234,567.5", as Intl writes it, not "1٬234٬567٫5".
+                var latin = (CultureInfo)c.Clone();
+                latin.NumberFormat.NumberGroupSeparator = ",";
+                latin.NumberFormat.NumberDecimalSeparator = ".";
+                return CultureInfo.ReadOnly(latin);
             }
             catch (CultureNotFoundException)
             {
@@ -158,6 +165,12 @@ public sealed partial class Tr : INotifyPropertyChanged
         }
         return b.ToString();
     }
+
+    /// <summary>
+    /// A string by key without what KeepAll puts in, for words that become part of a path, such as
+    /// the folder a restore suggests: a name on the disk must hold only what it shows.
+    /// </summary>
+    public string Plain(string key, params (string Name, object? Value)[] args) => Get(key, args).Replace(((char)0x2060).ToString(), "");
 
     static bool IsHangul(char c) => c is >= '\uAC00' and <= '\uD7A3' or >= '\u1100' and <= '\u11FF' or >= '\u3130' and <= '\u318F';
 

@@ -35,16 +35,36 @@ public static partial class Formats
     public static string Day(DateTimeOffset? at) =>
         at is { } t ? t.ToLocalTime().ToString(DayPattern(), T.Culture) : T["fmt.dateUnknown"];
 
-    /// <summary>A day and its time: "27 Sept 2026, 08:00".</summary>
-    public static string When(DateTimeOffset? at) =>
-        at is { } t ? t.ToLocalTime().ToString(DayPattern() + " " + T.Culture.DateTimeFormat.ShortTimePattern, T.Culture) : T["fmt.dateUnknown"];
+    /// <summary>
+    /// A day and its time, as Intl writes them with the hour in two digits: "27 Sept 2026, 08:00",
+    /// "2026년 9월 27일 오전 08:00", in Vietnamese the time first.
+    /// </summary>
+    public static string When(DateTimeOffset? at)
+    {
+        if (at is not { } t) return T["fmt.dateUnknown"];
+        var local = t.ToLocalTime();
+        var day = local.ToString(DayPattern(), T.Culture);
+        var time = local.ToString(TwoDigitHour().Replace(T.Culture.DateTimeFormat.ShortTimePattern, "$0$0"), T.Culture);
+        return T.Code switch
+        {
+            "vi" => time + " " + day,
+            "ja" or "zh-CN" or "zh-TW" or "ko" or "th" or "tr" => day + " " + time,
+            "ar" => day + "\u060C " + time,
+            _ => day + ", " + time,
+        };
+    }
+
+    [GeneratedRegex("(?<![Hh])[Hh](?![Hh])")]
+    private static partial Regex TwoDigitHour();
 
     /// <summary>"2025-07" as the language names a month: "July 2025", "2025년 7월".</summary>
     public static string Month(string ym)
     {
         var p = ym.Split('-');
         if (p.Length != 2 || !int.TryParse(p[0], out int y) || !int.TryParse(p[1], out int m)) return ym;
-        return new DateTime(y, m, 1).ToString(T.Culture.DateTimeFormat.YearMonthPattern, T.Culture);
+        var s = new DateTime(y, m, 1).ToString(T.Culture.DateTimeFormat.YearMonthPattern, T.Culture);
+        // "tháng 7 năm 2025", as Intl writes it, not "Tháng".
+        return T.Code == "vi" && s.Length > 0 ? char.ToLower(s[0], T.Culture) + s[1..] : s;
     }
 
     /// <summary>The local month a time falls in, as "2025-07"; null for none.</summary>
@@ -59,22 +79,50 @@ public static partial class Formats
     /// <summary>The culture's long date without its weekday and with its month short: the medium date Intl writes.</summary>
     static string DayPattern()
     {
+        // Where .NET's long date is not Intl's: "27 de sept de 2026" for "27 sept 2026", and the
+        // Thai "ที่ 27 ก.ย. พ.ศ. 2569" for "27 ก.ย. 2569" (the Buddhist year, as Intl has it, too).
+        if (T.Code is "es" or "th") return "d MMM yyyy";
         var f = T.Culture.DateTimeFormat;
-        var p = WeekdayPart().Replace(f.LongDatePattern, "").Trim(' ', ',', '،');
+        var p = WeekdayPart().Replace(f.LongDatePattern, "").Trim(' ', ',', '\u060C');
         return p.Replace("MMMM", "MMM");
     }
 
     [GeneratedRegex(@"\s*,?\s*dddd\s*,?\s*")]
     private static partial Regex WeekdayPart();
 
-    /// <summary>Things in a row as the language joins them: "a, b and c" in English, "a, b, c" otherwise.</summary>
+    /// <summary>
+    /// Things in a row as the language joins them, as Intl.ListFormat does (fmtList in app.js):
+    /// "a, b and c", "a, b 및 c", "a、b和c", "a وb وc".
+    /// </summary>
     public static string List(IEnumerable<string> items)
     {
         var list = items.ToList();
         if (list.Count <= 1) return string.Join("", list);
-        if (T.Code == "en") return string.Join(", ", list.Take(list.Count - 1)) + " and " + list[^1];
-        return string.Join(T.Code is "ja" or "zh-CN" or "zh-TW" ? "、" : ", ", list);
+        var (mid, end, pair) = ListWords(T.Code);
+        if (list.Count == 2) return list[0] + pair + list[1];
+        return string.Join(mid, list.Take(list.Count - 1)) + end + list[^1];
     }
+
+    // Between the first ones, before the last, and between two alone: the conjunctions of CLDR.
+    static (string Mid, string End, string Pair) ListWords(string code) => code switch
+    {
+        "ar" => (" \u0648", " \u0648", " \u0648"),
+        "de" => (", ", " und ", " und "),
+        "es" => (", ", " y ", " y "),
+        "fr" => (", ", " et ", " et "),
+        "it" or "pt-BR" => (", ", " e ", " e "),
+        "pl" => (", ", " i ", " i "),
+        "ru" => (", ", " \u0438 ", " \u0438 "),
+        "tr" => (", ", " ve ", " ve "),
+        "vi" => (", ", " v\u00E0 ", " v\u00E0 "),
+        "hi" => (", ", ", \u0914\u0930 ", " \u0914\u0930 "),
+        "id" => (", ", ", dan ", " dan "),
+        "ja" => ("\u3001", "\u3001", "\u3001"),
+        "ko" => (", ", " \uBC0F ", " \uBC0F "),
+        "th" => (" ", " \u0E41\u0E25\u0E30", "\u0E41\u0E25\u0E30"),
+        "zh-CN" or "zh-TW" => ("\u3001", "\u548C", "\u548C"),
+        _ => (", ", " and ", " and "),
+    };
 
     // ---- what a copy is ----------------------------------------------------------------------
 

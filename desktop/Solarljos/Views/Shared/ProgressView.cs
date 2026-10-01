@@ -49,8 +49,7 @@ public sealed class ProgressView : UserControl
         var spin = new Icon { Glyph = "arc", Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0) };
         filtering = Build.Stack(Orientation.Horizontal, spin, Build.Text(T["progress.filtering"], "Muted"));
         filtering.Margin = new Thickness(0, 16, 0, 0);
-        var card = Build.Card(list, 8);
-        AutomationProperties.SetName(list, JobTitle(job));
+        var card = Build.Card(Labeled.Group(JobTitle(job), list), 8);
         Content = Build.Page(Build.Stack(head, line, whole, card, filtering, Build.Text(T["progress.slow"], "Hint").Margin(0, 16, 0, 0)));
         timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => Tick();

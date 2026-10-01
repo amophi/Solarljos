@@ -205,7 +205,6 @@ public static class Build
     {
         var group = "chips-" + Guid.NewGuid().ToString("N");
         var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
-        AutomationProperties.SetName(wrap, legend);
         var inputs = new List<RadioButton>();
         var title = new TextBlock
         {
@@ -225,7 +224,8 @@ public static class Build
             wrap.Children.Add(r);
         }
         if (!inline) chips.El.Children.Add(title);
-        chips.El.Children.Add(wrap);
+        // Named by its legend, as a fieldset is: "Any time, radio button" says from when.
+        chips.El.Children.Add(Labeled.Group(legend, wrap));
         if (hint is not null) chips.El.Children.Add(Text(hint, "Hint").Margin(0, 0, 0, 0));
         return chips;
     }

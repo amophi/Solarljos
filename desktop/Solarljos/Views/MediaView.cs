@@ -73,9 +73,20 @@ public sealed class MediaView : UserControl, IPage
     public void Shown(string sub)
     {
         if (session is null) return;
-        if (sub == "results" || (sub == "" && showingResults)) ShowResults();
-        else ShowForm(false);
+        arriving = true;
+        try
+        {
+            if (sub == "results" || (sub == "" && showingResults)) ShowResults();
+            else ShowForm(false);
+        }
+        finally
+        {
+            arriving = false;
+        }
     }
+
+    // While the part comes into sight from another (Shown).
+    bool arriving;
 
     // ---- the form ----------------------------------------------------------------------------------
 
@@ -303,6 +314,8 @@ public sealed class MediaView : UserControl, IPage
     /// <summary>The focus where it was in a view kept, else on its heading, so that a screen reader starts there.</summary>
     void Restore(IInputElement? was, TextBlock? heading)
     {
+        // Not away from the rail when that is where the person is, going along it with the arrow keys.
+        if (arriving && Keyboard.FocusedElement is UIElement { IsVisible: true } now && !IsAncestorOf(now)) return;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
         {
             if (was is UIElement e && e.IsVisible && IsAncestorOf(e) && e.Focusable)

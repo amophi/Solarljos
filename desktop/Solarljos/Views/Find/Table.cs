@@ -3,28 +3,9 @@ using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Solarljos.Ui;
 
 namespace Solarljos.Views.Find;
-
-/// <summary>
-/// An element that assistive technology knows as what it is -- a group named for the file of a
-/// card, a list -- with the name AutomationProperties gives it: the page's article, labelled by
-/// its file's name.
-/// </summary>
-public class Labeled : Border
-{
-    public AutomationControlType Kind { get; init; } = AutomationControlType.Group;
-
-    protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
-
-    sealed class Peer(Labeled owner) : FrameworkElementAutomationPeer(owner)
-    {
-        protected override AutomationControlType GetAutomationControlTypeCore() => owner.Kind;
-        protected override string GetClassNameCore() => owner.Kind.ToString();
-        protected override bool IsControlElementCore() => true;
-        protected override bool IsContentElementCore() => true;
-    }
-}
 
 /// <summary>
 /// One column of a table: as wide as its widest cell, or, with `Fill`, taking a share of the room

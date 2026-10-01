@@ -163,7 +163,7 @@ public sealed class RestoreDialog : Window
     static bool B(JsonElement o, string k) => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
     static long? L(JsonElement o, string k) => o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? (long)v.GetDouble() : null;
 
-    string FolderOn(string root) => Paths.Join(root, T["restore.folderName"], Formats.Stamp(DateTimeOffset.Now));
+    string FolderOn(string root) => Paths.Join(root, T.Plain("restore.folderName"), Formats.Stamp(DateTimeOffset.Now));
 
     /// <summary>
     /// A folder to restore into, before anything is typed: on a drive none of the copies came from

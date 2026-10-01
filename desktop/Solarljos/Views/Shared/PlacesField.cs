@@ -34,7 +34,6 @@ public sealed class PlacesField
         all.IsThreeState = false;
         all.Margin = new Thickness(0, 0, 0, 12);
         var list = new WrapPanel { Orientation = Orientation.Horizontal };
-        AutomationProperties.SetName(list, T["adv.sources.label"]);
         foreach (var s in sources)
         {
             var notes = new List<string>();
@@ -55,7 +54,7 @@ public sealed class PlacesField
         all.Unchecked += (_, _) => SetAll(false);
         error = new TextBlock { FontWeight = FontWeights.SemiBold, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
         error.SetResourceReference(TextBlock.ForegroundProperty, "DangerText");
-        El = Build.Stack(title, all, list, error);
+        El = Build.Stack(title, all, Labeled.Group(T["adv.sources.label"], list), error);
         El.Margin = new Thickness(0, 8, 0, 0);
         Sync();
     }

@@ -95,6 +95,33 @@ public partial class MainWindow : Window
         page.Shown(parts.Length > 1 ? parts[1] : "");
         CloseOverlay();
         UpdateTitle();
+        var shown = (FrameworkElement)page;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, () => FocusInto(shown));
+    }
+
+    /// <summary>
+    /// When the focus was in the part just hidden, to the heading of the one shown, as the page
+    /// does; a part that keeps its own place has put the focus there already, and on the rail it
+    /// stays, for the arrow keys to go on along it.
+    /// </summary>
+    static void FocusInto(FrameworkElement page)
+    {
+        if (!page.IsVisible || Keyboard.FocusedElement is UIElement { IsVisible: true }) return;
+        if (FirstHeading(page) is not { } h) return;
+        h.Focusable = true;
+        h.FocusVisualStyle = null;
+        KeyboardNavigation.SetIsTabStop(h, false);
+        Keyboard.Focus(h);
+    }
+
+    static TextBlock? FirstHeading(DependencyObject root)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is TextBlock { IsVisible: true } tb && System.Windows.Automation.AutomationProperties.GetHeadingLevel(tb) == System.Windows.Automation.AutomationHeadingLevel.Level1) return tb;
+            if (FirstHeading(child) is { } found) return found;
+        }
+        return null;
     }
 
     void UpdateTitle()
@@ -130,9 +157,9 @@ public partial class MainWindow : Window
         };
         if (n < 0) return;
         e.Handled = true;
+        // The focus goes where the part puts it, or to its heading (FocusInto).
         var item = (ListBoxItem)Nav.Items[n];
         if (!item.IsSelected) Go((string)item.Tag);
-        item.Focus();
     }
 
     // ---- the rail ----------------------------------------------------------------------------
@@ -177,7 +204,7 @@ public partial class MainWindow : Window
         Grid.SetColumnSpan(Rail, overlay ? 2 : 1);
         Rail.Effect = overlay ? new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 48, ShadowDepth = 8, Opacity = 0.4 } : null;
         Scrim.Visibility = overlay ? Visibility.Visible : Visibility.Collapsed;
-        Toggle.SetValue(System.Windows.Automation.AutomationProperties.ItemStatusProperty, IsCompact ? "" : "expanded");
+        Toggle.IsExpanded = !IsCompact;
         RailTop.Orientation = IsCompact ? Orientation.Vertical : Orientation.Horizontal;
         BrandName.Visibility = IsCompact ? Visibility.Collapsed : Visibility.Visible;
         // Foot: the language and the theme side by side, one above the other with icons alone.
@@ -221,6 +248,8 @@ public partial class MainWindow : Window
         if (Lang.SelectedValue is not string code || code == Tr.Instance.Code) return;
         Tr.Instance.Use(code);
         Theme.UseFontFor(code);
+        var name = Tr.Instance.Languages.FirstOrDefault((l) => l.Code == code)?.Name ?? code;
+        Announce.Say(Tr.Instance.Get("lang.changed", ("language", name)));
         if (session is not null) await session.UseLanguageAsync(code);
     }
 
@@ -295,5 +324,11 @@ public partial class MainWindow : Window
         FatalSaidTitle.Visibility = FatalSaid.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         FatalSaid.Text = said ?? "";
         Fatal.Visibility = Visibility.Visible;
+        // The part behind can do nothing now: out of reach, as behind the page's dialog; the
+        // language and Quit stay.
+        Pages.IsEnabled = false;
+        Nav.IsEnabled = false;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () => Keyboard.Focus(FatalTitle));
+        Announce.Alert(title + " " + body);
     }
 }

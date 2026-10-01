@@ -43,7 +43,7 @@ public sealed class MediaForm
     readonly PlacesField places;
     readonly OtherDiskField disk;
     readonly Expander more;
-    readonly Border errorBox = new() { Visibility = Visibility.Collapsed, Focusable = true, FocusVisualStyle = null };
+    readonly Labeled errorBox = new() { Visibility = Visibility.Collapsed, Focusable = true, FocusVisualStyle = null };
     readonly Button submit;
     bool fromBad;
     bool toBad;
@@ -63,9 +63,8 @@ public sealed class MediaForm
         var checks = new WrapPanel();
         checks.Children.Add(photos);
         checks.Children.Add(videos);
-        AutomationProperties.SetName(checks, T["media.what.label"]);
         whatErr = ErrorLine();
-        var what = Build.Stack(whatTitle, checks, whatErr);
+        var what = Build.Stack(whatTitle, Labeled.Group(T["media.what.label"], checks), whatErr);
 
         when = Build.ChipGroup(T["media.when.label"], [
             ("any", T["media.when.any"]), ("thisYear", T["media.when.thisYear"]), ("lastYear", T["media.when.lastYear"]),

@@ -35,21 +35,16 @@
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
-    <!-- The part of the page in sight: each part is kept, hidden, while another is shown. -->
-    <Grid x:Name="Pages" Grid.Column="1" />
-
-    <!-- Over the page, while the rail shows its words in a narrow window: a click on it closes them. -->
-    <Rectangle x:Name="Scrim" Grid.Column="1" Fill="{DynamicResource Scrim}" Visibility="Collapsed" MouseDown="Scrim_MouseDown" />
-
+    <!-- First, so that Tab goes from the rail into the page, as on the page; drawn over it all the same (ZIndex). -->
     <Border x:Name="Rail" Grid.Column="0" Background="{DynamicResource Card}" BorderBrush="{DynamicResource Divider}"
             BorderThickness="0,0,1,0" Padding="12" MinWidth="256" MaxWidth="320" HorizontalAlignment="Left"
             Panel.ZIndex="10" KeyboardNavigation.TabNavigation="Local">
       <DockPanel LastChildFill="False">
         <StackPanel x:Name="RailTop" DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
-          <Button x:Name="Toggle" Style="{StaticResource RailButton}" Padding="0" Width="48" HorizontalContentAlignment="Center"
+          <u:ExpandButton x:Name="Toggle" Style="{StaticResource RailButton}" Padding="0" Width="48" HorizontalContentAlignment="Center"
                   AutomationProperties.Name="{u:T nav.toggle}" ToolTip="{u:T nav.toggle}" Click="Toggle_Click">
             <u:Icon Glyph="menu" Width="22" Height="22" />
-          </Button>
+          </u:ExpandButton>
           <Button x:Name="Brand" Style="{StaticResource RailButton}" Padding="10,0" Click="Brand_Click"
                   AutomationProperties.Name="{u:T app.name}">
             <StackPanel Orientation="Horizontal">
@@ -126,11 +121,16 @@
       </DockPanel>
     </Border>
 
+    <!-- The part of the page in sight: each part is kept, hidden, while another is shown. -->
+    <Grid x:Name="Pages" Grid.Column="1" />
+
+    <!-- Over the page, while the rail shows its words in a narrow window: a click on it closes them. -->
+    <Rectangle x:Name="Scrim" Grid.Column="1" Fill="{DynamicResource Scrim}" Visibility="Collapsed" MouseDown="Scrim_MouseDown" />
+
     <!-- What stops everything: the engine missing, or stopped. -->
     <!-- While the engine starts, which reads ahead what changes on its own first: a few seconds. -->
     <Border x:Name="Starting" Grid.Column="1" Background="{DynamicResource Card}" CornerRadius="14" Padding="16,10"
-            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24" Panel.ZIndex="4"
-            AutomationProperties.LiveSetting="Polite">
+            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="24" Panel.ZIndex="4">
       <StackPanel Orientation="Horizontal">
         <u:Icon Glyph="arc" Width="18" Height="18" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" RenderTransformOrigin="0.5,0.5">
           <u:Icon.RenderTransform>
@@ -146,18 +146,22 @@
             </EventTrigger>
           </u:Icon.Triggers>
         </u:Icon>
-        <TextBlock Text="{u:T desktop.starting}" Foreground="{DynamicResource Text2}" VerticalAlignment="Center" />
+        <TextBlock Text="{u:T desktop.starting}" Foreground="{DynamicResource Text2}" VerticalAlignment="Center"
+                   AutomationProperties.LiveSetting="Polite" />
       </StackPanel>
     </Border>
 
     <Border x:Name="Fatal" Grid.Column="1" Background="{DynamicResource Bg}" Visibility="Collapsed" Panel.ZIndex="5">
       <Border Style="{StaticResource PanelCard}" MaxWidth="640" VerticalAlignment="Center" Margin="40">
         <StackPanel>
-          <TextBlock x:Name="FatalTitle" Style="{StaticResource H1}" />
+          <TextBlock x:Name="FatalTitle" Style="{StaticResource H1}" AutomationProperties.HeadingLevel="Level1"
+                     Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.IsTabStop="False" />
           <TextBlock x:Name="FatalBody" Style="{StaticResource Lead}" Margin="0,12,0,0" />
           <TextBlock x:Name="FatalSaidTitle" Style="{StaticResource H2}" Margin="0,20,0,8" Visibility="Collapsed" Text="{u:T desktop.stopped.said}" />
+          <!-- What the engine said, in English as it says it: left to right in Arabic too. -->
           <TextBox x:Name="FatalSaid" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Cascadia Mono, Consolas" FontSize="13"
-                   MaxHeight="220" VerticalScrollBarVisibility="Auto" Visibility="Collapsed" />
+                   MaxHeight="220" VerticalScrollBarVisibility="Auto" Visibility="Collapsed" FlowDirection="LeftToRight"
+                   AutomationProperties.LabeledBy="{Binding ElementName=FatalSaidTitle}" />
         </StackPanel>
       </Border>
     </Border>

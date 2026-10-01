@@ -160,7 +160,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="Expander">
           <StackPanel>
-            <ToggleButton Style="{StaticResource FindDisclosureHead}" Content="{TemplateBinding Header}"
+            <ToggleButton x:Name="HeaderSite" Style="{StaticResource FindDisclosureHead}" Content="{TemplateBinding Header}"
                           IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                           AutomationProperties.Name="{Binding (AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}" />
             <ContentPresenter x:Name="Body" Visibility="Collapsed" />
