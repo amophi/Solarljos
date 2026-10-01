@@ -79,10 +79,12 @@ public sealed class Session
     public void Listen()
     {
         var ui = Application.Current.Dispatcher;
-        _ = Client.ListenAsync(
+        // Read and parsed off the window's thread (a batch of results can be thousands of items);
+        // each event is then handled on it.
+        _ = Task.Run(() => Client.ListenAsync(
             (name, data) => ui.BeginInvoke(() => Event?.Invoke(name, data)),
             (_) => ui.BeginInvoke(() => Gone?.Invoke()),
-            stop.Token);
+            stop.Token));
     }
 
     /// <summary>Tells the engine the language chosen, so that what the library says is in it too.</summary>

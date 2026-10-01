@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -98,14 +99,12 @@ public sealed class RestoreDialog : Window
 
         dest = Build.LabeledField(T["restore.dest.label"], input, PathHint("restore.dest.hint"));
         dest.El.Margin = new Thickness(0, 16, 0, 8);
-        AutomationProperties.SetName(drivesEl, T["restore.drives"]);
         confirm = Build.Check(T["dest.sameDrive.confirm"], false);
         confirm.Visibility = Visibility.Collapsed;
         confirm.Margin = new Thickness(0, 8, 0, 0);
         confirm.Checked += (_, _) => Gate();
         confirm.Unchecked += (_, _) => Gate();
         progress.Visibility = Visibility.Collapsed;
-        AutomationProperties.SetLiveSetting(checks, AutomationLiveSetting.Polite);
         AutomationProperties.SetLiveSetting(progress, AutomationLiveSetting.Polite);
 
         submitLabel = rebuild is not null ? T.Get("rebuild.submit", ("count", rebuild.Count))
@@ -126,7 +125,7 @@ public sealed class RestoreDialog : Window
         buttons.HorizontalAlignment = HorizontalAlignment.Right;
         buttons.Margin = new Thickness(0, 24, 0, 0);
 
-        body = Build.Stack(Build.Heading(title, 2), dest.El, drivesEl, suggestLine, checks, confirm, TierLines(), progress.Margin(0, 8, 0, 0));
+        body = Build.Stack(Build.Heading(title, 2), dest.El, Labeled.Group(T["restore.drives"], drivesEl), suggestLine, checks, confirm, TierLines(), progress.Margin(0, 8, 0, 0));
         var all = Build.Stack(body, buttons);
         all.Margin = new Thickness(28, 24, 28, 24);
         Content = new ScrollViewer { Content = all, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 760 };
@@ -291,15 +290,15 @@ public sealed class RestoreDialog : Window
         var to = input.Text.Trim();
         int seq = ++checkSeq;
         checks.Children.Clear();
-        dest.SetError(null);
-        if (to.Length == 0)
+        // Said once, not again at every pause in the typing of a path not yet whole.
+        var wrong = to.Length > 0 && !Paths.IsAbsolute(Paths.Unquote(to)) ? T["dest.relative"] : null;
+        if (wrong != fieldError)
         {
-            Gate();
-            return;
+            fieldError = wrong;
+            dest.SetError(wrong);
         }
-        if (!Paths.IsAbsolute(Paths.Unquote(to)))
+        if (to.Length == 0 || wrong is not null)
         {
-            dest.SetError(T["dest.relative"]);
             Gate();
             return;
         }
@@ -311,13 +310,14 @@ public sealed class RestoreDialog : Window
                 ? await session.Client.PostAsync("/api/check-folder", new { to, plan = rebuild.Plan.Id })
                 : await session.Client.PostAsync("/api/check-folder", new { to, uids = copies.Select((x) => x.Uid).ToArray() });
         }
-        catch (Exception e) when (e is CoreException or HttpRequestException)
+        catch (Exception e)
         {
             if (seq != checkSeq) return;
             checks.Children.Clear();
             checks.Children.Add(Build.Callout("error", null, Build.Text(Formats.ErrorText(e), "Body")));
             check = new Check { Ok = false };
             Gate();
+            Announce.Alert(Formats.ErrorText(e));
             return;
         }
         if (seq != checkSeq) return;
@@ -334,6 +334,29 @@ public sealed class RestoreDialog : Window
         check = k;
         Render(k);
         Gate();
+        SayChecks(!k.Ok || k.Full);
+    }
+
+    string? fieldError;
+
+    /// <summary>
+    /// What the check found, said as the page's status region says it: why Restore stays off, the
+    /// box that asks for the person's word appearing. At once when the folder cannot be used.
+    /// </summary>
+    void SayChecks(bool urgent)
+    {
+        var said = string.Join(" ", Texts(checks).Where((t) => t.Length > 0));
+        if (urgent) Announce.Alert(said);
+        else Announce.Say(said);
+    }
+
+    static IEnumerable<string> Texts(DependencyObject root)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is TextBlock { Visibility: Visibility.Visible } tb) yield return tb.Text;
+            else if (child is not Button) foreach (var t in Texts(child)) yield return t;
+        }
     }
 
     /// <summary>How many of the items were on the drive of the folder checked: the engine's count, else by drive letter; null where neither can tell.</summary>
@@ -435,6 +458,8 @@ public sealed class RestoreDialog : Window
     {
         long done = L(d, "done") ?? 0, total = L(d, "total") ?? copies.Count;
         progress.Text = T.Get("restore.progress", ("done", done), ("total", total));
+        if (AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged))
+            (UIElementAutomationPeer.FromElement(progress) ?? UIElementAutomationPeer.CreatePeerForElement(progress))?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     async Task SubmitAsync()
@@ -462,8 +487,9 @@ public sealed class RestoreDialog : Window
             var res = await session.Client.PostAsync("/api/restore", new { uids = copies.Select((c) => c.Uid).ToArray(), to });
             ShowDone(res, to);
         }
-        catch (Exception e) when (e is CoreException or HttpRequestException)
+        catch (Exception e)
         {
+            // Whatever went wrong, the dialog is not left locked; what was written stays.
             writing = false;
             submit.Content = submitLabel;
             cancel.IsEnabled = true;
@@ -490,6 +516,8 @@ public sealed class RestoreDialog : Window
         icon.SetResourceReference(Ui.Icon.ForegroundProperty, ok.Count > 0 ? "Success" : "DangerText");
         var head = Build.Stack(Orientation.Horizontal, icon, Build.Heading(heading, 2));
         var done = Build.Button(T["common.done"], () => Close(), "BtnPrimary");
+        // Esc closes it once the writing has ended, as the page's dialog does.
+        done.IsCancel = true;
         done.MinHeight = 48;
         Look.SetRadius(done, new CornerRadius(14));
         body.Children.Clear();
@@ -523,7 +551,8 @@ public sealed class RestoreDialog : Window
             {
                 var name = byUid.TryGetValue(S(b, "uid") ?? "", out var c) ? c.Name ?? c.Uid : S(b, "uid") ?? "";
                 var why = Formats.ErrorText(new CoreException(0, S(b, "error") ?? "", S(b, "code"), default));
-                return (UIElement)Build.Text($"• {name}: {why}", "Body");
+                // The name in its own direction, as the page's <bdi>.
+                return (UIElement)Build.Text($"• \u2068{name}\u2069: {why}", "Body");
             }).ToArray();
             body.Children.Add(Build.Callout("warn", T.Get("restore.done.failed", ("count", bad.Count)), lines));
         }

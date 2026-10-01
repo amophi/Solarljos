@@ -64,8 +64,11 @@ public partial class App : Application
         {
             window.CoreStopped(stopped.Said);
         }
-        catch (Exception failed) when (failed is HttpRequestException or CoreException or System.Text.Json.JsonException)
+        catch (Exception failed)
         {
+            // Anything else that keeps the engine from starting -- blocked by antivirus or app
+            // control, no answer within the minute, a first line not understood -- is said the
+            // same way, rather than leaving "Starting" on for ever.
             window.CoreStopped(failed.Message);
         }
 

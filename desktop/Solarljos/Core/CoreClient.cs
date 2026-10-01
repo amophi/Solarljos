@@ -26,8 +26,10 @@ public sealed class CoreClient : IDisposable
         http = new HttpClient(new SocketsHttpHandler { UseProxy = false, UseCookies = false, AutomaticDecompression = DecompressionMethods.None })
         {
             BaseAddress = Origin,
-            // A search runs on through the event stream; a request itself answers soon.
-            Timeout = TimeSpan.FromMinutes(5),
+            // No limit: a restore answers once every file is written, which a large set of photos
+            // or a video read from a slow card can take far longer than any limit would allow.
+            // The engine is on this PC; a caller that should give up passes its own token.
+            Timeout = System.Threading.Timeout.InfiniteTimeSpan,
         };
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
     }

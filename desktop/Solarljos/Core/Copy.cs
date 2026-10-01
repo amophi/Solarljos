@@ -72,7 +72,8 @@ public sealed partial class Copy
             Height = D(c, "height") is { } h ? (int)h : null,
             Note = S(c, "note"),
             Origin = S(c, "origin"),
-            Raw = c.Clone(),
+            // Already a copy of its own (Jobs keeps each item cloned), so not cloned again.
+            Raw = c,
         };
     }
 
@@ -82,7 +83,12 @@ public sealed partial class Copy
     /// <summary>The folder it was in; null when that is not known.</summary>
     public string? Folder => Path is null ? null : Paths.DirName(Path) is { Length: > 0 } d ? d : null;
 
-    public DateTimeOffset? When => Time is { } ms && double.IsFinite(ms) ? DateTimeOffset.FromUnixTimeMilliseconds((long)ms) : null;
+    // A time .NET can hold, from year 1 to 9999; the engine passes any number a source gives,
+    // such as a commit dated far ahead, and one such copy would keep every result from showing.
+    public DateTimeOffset? When => Time is { } ms && double.IsFinite(ms) && ms >= MinMs && ms <= MaxMs ? DateTimeOffset.FromUnixTimeMilliseconds((long)ms) : null;
+
+    static readonly double MinMs = DateTimeOffset.MinValue.ToUnixTimeMilliseconds();
+    static readonly double MaxMs = DateTimeOffset.MaxValue.ToUnixTimeMilliseconds();
 
     /// <summary>For comparing: a copy with no time is older than any with one.</summary>
     public double TimeOr => Time is { } ms && double.IsFinite(ms) ? ms : double.NegativeInfinity;

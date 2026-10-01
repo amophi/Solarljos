@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Solarljos.Core;
@@ -25,6 +27,7 @@ public sealed class ProgressView : UserControl
     readonly StackPanel list = new();
     readonly StackPanel filtering;
     readonly Button stop;
+    readonly TextBlock heading;
     readonly Dictionary<string, Row> rows = new();
     readonly DispatcherTimer timer;
 
@@ -37,7 +40,8 @@ public sealed class ProgressView : UserControl
         var head = new DockPanel { Margin = new Thickness(0, 8, 0, 24) };
         DockPanel.SetDock(stop, Dock.Right);
         head.Children.Add(stop);
-        head.Children.Add(Build.Heading(JobTitle(job)));
+        heading = Build.Heading(JobTitle(job));
+        head.Children.Add(heading);
         overall.FontWeight = FontWeights.SemiBold;
         var dot = new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(5), Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
         dot.SetResourceReference(Border.BackgroundProperty, "Accent");
@@ -49,7 +53,9 @@ public sealed class ProgressView : UserControl
         var spin = new Icon { Glyph = "arc", Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0) };
         filtering = Build.Stack(Orientation.Horizontal, spin, Build.Text(T["progress.filtering"], "Muted"));
         filtering.Margin = new Thickness(0, 16, 0, 0);
-        var card = Build.Card(Labeled.Group(JobTitle(job), list), 8);
+        var rowsList = new Labeled { Kind = AutomationControlType.List, Child = list };
+        AutomationProperties.SetName(rowsList, JobTitle(job));
+        var card = Build.Card(rowsList, 8);
         Content = Build.Page(Build.Stack(head, line, whole, card, filtering, Build.Text(T["progress.slow"], "Hint").Margin(0, 16, 0, 0)));
         timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => Tick();
@@ -114,6 +120,15 @@ public sealed class ProgressView : UserControl
 
     async Task StopAsync()
     {
+        // The button the focus is on goes off: the focus goes to the heading first, so that it is
+        // not left on the bare window, and the view that follows ("Search stopped") takes it on.
+        if (stop.IsKeyboardFocused)
+        {
+            heading.Focusable = true;
+            heading.FocusVisualStyle = null;
+            KeyboardNavigation.SetIsTabStop(heading, false);
+            heading.Focus();
+        }
         stop.IsEnabled = false;
         stop.Content = T["common.stopping"];
         try
@@ -131,13 +146,13 @@ public sealed class ProgressView : UserControl
     /// <summary>One place's row: an icon for how it stands, its name, and what it found or how far it is.</summary>
     sealed class Row
     {
-        public Border El { get; }
+        public Labeled El { get; }
         readonly Icon mark = new() { Width = 20, Height = 20, VerticalAlignment = VerticalAlignment.Center };
         readonly TextBlock label = Build.Text("", "Body");
         readonly TextBlock status = Build.Text("", "Muted");
         readonly ProgressBar bar = new() { Width = 160, Height = 4, Visibility = Visibility.Collapsed, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         readonly TextBlock detail = Build.Text("", "Hint");
-        readonly Button more;
+        readonly ExpandButton more = new() { Content = T["common.details"] };
         string? was;
 
         public Row()
@@ -149,7 +164,12 @@ public sealed class ProgressView : UserControl
             bar.SetResourceReference(Control.ForegroundProperty, "Accent");
             bar.SetResourceReference(Control.BackgroundProperty, "Track");
             bar.BorderThickness = new Thickness(0);
-            more = Build.Button(T["common.details"], () => detail.Visibility = detail.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible, "BtnQuiet");
+            more.SetResourceReference(FrameworkElement.StyleProperty, "BtnQuiet");
+            more.Click += (_, _) =>
+            {
+                more.IsExpanded = !more.IsExpanded;
+                detail.Visibility = more.IsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            };
             more.MinHeight = 32;
             more.Padding = new Thickness(12, 4, 12, 4);
             more.Visibility = Visibility.Collapsed;
@@ -166,7 +186,7 @@ public sealed class ProgressView : UserControl
             var state = Build.Stack(Orientation.Horizontal, status, bar, more);
             Grid.SetColumn(state, 2);
             grid.Children.Add(state);
-            El = new Border { Child = Build.Stack(grid, detail), Padding = new Thickness(16, 14, 16, 14), CornerRadius = new CornerRadius(14) };
+            El = new Labeled { Kind = AutomationControlType.ListItem, Child = Build.Stack(grid, detail), Padding = new Thickness(16, 14, 16, 14), CornerRadius = new CornerRadius(14) };
         }
 
         public void Set(SourceRow r)
@@ -198,7 +218,7 @@ public sealed class ProgressView : UserControl
             }
             more.Visibility = r.Status == "failed" && r.Error is not null ? Visibility.Visible : Visibility.Collapsed;
             detail.Text = r.Error ?? "";
-            AutomationProperties.SetName(El, $"{label.Text}: {status.Text}");
+            AutomationProperties.SetName(El, T.Get("a11y.sourceDone", ("source", label.Text), ("result", status.Text)));
         }
     }
 }

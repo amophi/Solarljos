@@ -158,8 +158,9 @@ public sealed class CoreProcess : IAsyncDisposable
         {
             if (!p.HasExited) p.Kill(entireProcessTree: true);
         }
-        catch (InvalidOperationException)
+        catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or AggregateException or NotSupportedException)
         {
+            // Gone already, or not ours to end: the program is going either way.
         }
     }
 

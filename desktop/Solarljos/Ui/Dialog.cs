@@ -37,6 +37,7 @@ public static class Dialog
 
         var heading = new TextBlock { Text = title };
         heading.SetResourceReference(FrameworkElement.StyleProperty, "H2");
+        System.Windows.Automation.AutomationProperties.SetHeadingLevel(heading, System.Windows.Automation.AutomationHeadingLevel.Level2);
         var text = new TextBlock { Text = body, Margin = new Thickness(0, 8, 0, 0) };
         text.SetResourceReference(FrameworkElement.StyleProperty, "Muted");
         var no = new Button { Content = cancel, IsCancel = true, MinWidth = 120, Margin = new Thickness(0, 0, 8, 0) };

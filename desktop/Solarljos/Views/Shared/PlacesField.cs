@@ -51,13 +51,16 @@ public sealed class PlacesField
             list.Children.Add(box);
         }
         all.Checked += (_, _) => SetAll(true);
-        all.Unchecked += (_, _) => SetAll(false);
+        // From some ticked, a click ticks them all, as the page's box does; WPF would untick them.
+        all.Unchecked += (_, _) => SetAll(mixed);
         error = new TextBlock { FontWeight = FontWeights.SemiBold, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
         error.SetResourceReference(TextBlock.ForegroundProperty, "DangerText");
         El = Build.Stack(title, all, Labeled.Group(T["adv.sources.label"], list), error);
         El.Margin = new Thickness(0, 8, 0, 0);
         Sync();
     }
+
+    bool mixed;
 
     void SetAll(bool on)
     {
@@ -74,6 +77,7 @@ public sealed class PlacesField
         syncing = true;
         int n = boxes.Count((b) => b.IsChecked == true);
         all.IsChecked = n == boxes.Count ? true : n == 0 ? false : null;
+        mixed = all.IsChecked is null;
         syncing = false;
     }
 

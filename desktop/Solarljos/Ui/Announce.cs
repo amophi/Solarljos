@@ -17,7 +17,10 @@ public static class Announce
 
     static void Raise(string message, AutomationNotificationProcessing how)
     {
-        if (Application.Current?.MainWindow is not { } w || string.IsNullOrWhiteSpace(message)) return;
+        // From the window in front: a screen reader may leave out what another window says.
+        var app = Application.Current;
+        var w = app?.Windows.OfType<Window>().FirstOrDefault((x) => x.IsActive) ?? app?.MainWindow;
+        if (w is null || string.IsNullOrWhiteSpace(message)) return;
         var peer = UIElementAutomationPeer.FromElement(w) ?? UIElementAutomationPeer.CreatePeerForElement(w);
         peer?.RaiseNotificationEvent(AutomationNotificationKind.Other, how, message, "solarljos");
     }

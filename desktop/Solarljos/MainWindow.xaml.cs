@@ -57,6 +57,18 @@ public partial class MainWindow : Window
         ApplyTheme();
         Go("");
         ApplyRail();
+        Spin(true);
+    }
+
+    /// <summary>
+    /// The "Starting" mark turning, and stopped once it is hidden: an animation left running on a
+    /// hidden element still has the window drawn sixty times a second for as long as it is open.
+    /// </summary>
+    void Spin(bool on)
+    {
+        var turn = on ? new System.Windows.Media.Animation.DoubleAnimation(0, 360, TimeSpan.FromSeconds(1)) { RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever } : null;
+        StartingTurn.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, turn);
+        if (!on) Starting.Visibility = Visibility.Collapsed;
     }
 
     // ---- the parts of the page ---------------------------------------------------------------
@@ -265,6 +277,12 @@ public partial class MainWindow : Window
 
     async void Quit_Click(object sender, RoutedEventArgs e)
     {
+        // While a folder is being written, closing asks its own question (OnClosing), and only that.
+        if (Writing())
+        {
+            Close();
+            return;
+        }
         var tr = Tr.Instance;
         bool ok = await Dialog.ConfirmAsync(this, tr["quit.confirmTitle"], tr["quit.confirmBody"], tr["nav.quit"], tr["common.cancel"], danger: true);
         if (ok) Close();
@@ -279,8 +297,7 @@ public partial class MainWindow : Window
     /// </summary>
     async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        bool writing = session?.Jobs.Current("rebuild") is { Running: true };
-        if (quitAnyway || !writing)
+        if (quitAnyway || !Writing())
         {
             closing = true;
             return;
@@ -290,8 +307,11 @@ public partial class MainWindow : Window
         if (!await Dialog.ConfirmAsync(this, tr["quit.confirmTitle"], tr["desktop.quit.writing"], tr["nav.quit"], tr["common.cancel"])) return;
         App.WaitForWrites = true;
         quitAnyway = true;
-        Close();
+        // Not from inside Closing, which WPF refuses: once it has returned.
+        _ = Dispatcher.BeginInvoke(Close);
     }
+
+    bool Writing() => session?.Jobs.Current("rebuild") is { Running: true };
 
     // ---- the engine --------------------------------------------------------------------------
 
@@ -300,7 +320,7 @@ public partial class MainWindow : Window
         session = s;
         // A file of a folder's plan is shown on its own, in the preview the results have.
         FolderView.ShowPreview = (copy, opener) => Views.Shared.PreviewWindow.Show(s, copy, opener);
-        Starting.Visibility = Visibility.Collapsed;
+        Spin(false);
         foreach (var p in pages.Values) p.Connected(s);
     }
 
@@ -317,7 +337,7 @@ public partial class MainWindow : Window
 
     void ShowFatal(string title, string body, string? said)
     {
-        Starting.Visibility = Visibility.Collapsed;
+        Spin(false);
         FatalTitle.Text = title;
         FatalBody.Text = body;
         bool any = !string.IsNullOrWhiteSpace(said);
