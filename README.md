@@ -895,7 +895,7 @@ and tries the Windows program, the window and its engine, on every push.
   window of its own for what would not be seen. Every program is a stand-in, but for one cmd.exe
   on Windows, run with the command line such a window gets in a console that is hidden.
 
-On Windows 11 with Node 26.10, `npm test` ran 642 tests: 633 passed, and 9 were skipped, which
+On Windows 11 with Node 26.10, `npm test` ran 644 tests: 635 passed, and 9 were skipped, which
 need Linux or what Windows does not give without privileges.
 
 ### On your own computer

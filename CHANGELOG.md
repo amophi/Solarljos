@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.9.0 (2026-10-01)
+
+The release before 1.0: what is in it is made ready to be relied on, and to be tried on real
+computers before 1.0 is called.
+
+- A deleted photo on a card that a shorter photo was written over is no longer offered as the
+  photo it was. A JPEG was exempt from the check that a file ends where its structure does,
+  since phones and cameras put their own data after its end; what a shorter photo written over
+  the start of a longer one leaves is now told apart -- the bytes up to the size recorded end as
+  a JPEG does, and no second picture starts after the first -- and such a copy is *May be
+  incomplete*, with why.
+- A FAT card formatted by DOS 4 or by some cameras, whose boot record has the older signature
+  0x28, has its serial number read too, which is what keeps a restore from writing onto the
+  card being read.
+- `solarljos-core.exe` says what it is: its Details and Task Manager show *Solarljos engine*,
+  Solarljos and its version, where they said *Node.js JavaScript Runtime* and node.exe.
+  `scripts/build-exe.js` writes the version resource over node.exe's, in its room.
+- The zip carries the licences of what it is built on, as MIT asks of whoever passes their work
+  on: Node.js's, with those of what Node.js carries, and .NET's, whose program starts the window
+  (`desktop/licenses`). The window's own file names its copyright.
+- Every string of the screen and of the engine, in all 17 languages, read by a second reader
+  against the English: 75 lines fixed in 14 languages. Among them, the question asked when
+  quitting while a folder is written said in five languages that only the file being written
+  would be finished, not the folder.
+- 17 English strings made clear or right, and their translations with them: Solarljos cannot
+  bring back files from a broken disk or from this PC's own drive once formatted, but a card
+  formatted by mistake can be searched; a card's lock switch is slid to *Lock*; File Explorer
+  has one name; restore points and cloud backups may hold more than smaller copies.
+- `scripts/field-test.js` tries a release on the computer it runs on, through the window's API,
+  and reports what it found with no file's name or path in it; `docs/field-test.md` lists what
+  to try by hand -- the window, a real card, a screen reader, and what Process Monitor sees
+  Solarljos write.
+- The README says what stays the same within 1.x, that nothing is sent anywhere, and, among the
+  limits, the browser page's once-only address.
+
 ## 0.8.0 (2026-10-01)
 
 Solarljos on Windows is a program of its own: a window in WPF, with no browser.
