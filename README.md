@@ -17,66 +17,64 @@ space a deleted file took soon after the file is deleted, so there is nothing le
 Memory cards and USB sticks usually do not erase it, and those it can search.
 
 It changes nothing on the computer: the only files it writes are the ones you choose to restore,
-into the folder you choose. (The browser window it opens is your browser's own, and writes what
-that browser writes; see below.)
+into the folder you choose.
 
 It is available in 18 languages; see [Languages](#languages).
 
-**On Windows, download [`Solarljos.exe`](https://github.com/amophi/Solarljos/releases/latest)** --
-one file, nothing to install -- and double-click it. Do not save it on the drive, the card or the
-stick you lost files from.
+**On Windows, download `Solarljos-<version>-win-x64.zip`** from the
+[latest release](https://github.com/amophi/Solarljos/releases/latest), unzip it -- not onto the
+drive, the card or the stick you lost files from -- and double-click `Solarljos.exe`. It needs
+Microsoft's [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0), which
+Windows offers to install the first time if it is not there yet.
 
 ## Using the program
 
-1. **Download** `Solarljos.exe` from the
-   [latest release](https://github.com/amophi/Solarljos/releases/latest). It is one file of about
-   110 MB that carries everything it needs, Node.js included: nothing is installed, and nothing is
-   written beside it.
-2. **Keep it off the drive you lost files from**, and restore onto another drive if you can:
-   writing to the drive the files were on can overwrite what is left of them. Never copy it, or
-   anything else, onto a memory card or USB stick you want to recover. Slide an SD card's lock
+1. **Download** `Solarljos-<version>-win-x64.zip` from the
+   [latest release](https://github.com/amophi/Solarljos/releases/latest) and unzip it into a
+   folder of its own. It holds `Solarljos.exe`, the window, and `solarljos-core.exe`, the part
+   that searches and restores, which carries Node.js inside it, with their licences: about 48 MB
+   to download, 120 MB unzipped. Keep the files together; nothing is installed.
+2. **Have the .NET 10 Desktop Runtime.** Without it, Windows says so when `Solarljos.exe` starts and
+   offers Microsoft's download page. It is installed once, for every program that needs it.
+3. **Keep it off the drive you lost files from**, and restore onto another drive if you can:
+   writing to the drive the files were on can overwrite what is left of them. Never unzip it, or
+   copy anything else, onto a memory card or USB stick you want to recover. Slide an SD card's lock
    switch to *Lock* before you put it in, since Windows and other programs may write to a card as
    soon as it is in.
-3. **Double-click it.** It is not signed, so Windows SmartScreen asks first: *More info*, then
-   *Run anyway*. Where Smart App Control is on, Windows refuses it; *Running it from the source*
-   below gives the same program.
-4. **Its page opens in a browser window**, and no other window opens. Choose what you lost --
-   *Find a file* by its name, a word it contained or its kind, *Photos and videos* in a grid by
-   month, or *Bring back a folder* -- and each copy found says where it was found and how far it
-   can be trusted: *Exact copy*, *Inexact copy*, *Never saved*, *May be incomplete*, *Smaller
-   copy*. A copy can be previewed before anything is written. *Restore* asks for a folder and
-   checks it first: it will not write inside a place copies are read from, asks before it writes
-   onto the drive a file was on, and suggests another drive when there is one. Each part of the
-   page keeps what it showed while you use another, and *Language*, below the list of places on
-   the left, changes the language of the page.
-5. **Close the window**, or press *Quit*, when you are done. Solarljos stops 3 to 30 seconds after
-   its page goes, and by itself 10 minutes after it started if no window ever connected. It does
-   not stop in the middle of a restore: one being written finishes first.
+4. **Double-click `Solarljos.exe`.** It is not signed, so Windows SmartScreen asks first: *More
+   info*, then *Run anyway*. Where Smart App Control is on, Windows refuses it; *Running it from the
+   source* below gives the same search in a browser window.
+5. **Its window opens.** The list on the left -- on the right in Arabic -- holds the parts: *Find a
+   file* by its name, a word it contained or its kind; *Photos and videos* in a grid by month;
+   *Bring back a folder*; *What is searched*; and *Help*. Each copy found says where it was found
+   and how far it can be trusted: *Exact copy*, *Inexact copy*, *Never saved*, *May be incomplete*,
+   *Smaller copy*. A copy can be previewed before anything is written. *Restore* asks for a folder
+   and checks it first: it will not write inside a place copies are read from, asks before it
+   writes onto the drive a file was on, and suggests another drive when there is one. Each part
+   keeps what it showed while you use another. At the foot of the list are the language, the
+   light or dark theme, and *Quit*.
+6. **Close the window**, or press *Quit*, when you are done, and Solarljos stops. A restore is never
+   cut short: the window cannot be closed while one is written; and when a folder is being written,
+   it asks, and lets the writing finish before Solarljos stops.
 
 What is written:
 
 - **By Solarljos**, nothing but the files you restore, in the folder you choose. It keeps no
-  settings, history, log or cache; what it found lives in its memory until it stops. It starts no
-  program but the browser window, git and `mountvol.exe` while searching, which only read, and,
-  as a last resort, `cmd.exe`: when no browser window could be opened, when an error stopped it
-  before its page opened, or when it was given arguments with nowhere to print, nothing it printed
-  would be seen, so it says what it has to say in a console window titled *Solarljos*. That
-  cmd.exe is started with `/d`, which skips the AutoRun commands the registry may name, and writes
-  nothing. It does not open Explorer to show what it restored, since that would make new
-  thumbnails in the very cache a search for photos reads.
-- **By the window**, what the browser writes. Where Microsoft Edge is installed, the page opens in
-  an Edge InPrivate window, which keeps no history, cookies or cache of the visit; if Edge was not
-  already running, it still writes what it writes whenever it starts, its settings and start-up
-  files in your profile. Without Edge, when Edge cannot be started, and always when Solarljos runs
-  as administrator, the page opens in your default browser, which records the visit in its history
-  like any other; the address it records works only once.
-- **By Windows itself**, the note it keeps of every program that runs, as for any program.
+  settings, history, log or cache; what it found lives in its memory until it stops. The window
+  starts no program but `solarljos-core.exe`, which starts git and `mountvol.exe` while searching,
+  which only read, and, as a last resort, `cmd.exe`, to say in a console window titled
+  *Solarljos* what it could not say otherwise (with `/d`, which skips the AutoRun commands the
+  registry may name; it writes nothing). It opens no browser, no folder picker and no Explorer: a
+  folder picker and Explorer show small pictures of what a folder holds, and Windows keeps those in
+  the very thumbnail cache a search for photos reads. You type or paste a folder instead.
+- **By Windows itself**, the note it keeps of every program that runs, and what .NET and WPF keep
+  for any program, such as Windows' cache of the fonts it has drawn.
 
-Explorer's thumbnail cache is read into memory before the window opens, so that nothing the
-browser or Explorer adds to it afterwards changes what Solarljos finds while it runs. Explorer adds
-thumbnails whenever it shows a folder of pictures, and may drop old ones to make room, and Disk
-Cleanup can empty the cache. Until you are done looking for photos, do not run Disk Cleanup, and do
-not open folders of pictures in Explorer, restored ones included.
+Explorer's thumbnail cache is read into memory when Solarljos starts, so that nothing Explorer adds
+to it afterwards changes what Solarljos finds while it runs. Explorer adds thumbnails whenever it
+shows a folder of pictures, and may drop old ones to make room, and Disk Cleanup can empty the
+cache. Until you are done looking for photos, do not run Disk Cleanup, and do not open folders of
+pictures in Explorer, restored ones included.
 
 A memory card or USB stick is searched only when you add it: under *What is searched*, at
 *Memory cards and USB sticks*, choose *Add a place from another disk...*, and give its drive letter,
@@ -84,18 +82,20 @@ such as `E:`, or a disk image of it made with another tool. Reading the card its
 administrator rights -- quit Solarljos, right-click `Solarljos.exe` and choose *Run as
 administrator* -- and an image needs none.
 
-Given arguments, `Solarljos.exe` is the command line described below. It is a Windows program
+`solarljos-core.exe` given arguments is the command line described below. It is a Windows program
 without a console, though, so what it prints is seen only when it goes to a program or a file:
 
 ```
-Solarljos.exe find budget.xlsx | more
-Solarljos.exe find budget.xlsx > found.txt 2>&1
+solarljos-core.exe find budget.xlsx | more
+solarljos-core.exe find budget.xlsx > found.txt 2>&1
 ```
 
 Typed in a console with nothing redirected -- or with `> NUL`, which goes nowhere -- it prints
 nothing and does nothing, but shows a window that says so and how to use the command line.
 `solarljos.cjs`, attached to the same release, is the command line alone for Node.js 22 or later:
-`node solarljos.cjs find budget.xlsx` prints in the console as any program does.
+`node solarljos.cjs find budget.xlsx` prints in the console as any program does. Double-clicked,
+`solarljos-core.exe` opens the same parts as a page in a browser window, as *The front end*
+describes; the window does the same without one.
 
 ## Old photos and videos: what to expect
 
@@ -124,7 +124,7 @@ it stay until something is written over them, and a quick format, which is Windo
 leaves them too. Solarljos can often bring them back whole: by their names when the card still
 lists them, by their content when it does not, and it says when a copy may be incomplete. Reading
 a card directly needs administrator rights; an image of the card, made with another tool, needs
-none. Copy nothing onto the card, `Solarljos.exe` included, and set an SD card's lock switch
+none. Copy nothing onto the card, Solarljos included, and set an SD card's lock switch
 before you put it in.
 
 A copy is dated by what its source records -- when it was deleted, last changed or stored -- and not
@@ -192,11 +192,12 @@ A recovery tool that writes can destroy what it is trying to recover, so this on
 - No database is opened, since opening SQLite even read-only leaves journal files beside it.
   No PowerShell is started, since every start of it rewrites a file in the user's profile. The
   programs started while searching only read: git, and `mountvol.exe`, which lists the drives'
-  volume names for the thumbnail cache and writes nothing. The graphical front end starts one
-  more, the browser window, and *Using the program* lists what that writes. `Solarljos.exe`,
-  which has no console, starts `cmd.exe /d` for a console window of its own when what it has to
-  say would not be seen otherwise; that writes nothing either, and no text it shows is on
-  cmd.exe's command line, so none can act as a command.
+  volume names for the thumbnail cache and writes nothing. The Windows program starts one more,
+  its engine `solarljos-core.exe`; the page in a browser starts the browser window, and *The front
+  end* lists what that writes. `solarljos-core.exe`, which has no console, starts `cmd.exe /d`
+  for a console window of its own when what it has to say would not be seen otherwise; that
+  writes nothing either, and no text it shows is on cmd.exe's command line, so none can act as a
+  command.
 - A card, a USB stick or a disk image is opened for reading only. Windows and other programs
   write to a card while it is in, which nothing here can stop: take an SD card out, slide its
   lock switch to Lock and put it back, and save nothing onto it until everything is back.
@@ -293,9 +294,9 @@ node bin/solarljos.js --help
 ```
 
 `npm link` in that folder puts `solarljos` on the `PATH`. `node bin/solarljos.js gui` opens the
-same window as `Solarljos.exe`; run in a terminal, it also stops when that terminal is closed or
-Ctrl+C is pressed in it, and Ctrl+C waits up to 8 seconds for a restore being written, and one cut
-short then leaves no file behind.
+same parts as `Solarljos.exe`, as a page in a browser window; run in a terminal, it also stops
+when that terminal is closed or Ctrl+C is pressed in it, and Ctrl+C waits up to 8 seconds for a
+restore being written, and one cut short then leaves no file behind.
 
 ### Usage
 
@@ -495,13 +496,22 @@ read or written is reported at the end, under `Could not read or write N file(s)
 are still written. `--deleted-only` limits it to files that are missing today, which is how a
 folder that was only partly deleted is filled in.
 
-## The graphical front end
+## The front end
 
-`solarljos gui` -- or `Solarljos.exe` with no arguments, or none but `--lang` -- starts a small web
-server on 127.0.0.1 and opens its page, as *Using the program* describes. Edge that cannot be
-started gives way to the default browser. `--no-open` prints the address instead of opening a
+There are two, which show the same parts, in the same words and the same design: the Windows
+program's window, `Solarljos.exe` (*The Windows program*, below), and the page it was made from,
+in a browser window, which runs on macOS and Linux too. Below, *the page* is either, where the two
+do not differ.
+
+`solarljos gui` -- or `solarljos-core.exe` with no arguments, or none but `--lang` -- starts a
+small web server on 127.0.0.1 and opens its page: in an Edge InPrivate window where Edge is
+installed, which keeps no history, cookies or cache of the visit (if Edge was not already running,
+it still writes what it writes whenever it starts, its settings and start-up files in your
+profile); otherwise, and always when Solarljos runs as administrator, in the default browser, which
+records the visit in its history like any other, though the address it records works only once.
+Edge that cannot be started gives way to the default browser. `--no-open` prints the address instead of opening a
 window, and `--port <n>` listens on that port instead of a free one. When the address is to be
-printed and nothing printed would be seen -- no browser could be started, or `Solarljos.exe gui
+printed and nothing printed would be seen -- no browser could be started, or `solarljos-core.exe gui
 --no-open` was typed in a console -- it is shown in a console window of its own instead; closing
 that window does not stop Solarljos. On macOS and Linux the page opens in the default browser.
 
@@ -519,7 +529,7 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
   a form held, the results with their filters, sort, selection and how many of them are shown,
   where the view was scrolled to, and the preview that was open. A search keeps running, and its
   results keep coming in, while its part is hidden. A tab goes back to its part's last view; results have *New search*, and a form has *Back to the results*. None of it is kept
-  in the browser: a reload starts again from what the server still has.
+  on disk, nor in the browser: a reload of the page starts again from what the server still has.
 - **How it looks.** Dark by default, in the look of the author's SoundVisualizer app, made for a
   PC window:
   - A rail down the side of the window holds the name and each part as an icon with its words, the
@@ -536,17 +546,19 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
     pill with an icon and its name in words, never a colour alone. A copy is previewed in a pane
     beside its results.
   - The light theme uses the same design on light surfaces. The choice lasts for the run and is
-    kept by Solarljos, not by the browser.
+    kept by Solarljos, not by the browser; the window's own title bar follows it.
   - In a high-contrast theme the system's colours are used and every box keeps a border, and
     motion is dropped when the system asks.
   - Type in [Pretendard](https://github.com/orioncactus/pretendard), which the program carries,
     for Latin, Greek, Cyrillic and Korean letters, and each language's own Windows font for the
-    rest (Japanese, Chinese, Thai, Hindi, Arabic).
+    rest (Japanese, Chinese, Thai, Hindi, Arabic). Korean breaks lines between words, not inside
+    one.
   - The layout mirrors in Arabic. Every text colour was measured against every background
   it is shown on, light and dark, at 4.5:1 or more, and every mark of where a control is and what
   state it is in at 3:1 or more; the values are at the top of
   [src/gui/ui/style.css](src/gui/ui/style.css).
-- **Who can reach it.** Only the window it opened. The address carries a random token that works
+- **Who can reach it.** Only the window that started it. The Windows program's engine takes a
+  random key that only the window is told (*The Windows program*, below). The page's address carries a random token that works
   once, traded at once for a cookie that no script can read and no other site is sent, named
   after the port. Every request must name exactly 127.0.0.1 and that port and come from that
   origin, which rules out other sites, DNS rebinding and the other ports of 127.0.0.1; one that
@@ -568,10 +580,10 @@ that window does not stop Solarljos. On macOS and Linux the page opens in the de
 - **What it keeps.** The last search of each kind -- by name, and for photos and videos -- the
   last folder plan, and the language the page chose, in memory; a reload asks for them again. One
   search runs at a time, and Stop ends it: within about a second, so the next search can start.
-- **When it stops.** 3 s after its page is closed; 30 s after, when a search was running or the
+- **When it stops.** The Windows program, when its window closes. The page, 3 s after it is closed; 30 s after, when a search was running or the
   page went without saying goodbye, so that a reload keeps it running; 10 minutes after starting
   when no window connected; and when *Quit* is pressed. Never in the middle of a restore or a
-  rebuild: one being written finishes first. `Solarljos.exe` has no console;
+  rebuild: one being written finishes first. `solarljos-core.exe` has no console;
   `node bin/solarljos.js gui` run in a terminal also stops on Ctrl+C or when that terminal is
   closed, and then waits up to 8 s for a write, removing the temporary file of one it has to cut.
 
@@ -585,8 +597,10 @@ Solarljos is in 18 languages: English (`en`), Korean (`ko`), Japanese (`ja`), Si
 Portuguese (`pt-BR`), Russian (`ru`), Italian (`it`), Polish (`pl`), Turkish (`tr`), Vietnamese
 (`vi`), Indonesian (`id`), Thai (`th`), Arabic (`ar`), written right to left, and Hindi (`hi`).
 
-- **The page** starts in the language `--lang` gives -- a shortcut to `Solarljos.exe --lang ko`
-  opens it in Korean -- else in the first of the browser's languages it has, else in English.
+- **The page** starts in the language `--lang` gives -- a shortcut to `solarljos-core.exe --lang ko`
+  opens it in Korean -- else in the first of the browser's languages it has, else in English. The
+  Windows program starts in the language Windows is set to, else in English, and tells its engine
+  the one chosen.
   *Language*, below the list of places, lists the languages whose table,
   `src/gui/ui/lang/<code>.json`, is there, each by its own name. Choosing one builds every view
   again in it, keeping what the forms and results held. Plurals follow the language's own rules
@@ -628,54 +642,75 @@ To fix a translation or add a language:
 
 ## The Windows program
 
-`Solarljos.exe`, on each release's page, is all of Solarljos in one file: the command line, the
-page and the node.exe they run on. Beside it are `solarljos.cjs`, the script inside it, which is
-the command line alone for Node.js 22 or later, and the SHA-256 of each; the release workflow
-attests where both were built:
+Each release attaches `Solarljos-<version>-win-x64.zip`, its SHA-256, and `solarljos.cjs`, the
+command line alone for Node.js 22 or later, with its own. The zip holds:
+
+| File | What it is |
+| --- | --- |
+| `Solarljos.exe`, `Solarljos.dll`, `Solarljos.deps.json`, `Solarljos.runtimeconfig.json` | the window ([desktop/Solarljos](desktop/Solarljos)): WPF on .NET 10, which needs the .NET 10 Desktop Runtime, and nothing from NuGet. It carries the page's words in every language, its icons and the Pretendard font |
+| `solarljos-core.exe` | the engine: the command line, the page and the node.exe they run on, as `scripts/build-exe.js` makes it. The window starts it as `solarljos-core.exe desktop` |
+| `LICENSE.txt`, `Pretendard-OFL.txt` | Solarljos's licence, and the font's |
+
+The release workflow attests where each was built:
 
 ```
-sha256sum -c Solarljos.exe.sha256
-sha256sum -c solarljos.cjs.sha256
-gh attestation verify Solarljos.exe -R amophi/Solarljos
-gh attestation verify solarljos.cjs -R amophi/Solarljos
+sha256sum -c Solarljos-<version>-win-x64.zip.sha256
+gh attestation verify Solarljos-<version>-win-x64.zip -R amophi/Solarljos
+gh attestation verify Solarljos.exe -R amophi/Solarljos           # and solarljos-core.exe, Solarljos.dll, solarljos.cjs
 ```
 
-In a Windows console without `sha256sum`, `certutil -hashfile Solarljos.exe SHA256` prints the
-hash to compare with the one in `Solarljos.exe.sha256`.
+In a Windows console without `sha256sum`, `certutil -hashfile <file> SHA256` prints the hash to
+compare.
 
-It is a Windows GUI program, not a console program as node.exe is: its header's Subsystem is 2,
-not 3. So a double-click opens no console window, only the browser's, and Windows gives it no
-console even when it is started from one: what it prints is seen only when it goes to a file or a
-program. *Using the program* says what it does when it would not be seen.
+**How the window and the engine talk.** The window starts `solarljos-core.exe desktop`, which runs
+the same server as `solarljos gui` in desktop mode: no browser; one line of JSON on its stdout --
+its port on 127.0.0.1 and a random key -- that only the window reads; and the key on every
+request (`Authorization: Bearer`, or `?key=` for a copy's bytes alone, since Windows' media player
+asks for a video by its address). Every other check of the page's stays. It stops when its stdin
+closes, which happens when the window ends, however it ends; what it is writing finishes first.
+What it says meanwhile goes to its stderr, of which the window keeps the last lines, to show them
+if it stops by itself. `SOLARLJOS_CORE` set to a command (such as `node "C:\...\bin\solarljos.js"`)
+makes the window start that instead, for working on it from the repository.
 
-It is not code-signed. Windows SmartScreen asks before running it (*More info*, then *Run
-anyway*), and Smart App Control, where it is on, blocks it; there `node bin/solarljos.js gui`
-runs the same thing on Node's own signed node.exe. `NODE_OPTIONS` does not reach it, and it keeps
+Neither is code-signed. Windows SmartScreen asks before running one (*More info*, then *Run
+anyway*), and Smart App Control, where it is on, blocks them; there `node bin/solarljos.js gui`
+runs the same search in a browser window on Node's own signed node.exe. `solarljos-core.exe` is a
+Windows GUI program, not a console program as node.exe is: its header's Subsystem is 2, not 3, so
+it opens no console window of its own. `NODE_OPTIONS` does not reach it, and it keeps
 `NODE_V8_COVERAGE` and `NODE_REDIRECT_WARNINGS` from writing files; only `NODE_COMPILE_CACHE`, if
 you have set it yourself, makes Node create an empty folder when it starts.
 
-It can be built again from the same tag, with the Node version `.github/workflows/release.yml`
-pins, and comes out the same byte for byte, in any folder:
+**Built again, the same bytes.** From the same tag, with the Node version
+`.github/workflows/release.yml` pins and the .NET SDK `global.json` pins, the zip comes out the same
+byte for byte, in any folder:
 
 ```
-npm run build:exe      # Windows, Node 25.5 or later: dist\Solarljos.exe, tried before it is kept
+npm run build:desktop  # Windows, Node 26 and the .NET 10 SDK: dist\Solarljos-<version>-win-x64.zip
+npm run build:exe      # Windows, Node 25.5 or later: dist\Solarljos.exe, the engine alone
 npm run bundle         # any system, Node 22 or later: dist/solarljos.cjs, the command line alone
 ```
+
+`scripts/build-desktop.js` builds the engine with `scripts/build-exe.js`, the window with a plain
+Release build (`dotnet build`, deterministic, every path in it named from the project), and puts
+them and the licences into the zip in one order, every entry dated 1 January 1980. It tries each
+first: the engine started as the window starts it must say where it is and stop when its stdin
+closes; the window, on a stand-in engine that searches nothing (`scripts/desktop-standin.js`),
+must draw itself off the screen and stop. CI does the same on every push.
 
 `scripts/bundle.js` puts the command line and every module it loads, the language catalogs
 included, into one script; `scripts/build-exe.js` puts that script and the page's files, its
 language tables included, into a copy of the node.exe running it, with that node.exe's signature
 taken off first, since it would no longer verify. It then sets the header's Subsystem to the
-Windows GUI's before it makes the checksum right, and reads the file back, which must say 2. Made
-a console program again, with its checksum made right, the exe differs in two bytes: one of the
-Subsystem and one of the CheckSum. It then runs the exe, with pipes for its output -- its version,
-its help, every source, a search and a restore on a made-up Linux trash, and the front end serving
-its page, started with `--no-open`, where every page file must come back as the bytes that went
-in -- and only then writes `dist/Solarljos.exe.sha256` and `dist/solarljos.cjs.sha256`. Built
-with Node 26.10.0 in two folders of different names, 0.4.0 came out with the same SHA-256 both
-times, and with no part of either folder's path in it; the exe GitHub's Windows runner built from
-the same commit in CI had that SHA-256 too. Setting the Subsystem and the checksum adds nothing
-that depends on the machine or the folder.
+Windows GUI's before it makes the checksum right, and reads the file back, which must say 2. It
+then runs the exe, with pipes for its output -- its version, its help, every source, a search and a
+restore on a made-up Linux trash, and the front end serving its page, started with `--no-open`,
+where every page file must come back as the bytes that went in -- and only then writes
+`dist/Solarljos.exe.sha256` and `dist/solarljos.cjs.sha256`. Setting the Subsystem and the
+checksum adds nothing that depends on the machine or the folder.
+
+`scripts/desktop-assets.js` copies into the window what it takes from the page -- the English
+table, the icons, the list of languages -- and draws its icon, the page's mark
+(`scripts/desktop-icon.js`); `test/desktop.test.js` checks they are current.
 
 ## Using it from code
 
@@ -818,7 +853,7 @@ the machine's real Recycle Bin, shadow copies, editor or IDE history, Notepad ta
 folders, trash, thumbnail cache, Snipping Tool folders, cards, Claude Code or Antigravity
 folders, or repositories; cards are disk images the tests build. The tests also bundle the tree
 and run the bundle. A few tests run only on Linux or only on Windows; CI runs both, and builds
-and tries `Solarljos.exe` on every push.
+and tries the Windows program, the window and its engine, on every push.
 
 - `test/i18n.test.js`: `messages.json` is what `npm run i18n -- extract` finds in the code now,
   every catalog passes `check`, and a language is offered only when its catalog is complete.

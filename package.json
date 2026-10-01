@@ -1,6 +1,6 @@
 {
   "name": "solarljos",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "Finds files you have lost, deleted or saved over, in the copies Windows and your programs keep on their own, and brings back the ones you choose into a folder you choose, changing nothing else on the computer.",
   "license": "MIT",
   "author": "amophi",
@@ -62,6 +62,7 @@
     "test": "node --test \"test/*.test.js\"",
     "bundle": "node scripts/bundle.js",
     "build:exe": "node scripts/build-exe.js",
+    "build:desktop": "node scripts/build-desktop.js",
     "i18n": "node scripts/i18n.js"
   }
 }

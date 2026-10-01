@@ -1,6 +1,49 @@
 # Changelog
 
-## 0.7.2 (2026-10-01)
+## 0.8.0 (2026-10-01)
+
+Solarljos on Windows is a program of its own: a window in WPF, with no browser.
+
+The Windows program:
+
+- `Solarljos.exe` is a WPF window on .NET 10 ([desktop/Solarljos](desktop/Solarljos)), which
+  needs Microsoft's .NET 10 Desktop Runtime and nothing from NuGet. It has every part the page
+  has -- *Find a file* with its preview, *Photos and videos* in a grid by month with the
+  enlarged view, *Bring back a folder* with its plan to tick, *What is searched*, and *Help* --
+  in the same words in all 18 languages, which it takes from the page's tables, and the page's
+  icons. Each part keeps what it showed while another is used.
+- The rail down the start of the window, as on the page: as wide as its longest words, from 256
+  to 320 pixels; in a window narrower than 1,008 pixels only its icons, and its menu button
+  shows the words over the parts. It mirrors in Arabic. Up and Down move along it; Ctrl+1 to
+  Ctrl+5 switch parts. Dark and light themes in the page's colours, the title bar with them.
+- Type in Pretendard, its Regular, SemiBold, Bold and ExtraBold, which the program carries;
+  Japanese in Yu Gothic UI, after Segoe UI so that a path's backslash is not drawn as a yen sign,
+  and Chinese, Thai, Hindi and Arabic in Windows' own fonts. Korean breaks lines between words,
+  not between syllables.
+- Dialogs are windows of their own, which Windows and screen readers know as dialogs. Esc and
+  the close button answer no.
+- Pictures are previewed by Windows' own decoders and videos by its media player, from the
+  engine's memory; what Windows cannot show says so and how to open it once it is restored.
+- It opens no browser, no folder picker and no Explorer, all of which would add pictures to the
+  thumbnail cache a search for photos reads: a folder is typed or pasted.
+- Closing the window while a folder is being written asks first; the window closes at once and
+  the engine finishes the folder before it stops. A restore keeps the window open until it is
+  written. An error nobody foresaw is said in a dialog, and the window stays.
+- If the engine is missing or stops by itself, the window says so, with the last lines it said.
+- 17 new strings, the window's own, in all 18 languages.
+
+The engine:
+
+- `solarljos-core.exe` is what `Solarljos.exe` was: the command line, the page and the
+  node.exe they run on. The window starts it as `solarljos-core.exe desktop`, a new command:
+  the page's server with no browser, which prints one line of JSON -- its port on 127.0.0.1 and
+  a random key -- and wants that key on every request (`Authorization: Bearer`, or `?key=` for
+  a copy's bytes alone, which Windows' media player asks for by address). Every other check the
+  page's server makes stays. It stops when its stdin closes, after what it is writing.
+- Double-clicked, or run as `gui`, it still opens the page in a browser window, and
+  `node bin/solarljos.js gui` still does so everywhere.
+
+Searches stop at once:
 
 - A search started right after one was stopped no longer sits at "Waiting". The stopped search
   went on until the git program it was waiting for ended, and the new one waited for it: on this
@@ -10,6 +53,16 @@
   and every source stops at the next file it reports. The next search starts 0.8 to 1.0 s after
   the stop.
 - A source stopped halfway is no longer counted as failed; the search just ends.
+
+The release:
+
+- `Solarljos-0.8.0-win-x64.zip` holds the window, the engine and the two licences, with its
+  SHA-256; `solarljos.cjs` is attached as before. The zip is the same byte for byte when built
+  again from the tag with the pinned Node and .NET SDK (`global.json`): `npm run build:desktop`
+  builds both, tries the engine as the window starts it and the window on a stand-in engine,
+  and zips them in one order, every entry dated 1 January 1980. The release workflow attests the
+  zip and each program in it. CI builds and tries it on every push.
+- 0.7.2 was not released by itself; its fix is the one above.
 
 ## 0.7.1 (2026-10-01)
 
