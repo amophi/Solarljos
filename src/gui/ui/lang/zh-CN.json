@@ -766,5 +766,22 @@
   "help.keys.body": "Tab 键用于在控件之间移动。在照片网格和文件夹列表中，方向键用于移动，空格键用于选择，Enter 键用于打开。Esc 键用于关闭预览或对话框。",
   "help.version": "版本 {version}",
   "theme.toLight": "切换到浅色主题",
-  "theme.toDark": "切换到深色主题"
+  "theme.toDark": "切换到深色主题",
+  "desktop.starting": "正在准备搜索…",
+  "desktop.missing.title": "Solarljos 缺少一个组成部分",
+  "desktop.missing.body": "solarljos-core.exe 是 Solarljos 中负责搜索的部分，它必须与 Solarljos.exe 位于同一文件夹中。请把下载的文件放在一起，然后重新启动 Solarljos.exe。",
+  "desktop.stopped.title": "Solarljos 已停止搜索",
+  "desktop.stopped.body": "Solarljos 中负责搜索的部分已停止。已恢复的文件仍留在你保存它们的位置。要继续，请重新启动 Solarljos。",
+  "desktop.stopped.said": "它最后输出的信息",
+  "desktop.quit.writing": "正在写入一个文件夹。如果现在退出，Solarljos 会先写完正在写入的文件，然后停止；窗口会立即关闭。",
+  "desktop.calendar": "在日历中选择日期",
+  "desktop.video.play": "播放",
+  "desktop.video.pause": "暂停",
+  "desktop.video.position": "视频播放位置",
+  "desktop.imageCannot": "Windows 无法在这里显示 {format} 图片。请恢复后用“照片”应用打开。",
+  "desktop.videoCannot": "Windows 无法在这里播放此视频（{format}）。请恢复后用视频播放器打开。",
+  "desktop.folder.since.format": "请按“年-月-日”的格式输入日期，例如 {example}。",
+  "desktop.help.window.title": "此窗口",
+  "desktop.help.window.body": "Solarljos 是一个独立的程序，不会打开浏览器。它没有文件夹选择对话框，也从不打开文件资源管理器：两者都会用小图片显示文件夹里的内容，而 Windows 把这些小图片保存在缩略图缓存中，搜索照片时读取的正是这个缓存。请改为输入或粘贴文件夹路径。要保留副本，请使用“恢复”，它会检查写入的位置。",
+  "desktop.help.keys.rail": "在菜单中，向上键和向下键用于移到上一项或下一项；在窗口中的任何位置，按 Ctrl+1 到 Ctrl+5 可转到对应的各项。"
 }

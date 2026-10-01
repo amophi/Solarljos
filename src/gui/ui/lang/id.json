@@ -678,5 +678,22 @@
   "help.keys.body": "Tab berpindah antarkontrol. Di kisi foto dan daftar folder, tombol panah untuk berpindah, Spasi untuk memilih, dan Enter untuk membuka. Esc menutup pratinjau atau dialog.",
   "help.version": "Versi {version}",
   "theme.toLight": "Beralih ke tema terang",
-  "theme.toDark": "Beralih ke tema gelap"
+  "theme.toDark": "Beralih ke tema gelap",
+  "desktop.starting": "Bersiap mencari…",
+  "desktop.missing.title": "Sebagian dari Solarljos tidak ada",
+  "desktop.missing.body": "solarljos-core.exe, bagian Solarljos yang melakukan pencarian, harus berada di folder yang sama dengan Solarljos.exe. Biarkan semua file hasil unduhan tetap bersama, lalu mulai Solarljos.exe lagi.",
+  "desktop.stopped.title": "Solarljos berhenti mencari",
+  "desktop.stopped.body": "Bagian Solarljos yang melakukan pencarian telah berhenti. File yang sudah Anda pulihkan tetap berada di tempat Anda menyimpannya. Mulai Solarljos lagi untuk melanjutkan.",
+  "desktop.stopped.said": "Pesan terakhirnya",
+  "desktop.quit.writing": "Sebuah folder sedang ditulis. Jika Anda keluar sekarang, Solarljos menyelesaikan penulisan file-filenya terlebih dahulu, lalu berhenti; jendela langsung ditutup.",
+  "desktop.calendar": "Pilih tanggal di kalender",
+  "desktop.video.play": "Putar",
+  "desktop.video.pause": "Jeda",
+  "desktop.video.position": "Posisi dalam video",
+  "desktop.imageCannot": "Windows tidak dapat menampilkan gambar {format} di sini. Pulihkan dan buka dengan aplikasi Foto.",
+  "desktop.videoCannot": "Windows tidak dapat memutar video ini ({format}) di sini. Pulihkan dan buka dengan pemutar video.",
+  "desktop.folder.since.format": "Ketik tanggal dengan format tahun-bulan-tanggal, misalnya {example}.",
+  "desktop.help.window.title": "Jendela ini",
+  "desktop.help.window.body": "Solarljos adalah program tersendiri dan tidak membuka browser. Solarljos tidak memiliki dialog pemilih folder dan tidak pernah membuka File Explorer: keduanya menampilkan gambar kecil dari isi folder, yang disimpan Windows di cache gambar mini yang sama dengan yang dibaca oleh pencarian foto. Sebagai gantinya, ketik atau tempelkan jalur folder. Untuk menyimpan salinan, gunakan Pulihkan, yang memeriksa tempat penulisannya.",
+  "desktop.help.keys.rail": "Di menu, Panah Atas dan Panah Bawah untuk berpindah ke bagian di atas atau di bawahnya, dan Ctrl+1 hingga Ctrl+5 untuk menuju setiap bagian dari mana saja di jendela."
 }

@@ -822,5 +822,22 @@
   "help.keys.body": "Tab passa de um controle para outro. Na grade de fotos e na lista da pasta, as teclas de seta movem o foco, a Barra de espaços seleciona e Enter abre. Esc fecha uma visualização ou uma caixa de diálogo.",
   "help.version": "Versão {version}",
   "theme.toLight": "Mudar para o tema claro",
-  "theme.toDark": "Mudar para o tema escuro"
+  "theme.toDark": "Mudar para o tema escuro",
+  "desktop.starting": "Preparando a pesquisa…",
+  "desktop.missing.title": "Falta uma parte do Solarljos",
+  "desktop.missing.body": "O solarljos-core.exe, a parte do Solarljos que faz a pesquisa, precisa estar na mesma pasta que o Solarljos.exe. Mantenha juntos os arquivos baixados e inicie o Solarljos.exe novamente.",
+  "desktop.stopped.title": "O Solarljos parou de pesquisar",
+  "desktop.stopped.body": "A parte do Solarljos que faz a pesquisa parou. Os arquivos que você restaurou continuam onde você os colocou. Inicie o Solarljos novamente para continuar.",
+  "desktop.stopped.said": "Última mensagem",
+  "desktop.quit.writing": "Uma pasta está sendo gravada. Se você sair agora, o Solarljos primeiro terminará de gravar os arquivos e depois será encerrado; a janela se fechará imediatamente.",
+  "desktop.calendar": "Escolher o dia em um calendário",
+  "desktop.video.play": "Reproduzir",
+  "desktop.video.pause": "Pausar",
+  "desktop.video.position": "Posição no vídeo",
+  "desktop.imageCannot": "O Windows não consegue mostrar imagens {format} aqui. Restaure a imagem e abra-a no aplicativo Fotos.",
+  "desktop.videoCannot": "O Windows não consegue reproduzir este vídeo ({format}) aqui. Restaure-o e abra-o em um reprodutor de vídeo.",
+  "desktop.folder.since.format": "Digite o dia como ano-mês-dia, por exemplo {example}.",
+  "desktop.help.window.title": "Esta janela",
+  "desktop.help.window.body": "O Solarljos é um programa independente e não abre nenhum navegador. Ele não tem seletor de pastas e nunca abre o Explorador de Arquivos: os dois mostram imagens reduzidas do que há em uma pasta, e o Windows as guarda no mesmo cache de miniaturas que uma pesquisa de fotos lê. Em vez disso, digite ou cole uma pasta. Para guardar uma cópia, use Restaurar, que verifica onde grava.",
+  "desktop.help.keys.rail": "No menu, Seta para cima e Seta para baixo levam à seção acima ou abaixo, e as teclas Ctrl+1 a Ctrl+5 levam a cada seção de qualquer ponto da janela."
 }

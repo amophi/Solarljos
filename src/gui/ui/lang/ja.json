@@ -766,5 +766,22 @@
   "help.keys.body": "Tab キーでコントロール間を移動します。写真のグリッドとフォルダーの一覧では、方向キーで移動し、Space キーで選択し、Enter キーで開きます。Esc キーでプレビューやダイアログを閉じます。",
   "help.version": "バージョン {version}",
   "theme.toLight": "ライト テーマに切り替え",
-  "theme.toDark": "ダーク テーマに切り替え"
+  "theme.toDark": "ダーク テーマに切り替え",
+  "desktop.starting": "検索の準備をしています…",
+  "desktop.missing.title": "Solarljos の一部が見つかりません",
+  "desktop.missing.body": "Solarljos のうち検索を行う部分である solarljos-core.exe は、Solarljos.exe と同じフォルダーにある必要があります。ダウンロードしたファイルはまとめて置いたまま、Solarljos.exe をもう一度起動してください。",
+  "desktop.stopped.title": "Solarljos は検索を停止しました",
+  "desktop.stopped.body": "Solarljos で検索を行う部分が停止しました。復元したファイルは、保存した場所にそのまま残ります。続けるには、Solarljos をもう一度起動してください。",
+  "desktop.stopped.said": "最後に出力したメッセージ",
+  "desktop.quit.writing": "フォルダーの書き込み中です。今終了すると、Solarljos は書き込み中のファイルを書き終えてから停止します。ウィンドウはすぐに閉じます。",
+  "desktop.calendar": "カレンダーで日付を選ぶ",
+  "desktop.video.play": "再生",
+  "desktop.video.pause": "一時停止",
+  "desktop.video.position": "ビデオの再生位置",
+  "desktop.imageCannot": "Windows では {format} の画像をここに表示できません。復元して、フォト アプリで開いてください。",
+  "desktop.videoCannot": "Windows では、このビデオ ({format}) をここで再生できません。復元して、ビデオ プレーヤーで開いてください。",
+  "desktop.folder.since.format": "日付は {example} のように、年-月-日の形式で入力してください。",
+  "desktop.help.window.title": "このウィンドウ",
+  "desktop.help.window.body": "Solarljos は独立したプログラムで、ブラウザーは開きません。フォルダーの選択ダイアログはなく、エクスプローラーを開くこともありません。どちらもフォルダーの中身を小さな画像で表示し、Windows はその画像を、写真の検索が読み取るまさにそのサムネイル キャッシュに保存するためです。代わりに、フォルダーのパスを入力するか貼り付けてください。コピーを残すには、書き込み先を確認する「復元」を使ってください。",
+  "desktop.help.keys.rail": "メニューでは、上方向キーと下方向キーで上または下の項目に移動し、ウィンドウ内のどこからでも Ctrl+1 から Ctrl+5 キーでそれぞれの項目に移動します。"
 }

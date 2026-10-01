@@ -678,5 +678,22 @@
   "help.keys.body": "Tab 키로 컨트롤 사이를 이동해요. 사진 그리드와 폴더 목록에서는 화살표 키로 이동하고, Space 키로 선택하고, Enter 키로 열어요. Esc 키로 미리 보기나 대화 상자를 닫아요.",
   "help.version": "버전 {version}",
   "theme.toLight": "밝은 테마로 바꾸기",
-  "theme.toDark": "어두운 테마로 바꾸기"
+  "theme.toDark": "어두운 테마로 바꾸기",
+  "desktop.starting": "검색할 준비를 하고 있어요…",
+  "desktop.missing.title": "Solarljos의 일부가 없어요",
+  "desktop.missing.body": "Solarljos에서 검색을 맡는 solarljos-core.exe가 Solarljos.exe와 같은 폴더에 있어야 해요. 내려받은 파일을 한곳에 그대로 두고 Solarljos.exe를 다시 실행하세요.",
+  "desktop.stopped.title": "Solarljos가 검색을 멈췄어요",
+  "desktop.stopped.body": "Solarljos에서 검색을 맡는 부분이 멈췄어요. 복원한 파일은 둔 곳에 그대로 있어요. 계속하려면 Solarljos를 다시 실행하세요.",
+  "desktop.stopped.said": "마지막으로 남긴 메시지",
+  "desktop.quit.writing": "지금 폴더를 쓰고 있어요. 지금 종료하면 창은 바로 닫히고, Solarljos는 쓰던 파일을 끝까지 쓴 다음 멈춰요.",
+  "desktop.calendar": "달력에서 날짜 고르기",
+  "desktop.video.play": "재생",
+  "desktop.video.pause": "일시 정지",
+  "desktop.video.position": "동영상 재생 위치",
+  "desktop.imageCannot": "Windows가 여기서는 {format} 이미지를 표시할 수 없어요. 복원한 다음 사진 앱으로 여세요.",
+  "desktop.videoCannot": "Windows가 여기서는 이 동영상({format})을 재생할 수 없어요. 복원한 다음 동영상 플레이어로 여세요.",
+  "desktop.folder.since.format": "날짜는 {example}처럼 연-월-일로 입력하세요.",
+  "desktop.help.window.title": "이 창",
+  "desktop.help.window.body": "Solarljos는 독립된 프로그램이라 브라우저를 열지 않아요. 폴더 선택 창도 없고 파일 탐색기도 열지 않아요. 둘 다 폴더에 든 것을 작은 사진으로 보여 주는데, Windows는 그 사진을 사진 검색이 읽는 바로 그 미리 보기 사진 캐시에 저장하기 때문이에요. 대신 폴더 경로를 입력하거나 붙여 넣으세요. 사본을 남기려면, 쓰기 전에 저장할 곳을 확인하는 “복원”을 사용하세요.",
+  "desktop.help.keys.rail": "메뉴에서는 위아래 화살표 키로 위나 아래 항목으로 이동하고, 창 어디서든 Ctrl+1부터 Ctrl+5까지 눌러 각 항목으로 바로 갈 수 있어요."
 }

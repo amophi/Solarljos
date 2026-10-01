@@ -822,5 +822,22 @@
   "help.keys.body": "Tab pasa de un control a otro. En la cuadrícula de fotos y en la lista de la carpeta, las teclas de flecha sirven para desplazarse, la Barra espaciadora selecciona y Entrar abre. Esc cierra una vista previa o un cuadro de diálogo.",
   "help.version": "Versión {version}",
   "theme.toLight": "Cambiar al tema claro",
-  "theme.toDark": "Cambiar al tema oscuro"
+  "theme.toDark": "Cambiar al tema oscuro",
+  "desktop.starting": "Preparando la búsqueda…",
+  "desktop.missing.title": "Falta una parte de Solarljos",
+  "desktop.missing.body": "solarljos-core.exe, la parte de Solarljos que busca, tiene que estar en la misma carpeta que Solarljos.exe. Mantén juntos los archivos descargados y vuelve a iniciar Solarljos.exe.",
+  "desktop.stopped.title": "Solarljos ha dejado de buscar",
+  "desktop.stopped.body": "La parte de Solarljos que busca se ha detenido. Los archivos que hayas restaurado se quedan donde los guardaste. Vuelve a iniciar Solarljos para continuar.",
+  "desktop.stopped.said": "Último mensaje",
+  "desktop.quit.writing": "Se está escribiendo una carpeta. Si sales ahora, Solarljos terminará primero de escribir sus archivos y después se detendrá; la ventana se cerrará de inmediato.",
+  "desktop.calendar": "Elegir el día en un calendario",
+  "desktop.video.play": "Reproducir",
+  "desktop.video.pause": "Pausar",
+  "desktop.video.position": "Posición en el vídeo",
+  "desktop.imageCannot": "Windows no puede mostrar aquí imágenes {format}. Restaura la imagen y ábrela con la aplicación Fotos.",
+  "desktop.videoCannot": "Windows no puede reproducir aquí este vídeo ({format}). Restáuralo y ábrelo con un reproductor de vídeo.",
+  "desktop.folder.since.format": "Escribe el día como año-mes-día, por ejemplo {example}.",
+  "desktop.help.window.title": "Esta ventana",
+  "desktop.help.window.body": "Solarljos es un programa independiente y no abre ningún navegador. No tiene selector de carpetas y nunca abre el Explorador de archivos: ambos muestran imágenes reducidas de lo que contiene una carpeta, y Windows las guarda en la misma caché de miniaturas que lee una búsqueda de fotos. En su lugar, escribe o pega la carpeta. Para conservar una copia, usa Restaurar, que comprueba dónde escribe.",
+  "desktop.help.keys.rail": "En el menú, Flecha arriba y Flecha abajo llevan a la sección de arriba o de abajo, y de Ctrl+1 a Ctrl+5 llevan a cada sección desde cualquier punto de la ventana."
 }

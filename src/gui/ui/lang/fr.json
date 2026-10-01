@@ -848,5 +848,22 @@
   "help.keys.body": "Tab permet de passer d’une commande à l’autre. Dans la grille de photos et la liste des dossiers, les touches de direction permettent de se déplacer, Espace sélectionne et Entrée ouvre. Échap ferme un aperçu ou une boîte de dialogue.",
   "help.version": "Version {version}",
   "theme.toLight": "Passer au thème clair",
-  "theme.toDark": "Passer au thème sombre"
+  "theme.toDark": "Passer au thème sombre",
+  "desktop.starting": "Préparation de la recherche…",
+  "desktop.missing.title": "Il manque une partie de Solarljos",
+  "desktop.missing.body": "solarljos-core.exe, la partie de Solarljos qui effectue les recherches, doit se trouver dans le même dossier que Solarljos.exe. Gardez ensemble les fichiers téléchargés, puis relancez Solarljos.exe.",
+  "desktop.stopped.title": "Solarljos a cessé de rechercher",
+  "desktop.stopped.body": "La partie de Solarljos qui effectue les recherches s’est arrêtée. Les fichiers que vous avez restaurés restent là où vous les avez mis. Relancez Solarljos pour continuer.",
+  "desktop.stopped.said": "Dernier message",
+  "desktop.quit.writing": "Un dossier est en cours d’écriture. Si vous quittez maintenant, Solarljos terminera d’abord d’écrire ses fichiers, puis s’arrêtera ; la fenêtre se fermera immédiatement.",
+  "desktop.calendar": "Choisir le jour dans un calendrier",
+  "desktop.video.play": "Lire",
+  "desktop.video.pause": "Pause",
+  "desktop.video.position": "Position dans la vidéo",
+  "desktop.imageCannot": "Windows ne peut pas afficher ici les images {format}. Restaurez l’image et ouvrez-la avec l’application Photos.",
+  "desktop.videoCannot": "Windows ne peut pas lire ici cette vidéo ({format}). Restaurez-la et ouvrez-la avec un lecteur vidéo.",
+  "desktop.folder.since.format": "Saisissez le jour sous la forme année-mois-jour, par exemple {example}.",
+  "desktop.help.window.title": "Cette fenêtre",
+  "desktop.help.window.body": "Solarljos est un programme autonome et n’ouvre aucun navigateur. Il n’a pas de sélecteur de dossier et n’ouvre jamais l’Explorateur de fichiers : tous deux affichent des images réduites du contenu d’un dossier, et Windows les conserve dans le cache des miniatures, celui-là même que lit une recherche de photos. Saisissez ou collez plutôt un dossier. Pour conserver une copie, utilisez Restaurer, qui vérifie l’endroit où il écrit.",
+  "desktop.help.keys.rail": "Dans le menu, Flèche haut et Flèche bas mènent à la section du dessus ou du dessous, et les touches Ctrl+1 à Ctrl+5 mènent à chacune des sections depuis n’importe quel endroit de la fenêtre."
 }

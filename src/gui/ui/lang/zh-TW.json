@@ -766,5 +766,22 @@
   "help.keys.body": "Tab 鍵用於在控制項之間移動。在相片格狀檢視和資料夾清單中，方向鍵用於移動，空白鍵用於選取，Enter 鍵用於開啟。Esc 鍵用於關閉預覽或對話方塊。",
   "help.version": "版本 {version}",
   "theme.toLight": "切換為淺色佈景主題",
-  "theme.toDark": "切換為深色佈景主題"
+  "theme.toDark": "切換為深色佈景主題",
+  "desktop.starting": "正在準備搜尋…",
+  "desktop.missing.title": "Solarljos 缺少一個組成部分",
+  "desktop.missing.body": "solarljos-core.exe 是 Solarljos 中負責搜尋的部分，它必須與 Solarljos.exe 位於同一個資料夾中。請將下載的檔案放在一起，然後重新啟動 Solarljos.exe。",
+  "desktop.stopped.title": "Solarljos 已停止搜尋",
+  "desktop.stopped.body": "Solarljos 中負責搜尋的部分已停止。已復原的檔案仍會留在您儲存它們的位置。若要繼續，請重新啟動 Solarljos。",
+  "desktop.stopped.said": "它最後輸出的訊息",
+  "desktop.quit.writing": "正在寫入一個資料夾。如果現在結束，Solarljos 會先寫完正在寫入的檔案，然後停止；視窗會立即關閉。",
+  "desktop.calendar": "從月曆選擇日期",
+  "desktop.video.play": "播放",
+  "desktop.video.pause": "暫停",
+  "desktop.video.position": "影片播放位置",
+  "desktop.imageCannot": "Windows 無法在這裡顯示 {format} 圖片。請復原後以「相片」應用程式開啟。",
+  "desktop.videoCannot": "Windows 無法在這裡播放此影片（{format}）。請復原後以影片播放程式開啟。",
+  "desktop.folder.since.format": "請依「年-月-日」的格式輸入日期，例如 {example}。",
+  "desktop.help.window.title": "此視窗",
+  "desktop.help.window.body": "Solarljos 是一個獨立的程式，不會開啟瀏覽器。它沒有資料夾選擇對話方塊，也從不開啟檔案總管：兩者都會以小圖片顯示資料夾中的內容，而 Windows 會將這些小圖片儲存在縮圖快取中，搜尋相片時讀取的正是這個快取。請改為輸入或貼上資料夾路徑。若要保留副本，請使用「復原」，它會檢查寫入的位置。",
+  "desktop.help.keys.rail": "在選單中，向上鍵和向下鍵用於移到上一項或下一項；在視窗中的任何位置，按 Ctrl+1 到 Ctrl+5 可前往對應的各項。"
 }

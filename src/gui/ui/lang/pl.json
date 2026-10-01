@@ -898,5 +898,22 @@
   "help.keys.body": "Klawisz Tab przenosi między kontrolkami. W siatce zdjęć i na liście folderu klawisze strzałek przenoszą zaznaczenie, Spacja zaznacza, a Enter otwiera. Esc zamyka podgląd lub okno dialogowe.",
   "help.version": "Wersja {version}",
   "theme.toLight": "Przełącz na jasny motyw",
-  "theme.toDark": "Przełącz na ciemny motyw"
+  "theme.toDark": "Przełącz na ciemny motyw",
+  "desktop.starting": "Przygotowywanie wyszukiwania…",
+  "desktop.missing.title": "Brakuje części Solarljos",
+  "desktop.missing.body": "Plik solarljos-core.exe, czyli część Solarljos odpowiedzialna za wyszukiwanie, musi znajdować się w tym samym folderze co Solarljos.exe. Nie rozdzielaj pobranych plików i ponownie uruchom Solarljos.exe.",
+  "desktop.stopped.title": "Solarljos przestał wyszukiwać",
+  "desktop.stopped.body": "Część Solarljos odpowiedzialna za wyszukiwanie przestała działać. Przywrócone pliki pozostaną tam, gdzie je zapisano. Uruchom ponownie Solarljos, aby kontynuować.",
+  "desktop.stopped.said": "Ostatni komunikat",
+  "desktop.quit.writing": "Trwa zapisywanie folderu. Jeśli zakończysz teraz działanie Solarljos, program najpierw dokończy zapisywanie plików, a potem zakończy działanie; okno zamknie się od razu.",
+  "desktop.calendar": "Wybierz dzień w kalendarzu",
+  "desktop.video.play": "Odtwórz",
+  "desktop.video.pause": "Wstrzymaj",
+  "desktop.video.position": "Pozycja w filmie",
+  "desktop.imageCannot": "System Windows nie może tutaj wyświetlić obrazów {format}. Przywróć obraz i otwórz go w aplikacji Zdjęcia.",
+  "desktop.videoCannot": "System Windows nie może tutaj odtworzyć tego filmu ({format}). Przywróć go i otwórz w odtwarzaczu wideo.",
+  "desktop.folder.since.format": "Wpisz dzień w formacie rok-miesiąc-dzień, np. {example}.",
+  "desktop.help.window.title": "To okno",
+  "desktop.help.window.body": "Solarljos jest osobnym programem i nie otwiera żadnej przeglądarki. Nie ma okna wyboru folderu i nigdy nie otwiera Eksploratora plików: oba pokazują mniejsze obrazy zawartości folderu, a system Windows przechowuje je w tej samej pamięci podręcznej miniatur, którą odczytuje wyszukiwanie zdjęć. Zamiast tego wpisz lub wklej folder. Aby zachować kopię, użyj funkcji „Przywróć”, która sprawdza miejsce zapisu.",
+  "desktop.help.keys.rail": "W menu strzałki w górę i w dół przenoszą do sekcji powyżej lub poniżej, a skróty od Ctrl+1 do Ctrl+5 przenoszą do poszczególnych sekcji z dowolnego miejsca w oknie."
 }

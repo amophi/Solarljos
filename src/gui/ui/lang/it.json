@@ -848,5 +848,22 @@
   "help.keys.body": "Tab sposta tra i controlli. Nella griglia delle foto e nell’elenco delle cartelle, i tasti di direzione spostano la selezione, la barra spaziatrice seleziona e Invio apre. Esc chiude un’anteprima o una finestra di dialogo.",
   "help.version": "Versione {version}",
   "theme.toLight": "Passa al tema chiaro",
-  "theme.toDark": "Passa al tema scuro"
+  "theme.toDark": "Passa al tema scuro",
+  "desktop.starting": "Preparazione della ricerca…",
+  "desktop.missing.title": "Manca una parte di Solarljos",
+  "desktop.missing.body": "solarljos-core.exe, la parte di Solarljos che esegue le ricerche, deve trovarsi nella stessa cartella di Solarljos.exe. Tieni insieme i file scaricati e avvia di nuovo Solarljos.exe.",
+  "desktop.stopped.title": "Solarljos ha smesso di cercare",
+  "desktop.stopped.body": "La parte di Solarljos che esegue le ricerche si è arrestata. I file che hai ripristinato restano dove li hai messi. Avvia di nuovo Solarljos per continuare.",
+  "desktop.stopped.said": "Ultimo messaggio",
+  "desktop.quit.writing": "È in corso la scrittura di una cartella. Se esci ora, Solarljos completerà prima la scrittura dei suoi file e poi si arresterà; la finestra si chiuderà subito.",
+  "desktop.calendar": "Scegli il giorno da un calendario",
+  "desktop.video.play": "Riproduci",
+  "desktop.video.pause": "Pausa",
+  "desktop.video.position": "Posizione nel video",
+  "desktop.imageCannot": "Windows non può mostrare qui immagini {format}. Ripristina l’immagine e aprila con l’app Foto.",
+  "desktop.videoCannot": "Windows non può riprodurre qui questo video ({format}). Ripristinalo e aprilo con un lettore video.",
+  "desktop.folder.since.format": "Digita il giorno nel formato anno-mese-giorno, ad esempio {example}.",
+  "desktop.help.window.title": "Questa finestra",
+  "desktop.help.window.body": "Solarljos è un programma a sé stante e non apre alcun browser. Non ha un selettore di cartelle e non apre mai Esplora file: entrambi mostrano immagini più piccole del contenuto di una cartella, e Windows le conserva proprio nella cache delle anteprime letta da una ricerca di foto. Digita o incolla invece la cartella. Per conservare una copia, usa Ripristina, che controlla dove scrive.",
+  "desktop.help.keys.rail": "Nel menu, Freccia su e Freccia giù portano alla sezione sopra o sotto, e i tasti da Ctrl+1 a Ctrl+5 portano a ciascuna sezione da qualsiasi punto della finestra."
 }

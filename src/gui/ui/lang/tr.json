@@ -810,5 +810,22 @@
   "help.keys.body": "Sekme tuşu denetimler arasında geçiş yapar. Fotoğraf ızgarasında ve klasör listesinde ok tuşlarıyla hareket edilir, Ara Çubuğu seçer, Enter da açar. Esc bir önizlemeyi veya iletişim kutusunu kapatır.",
   "help.version": "Sürüm {version}",
   "theme.toLight": "Açık temaya geç",
-  "theme.toDark": "Koyu temaya geç"
+  "theme.toDark": "Koyu temaya geç",
+  "desktop.starting": "Aramaya hazırlanıyor…",
+  "desktop.missing.title": "Solarljos'un bir parçası eksik",
+  "desktop.missing.body": "Solarljos'un arama yapan parçası olan solarljos-core.exe, Solarljos.exe ile aynı klasörde olmalıdır. İndirdiğiniz dosyaları bir arada tutun ve Solarljos.exe'yi yeniden başlatın.",
+  "desktop.stopped.title": "Solarljos aramayı bıraktı",
+  "desktop.stopped.body": "Solarljos'un arama yapan parçası durdu. Geri yüklediğiniz dosyalar, koyduğunuz yerde kalır. Devam etmek için Solarljos'u yeniden başlatın.",
+  "desktop.stopped.said": "Son bildirdikleri",
+  "desktop.quit.writing": "Bir klasör yazılıyor. Şimdi çıkarsanız Solarljos önce dosyalarını yazmayı bitirir, sonra durur; pencere ise hemen kapanır.",
+  "desktop.calendar": "Günü takvimden seç",
+  "desktop.video.play": "Oynat",
+  "desktop.video.pause": "Duraklat",
+  "desktop.video.position": "Videodaki konum",
+  "desktop.imageCannot": "Windows {format} resimlerini burada gösteremez. Resmi geri yükleyin ve Fotoğraflar uygulamasıyla açın.",
+  "desktop.videoCannot": "Windows bu videoyu ({format}) burada oynatamaz. Videoyu geri yükleyin ve bir video oynatıcıyla açın.",
+  "desktop.folder.since.format": "Günü yıl-ay-gün biçiminde yazın; örneğin {example}.",
+  "desktop.help.window.title": "Bu pencere",
+  "desktop.help.window.body": "Solarljos kendi başına bir programdır ve tarayıcı açmaz. Klasör seçme penceresi yoktur ve Dosya Gezgini'ni hiçbir zaman açmaz: ikisi de bir klasörün içindekilerin küçük resimlerini gösterir; Windows bunları, fotoğraf aramasının okuduğu aynı küçük resim önbelleğinde tutar. Bunun yerine klasörü yazın veya yapıştırın. Bir kopya saklamak için, nereye yazdığını denetleyen Geri yükle komutunu kullanın.",
+  "desktop.help.keys.rail": "Menüde Yukarı ve Aşağı ok tuşları bir üstteki veya alttaki bölüme geçer; Ctrl+1 ile Ctrl+5 arasındaki tuşlar ise pencerenin herhangi bir yerinden ilgili bölüme geçer."
 }

@@ -678,5 +678,22 @@
   "help.keys.body": "Tab để di chuyển giữa các điều khiển. Trong lưới ảnh và danh sách thư mục, các phím mũi tên để di chuyển, Space để chọn và Enter để mở. Esc để đóng bản xem trước hoặc hộp thoại.",
   "help.version": "Phiên bản {version}",
   "theme.toLight": "Chuyển sang chủ đề sáng",
-  "theme.toDark": "Chuyển sang chủ đề tối"
+  "theme.toDark": "Chuyển sang chủ đề tối",
+  "desktop.starting": "Đang chuẩn bị tìm kiếm…",
+  "desktop.missing.title": "Thiếu một phần của Solarljos",
+  "desktop.missing.body": "solarljos-core.exe, phần đảm nhiệm việc tìm kiếm của Solarljos, phải nằm trong cùng thư mục với Solarljos.exe. Hãy giữ các tệp đã tải xuống ở cùng một chỗ, rồi khởi động lại Solarljos.exe.",
+  "desktop.stopped.title": "Solarljos đã dừng tìm kiếm",
+  "desktop.stopped.body": "Phần đảm nhiệm việc tìm kiếm của Solarljos đã dừng. Các tệp bạn đã khôi phục vẫn nằm ở nơi bạn đã lưu. Hãy khởi động lại Solarljos để tiếp tục.",
+  "desktop.stopped.said": "Thông báo cuối cùng của nó",
+  "desktop.quit.writing": "Đang ghi một thư mục. Nếu bạn thoát bây giờ, Solarljos sẽ ghi xong các tệp của nó trước rồi mới dừng; cửa sổ sẽ đóng ngay.",
+  "desktop.calendar": "Chọn ngày trên lịch",
+  "desktop.video.play": "Phát",
+  "desktop.video.pause": "Tạm dừng",
+  "desktop.video.position": "Vị trí trong video",
+  "desktop.imageCannot": "Windows không hiển thị được hình {format} ở đây. Hãy khôi phục và mở bằng ứng dụng Ảnh.",
+  "desktop.videoCannot": "Windows không phát được video này ({format}) ở đây. Hãy khôi phục và mở bằng trình phát video.",
+  "desktop.folder.since.format": "Hãy nhập ngày theo dạng năm-tháng-ngày, chẳng hạn {example}.",
+  "desktop.help.window.title": "Cửa sổ này",
+  "desktop.help.window.body": "Solarljos là một chương trình độc lập và không mở trình duyệt nào. Nó không có hộp thoại chọn thư mục và không bao giờ mở File Explorer: cả hai đều hiển thị hình nhỏ của những gì có trong thư mục, và Windows lưu các hình đó vào chính bộ nhớ đệm hình thu nhỏ được đọc khi tìm ảnh. Thay vào đó, hãy nhập hoặc dán đường dẫn thư mục. Để giữ một bản sao, hãy dùng Khôi phục, là lệnh có kiểm tra nơi ghi.",
+  "desktop.help.keys.rail": "Trong menu, Mũi tên lên và Mũi tên xuống để đến phần ở trên hoặc ở dưới, và Ctrl+1 đến Ctrl+5 để đến từng phần từ bất kỳ đâu trong cửa sổ."
 }

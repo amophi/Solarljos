@@ -810,5 +810,22 @@
   "help.keys.body": "Mit der Tabulatortaste wechseln Sie zwischen den Steuerelementen. Im Fotoraster und in der Ordnerliste bewegen Sie sich mit den Pfeiltasten, die Leertaste wählt aus, und die Eingabetaste öffnet. Esc schließt eine Vorschau oder ein Dialogfeld.",
   "help.version": "Version {version}",
   "theme.toLight": "Zum hellen Design wechseln",
-  "theme.toDark": "Zum dunklen Design wechseln"
+  "theme.toDark": "Zum dunklen Design wechseln",
+  "desktop.starting": "Suche wird vorbereitet…",
+  "desktop.missing.title": "Ein Teil von Solarljos fehlt",
+  "desktop.missing.body": "solarljos-core.exe, der Teil von Solarljos, der die Suche ausführt, muss sich im selben Ordner wie Solarljos.exe befinden. Lassen Sie die heruntergeladenen Dateien zusammen, und starten Sie Solarljos.exe erneut.",
+  "desktop.stopped.title": "Solarljos hat aufgehört zu suchen",
+  "desktop.stopped.body": "Der Teil von Solarljos, der die Suche ausführt, läuft nicht mehr. Wiederhergestellte Dateien bleiben dort, wo Sie sie gespeichert haben. Starten Sie Solarljos erneut, um fortzufahren.",
+  "desktop.stopped.said": "Letzte Meldung",
+  "desktop.quit.writing": "Gerade wird ein Ordner geschrieben. Wenn Sie jetzt beenden, schreibt Solarljos zuerst seine Dateien fertig und wird dann beendet; das Fenster schließt sich sofort.",
+  "desktop.calendar": "Tag in einem Kalender auswählen",
+  "desktop.video.play": "Wiedergeben",
+  "desktop.video.pause": "Pausieren",
+  "desktop.video.position": "Position im Video",
+  "desktop.imageCannot": "Windows kann {format}-Bilder hier nicht anzeigen. Stellen Sie das Bild wieder her, und öffnen Sie es mit der Fotos-App.",
+  "desktop.videoCannot": "Windows kann dieses Video ({format}) hier nicht abspielen. Stellen Sie es wieder her, und öffnen Sie es mit einem Videoplayer.",
+  "desktop.folder.since.format": "Geben Sie den Tag als Jahr-Monat-Tag ein, z. B. {example}.",
+  "desktop.help.window.title": "Dieses Fenster",
+  "desktop.help.window.body": "Solarljos ist ein eigenständiges Programm und öffnet keinen Browser. Es hat keine Ordnerauswahl und öffnet nie den Explorer: Beide zeigen kleine Bilder vom Inhalt eines Ordners, und Windows speichert sie genau in dem Miniaturansichtencache, den eine Suche nach Fotos liest. Geben Sie stattdessen einen Ordner ein, oder fügen Sie ihn ein. Um eine Kopie zu behalten, verwenden Sie „Wiederherstellen“; dabei wird geprüft, wohin geschrieben wird.",
+  "desktop.help.keys.rail": "Im Menü wechseln Sie mit den Pfeiltasten nach oben und unten zum Abschnitt darüber oder darunter und mit Strg+1 bis Strg+5 von überall im Fenster zu den einzelnen Abschnitten."
 }
