@@ -225,6 +225,14 @@
     'media.web.label': 'Include pictures from web pages I visited',
     'media.web.hint': 'Off by default: there are usually thousands, and they are not your own photos.',
     'media.submit': 'Search',
+    // The Windows program's own, for what the browser brings to the page: its calendar, its video
+    // player, and the words for a picture or a video it cannot show, which there say "browser".
+    'desktop.media.calendar': 'Choose a day on a calendar',
+    'desktop.media.play': 'Play',
+    'desktop.media.pause': 'Pause',
+    'desktop.media.position': 'Where in the video',
+    'desktop.media.imageCannot': 'Windows can’t show {format} pictures here. Restore it and open it with the Photos app.',
+    'desktop.media.videoCannot': 'Windows can’t play this video ({format}) here. Restore it and open it with a video player.',
 
     // ---- bring back a folder ----
     'folder.title': 'Bring back a folder',
