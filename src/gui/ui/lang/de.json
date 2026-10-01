@@ -159,7 +159,7 @@
   "folder.path.relative": "Beginnen Sie mit dem Laufwerkbuchstaben, z. B. C:\\.",
   "folder.deletedOnly.label": "Nur Dateien, die jetzt fehlen",
   "folder.deletedOnly.hint": "Nutzen Sie dies, um einen nur teilweise gelöschten Ordner zu ergänzen.",
-  "folder.since.label": "Nur Versionen aus diesem Zeitraum",
+  "folder.since.label": "Nur Versionen ab",
   "folder.since.hint": "Es werden nur Kopien ab diesem Tag verwendet; für eine Datei, deren Kopien alle älter sind, keine.",
   "folder.submit": "Alles suchen, was darin war",
   "plan.title": {
@@ -647,7 +647,7 @@
   "restore.drive.system": "Windows",
   "restore.drive.original": "wo die Dateien waren",
   "restore.driveFree": "{free} frei",
-  "restore.folderName": "Solarljos wiederhergestellt",
+  "restore.folderName": "Von Solarljos wiederhergestellt",
   "restore.suggest.exeDrive": "Vorgeschlagen: das Laufwerk, von dem Solarljos ausgeführt wird ({drive}); dort war die Datei nicht.",
   "restore.suggest.otherDrive": "Vorgeschlagen: Laufwerk {drive}; dort war die Datei nicht.",
   "restore.suggest.desktop": "Vorgeschlagen: ein neuer Ordner auf Ihrem Desktop. Es gibt kein anderes Laufwerk, das verwendet werden kann.",

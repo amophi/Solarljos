@@ -109,7 +109,7 @@
   "PATH": "PFAD",
   "RIFF {0} runs past the end of what was searched: the rest is missing": "RIFF {0} reicht über das Ende des durchsuchten Bereichs hinaus: Der Rest fehlt",
   "Read as UTF-8 text: a byte order mark, if the file had one, is not recorded.": "Als UTF-8-Text gelesen: Eine Bytereihenfolge-Marke (BOM), falls die Datei eine hatte, ist nicht aufgezeichnet.",
-  "Read as taken into memory at {0}; what Explorer has added since is not included.": "Gelesen im Stand, in dem er um {0} in den Arbeitsspeicher übernommen wurde; was der Explorer seitdem hinzugefügt hat, ist nicht enthalten.",
+  "Read as taken into memory at {0}; what Explorer has added since is not included.": "Gelesen im Stand, der um {0} in den Arbeitsspeicher übernommen wurde; was der Explorer seitdem hinzugefügt hat, ist nicht enthalten.",
   "Reading what changes on its own, such as the thumbnail cache, before a window opens...": "Was sich von selbst ändert, etwa der Miniaturansichtencache, wird gelesen, bevor sich ein Fenster öffnet...",
   "Reading {0} directly needs administrator rights. Run as administrator, or make a disk image with another tool and give its path.": "Um {0} direkt zu lesen, sind Administratorrechte nötig. Führen Sie das Programm als Administrator aus, oder erstellen Sie mit einem anderen Programm ein Datenträgerabbild, und geben Sie dessen Pfad an.",
   "Reading {0} directly needs root. Run as root, or make a disk image with another tool and give its path.": "Um {0} direkt zu lesen, sind Root-Rechte nötig. Führen Sie das Programm als root aus, oder erstellen Sie mit einem anderen Programm ein Datenträgerabbild, und geben Sie dessen Pfad an.",

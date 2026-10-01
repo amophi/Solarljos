@@ -773,7 +773,7 @@
   "desktop.stopped.title": "Solarljos は検索を停止しました",
   "desktop.stopped.body": "Solarljos で検索を行う部分が停止しました。復元したファイルは、保存した場所にそのまま残ります。続けるには、Solarljos をもう一度起動してください。",
   "desktop.stopped.said": "最後に出力したメッセージ",
-  "desktop.quit.writing": "フォルダーの書き込み中です。今終了すると、Solarljos は書き込み中のファイルを書き終えてから停止します。ウィンドウはすぐに閉じます。",
+  "desktop.quit.writing": "フォルダーの書き込み中です。今終了すると、ウィンドウはすぐに閉じ、Solarljos はそのフォルダーを書き終えてから停止します。",
   "desktop.calendar": "カレンダーで日付を選ぶ",
   "desktop.video.play": "再生",
   "desktop.video.pause": "一時停止",

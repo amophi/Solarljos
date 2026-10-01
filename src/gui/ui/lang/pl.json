@@ -165,7 +165,7 @@
   "folder.path.relative": "Zacznij od litery dysku, np. C:\\.",
   "folder.deletedOnly.label": "Tylko pliki, których teraz brakuje",
   "folder.deletedOnly.hint": "Użyj tej opcji, aby uzupełnić folder, który został usunięty tylko częściowo.",
-  "folder.since.label": "Tylko wersje z okresu",
+  "folder.since.label": "Tylko wersje od dnia",
   "folder.since.hint": "Używane są tylko kopie od tego dnia; dla pliku, którego wszystkie kopie są starsze, nie jest używana żadna.",
   "folder.submit": "Znajdź wszystko, co było w środku",
   "plan.title": {

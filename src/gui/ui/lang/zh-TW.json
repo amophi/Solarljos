@@ -773,7 +773,7 @@
   "desktop.stopped.title": "Solarljos 已停止搜尋",
   "desktop.stopped.body": "Solarljos 中負責搜尋的部分已停止。已復原的檔案仍會留在您儲存它們的位置。若要繼續，請重新啟動 Solarljos。",
   "desktop.stopped.said": "它最後輸出的訊息",
-  "desktop.quit.writing": "正在寫入一個資料夾。如果現在結束，Solarljos 會先寫完正在寫入的檔案，然後停止；視窗會立即關閉。",
+  "desktop.quit.writing": "正在寫入一個資料夾。如果現在結束，視窗會立即關閉，Solarljos 會先寫完該資料夾，然後停止。",
   "desktop.calendar": "從月曆選擇日期",
   "desktop.video.play": "播放",
   "desktop.video.pause": "暫停",

@@ -604,7 +604,7 @@
   "{0}: no such folder": "{0}: folder tidak ada",
   "{0}: no thumbnail cache or Recent folder there": "{0}: tidak ada cache gambar mini atau folder Recent di sana",
   "{0}: no trash folder found there": "{0}: tidak ditemukan folder tempat sampah di sana",
-  "{0}: not a shadow-copy device; give the drive it stands for, as in {0}=C:\\. Skipped.": "{0}: bukan perangkat salinan bayangan; berikan drive yang diwakilinya, seperti {0}=C:\\. Dilewati.",
+  "{0}: not a shadow-copy device; give the drive it stands for, as in {0}=C:\\. Skipped.": "{0}: bukan perangkat salinan bayangan volume; berikan drive yang diwakilinya, seperti {0}=C:\\. Dilewati.",
   "{0}: not a volume GUID such as volume={00112233-4455-6677-8899-aabbccddeeff}; skipped.": "{0}: bukan GUID volume seperti volume={00112233-4455-6677-8899-aabbccddeeff}; dilewati.",
   "{0}: not read, since .Trash lacks the sticky bit or {1} does not belong to user {1}; give --location trash={0} to read it anyway": "{0}: tidak dibaca, karena .Trash tidak memiliki sticky bit atau {1} bukan milik pengguna {1}; berikan --location trash={0} untuk tetap membacanya",
   "{0}: not read, since it is not a real folder": "{0}: tidak dibaca, karena bukan folder sungguhan",

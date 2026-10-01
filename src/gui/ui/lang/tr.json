@@ -712,7 +712,7 @@
     "one": "Öğelerden 1 tanesi, sürücü harfi burada anlaşılamayan bütün bir diskten okundu. Bu klasör o kartta veya USB sürücüdeyse, buraya kaydetmek diğer silinmiş dosyaların üzerine yazabilir; Windows sürücüsünde veya başka bir diskte bir klasör seçin.",
     "other": "Öğelerden {count} tanesi, sürücü harfi burada anlaşılamayan bütün bir diskten okundu. Bu klasör o kartta veya USB sürücüdeyse, buraya kaydetmek diğer silinmiş dosyaların üzerine yazabilir; Windows sürücüsünde veya başka bir diskte bir klasör seçin."
   },
-  "dest.systemDrive": "Bu, Windows sürücüsü. Buraya çok fazla şey geri yüklemek eski geri yükleme noktalarını dışarı itebilir.",
+  "dest.systemDrive": "Bu, Windows sürücüsü. Buraya çok fazla şey geri yüklemek, Windows'un eski geri yükleme noktalarını kaldırmasına yol açabilir.",
   "dest.refused.title": "Buraya kaydedilemez",
   "dest.cloud": "Bu, {service} hizmetinin eşitlediği bir klasöre benziyor: buraya geri yüklediğiniz şeyler karşıya yüklenebilir.",
   "dest.network": "Bu bir ağ klasörü. Çalışır, ancak bu bilgisayarın bir sürücüsü veya bir USB sürücü daha güvenlidir.",

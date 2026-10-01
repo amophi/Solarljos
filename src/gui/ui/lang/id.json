@@ -480,7 +480,7 @@
   "source.thumbcache.keeps": "Gambar yang lebih kecil yang dibuat File Explorer dari foto, video, dan dokumen yang ditampilkannya.",
   "source.thumbcache.howLong": "Sampai Windows menghapus cache gambar mini, seperti yang dilakukan Pembersihan Disk.",
   "source.snips.label": "Alat Pemotong",
-  "source.snips.keeps": "Cuplikan layar dan rekaman layar yang diambil Alat Pemotong, disimpan di foldernya sendiri meskipun tidak pernah disimpan.",
+  "source.snips.keeps": "Cuplikan layar dan rekaman layar yang diambil Alat Pemotong, yang tetap ada di foldernya sendiri meskipun tidak pernah Anda simpan.",
   "source.snips.howLong": "Sampai Alat Pemotong mengosongkan foldernya, atau diinstal ulang.",
   "source.removable.label": "Kartu memori dan drive USB",
   "source.removable.keeps": "File yang dihapus dari kartu memori, drive USB, atau image-nya (FAT atau exFAT), yang tidak langsung dihapus oleh Windows.",
