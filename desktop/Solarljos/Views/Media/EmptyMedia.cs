@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using Solarljos.Core;
 using Solarljos.Text;
@@ -94,32 +96,36 @@ public static class EmptyMedia
         return Build.Page(page, 880);
     }
 
-    /// <summary>A part of the page in a card of its own, with its heading.</summary>
-    static Border Part(string key, params UIElement?[] body)
+    /// <summary>A part of the page in a card of its own, with its heading: a group named by it, as the page's section labelled by its h2.</summary>
+    static Labeled Part(string key, params UIElement?[] body)
     {
         var s = Build.Stack(Build.Heading(T[key], 2).Margin(0, 0, 0, 8));
         ((TextBlock)s.Children[0]).FontSize = 17;
         foreach (var b in body) if (b is not null) s.Children.Add(b);
-        var card = Build.Card(s);
-        card.Margin = new Thickness(0, 16, 0, 0);
-        return card;
+        var part = Labeled.Group(T[key], Build.Card(s));
+        part.Margin = new Thickness(0, 16, 0, 0);
+        return part;
     }
 
-    static StackPanel Bullets(IEnumerable<string> lines)
+    /// <summary>Lines with a bullet each: a list and its items to assistive technology, as the page's ul.</summary>
+    static Labeled Bullets(IEnumerable<string> lines)
     {
         var s = new StackPanel();
         foreach (var l in lines) s.Children.Add(Bullet(l));
-        return s;
+        return new Labeled { Child = s, Kind = AutomationControlType.List };
     }
 
-    static DockPanel Bullet(string text)
+    static Labeled Bullet(string text)
     {
-        var dot = Build.Text("•", "Body");
-        dot.Margin = new Thickness(0, 0, 10, 0);
+        // The bullet is for the eye: a list item says that it is one.
+        var dot = new SilentText { Text = "•", Margin = new Thickness(0, 0, 10, 0) };
+        dot.SetResourceReference(FrameworkElement.StyleProperty, "Body");
         var line = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
         DockPanel.SetDock(dot, Dock.Left);
         line.Children.Add(dot);
         line.Children.Add(Build.Text(text, "Body"));
-        return line;
+        var item = new Labeled { Child = line, Kind = AutomationControlType.ListItem };
+        AutomationProperties.SetName(item, text);
+        return item;
     }
 }

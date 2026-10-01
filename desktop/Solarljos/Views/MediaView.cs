@@ -28,6 +28,9 @@ public sealed class MediaView : UserControl, IPage
     readonly ResourceDictionary look = new() { Source = new Uri("pack://application:,,,/Solarljos;component/Views/Media/MediaLook.xaml") };
     readonly Thumbs thumbs = new();
     readonly HashSet<string> announced = new();
+    // How far each place of the search shown had got, to say each as it is done.
+    readonly Dictionary<string, string> rowStates = new();
+    string? jobSeen;
     Session? session;
     MediaForm? form;
     FrameworkElement? results;
@@ -299,9 +302,26 @@ public sealed class MediaView : UserControl, IPage
         else DropResults();
     }
 
-    /// <summary>A search went a step further: its rows drawn again, once for many steps at a time.</summary>
+    /// <summary>A search went a step further: each place done is said while it is in sight, and its rows drawn again, once for many steps at a time.</summary>
     void OnProgressed(Job job)
     {
+        if (session?.Jobs.Current("media") == job)
+        {
+            if (jobSeen != job.Id)
+            {
+                jobSeen = job.Id;
+                rowStates.Clear();
+            }
+            // Said of the search in sight only: each place as it is done.
+            foreach (var row in job.Rows)
+            {
+                rowStates.TryGetValue(row.Id, out var was);
+                rowStates[row.Id] = row.Status;
+                bool ended = row.Status is "done" or "failed" or "skipped";
+                if (ended && was != row.Status && showingResults && IsVisible && progress?.Job == job)
+                    Announce.Say(T.Get("a11y.sourceDone", ("source", Formats.SourceLabel(row.Id, row.Label)), ("result", ProgressView.RowResult(row))));
+            }
+        }
         if (progress?.Job != job || progressPending) return;
         progressPending = true;
         Dispatcher.BeginInvoke(DispatcherPriority.Render, () =>

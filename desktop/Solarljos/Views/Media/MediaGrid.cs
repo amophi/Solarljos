@@ -233,6 +233,8 @@ public sealed class MediaGrid : UserControl
         grid.ItemsSource = rows;
         grid.Prepare = Prepare;
         grid.Release = Release;
+        AutomationProperties.SetName(grid, T["grid.title"]);
+        grid.Selection = () => live.Values.Where((t) => t.IsSelectedTile);
         grid.PreviewKeyDown += OnKeys;
         sticky = new Border
         {
@@ -460,8 +462,17 @@ public sealed class MediaGrid : UserControl
         shown = Math.Min(list.Count, shown + MediaData.GridPage);
         int left = list.Count - shown;
         moreButton.Content = T.Get("results.showMore", ("count", Math.Min(MediaData.GridPage, Math.Max(0, left))));
+        // A last row filled out is made again, its tiles given to other copies: the tile in focus
+        // keeps it, as Fit has it -- only when it lost it or now shows another copy, so that a view
+        // the wheel moved is not taken back to it.
+        bool had = Keyboard.FocusedElement is Tile was && live.ContainsValue(was);
         Layout();
         if (focus is null && order.Count > 0) SetFocus(order[0].Uid, false);
+        else if (had) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            if (focus is null || (Keyboard.FocusedElement is Tile now && now.Copy.Uid == focus && live.GetValueOrDefault(focus) == now)) return;
+            SetFocus(focus, true);
+        });
     }
 
     /// <summary>The rows the shown tiles make at this many columns, put in the list as the least change from what it held.</summary>
