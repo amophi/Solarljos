@@ -12,6 +12,8 @@ jobs:
         os: [windows-latest, ubuntu-latest]
         node: ['22', '24']
     runs-on: ${{ matrix.os }}
+    # A test that hangs fails the run in minutes, not after GitHub's six hours.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,6 +29,7 @@ jobs:
   # tag is pushed rather than after. Nothing is uploaded.
   exe:
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash

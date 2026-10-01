@@ -32,6 +32,7 @@ concurrency:
 jobs:
   exe:
     runs-on: windows-latest
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash

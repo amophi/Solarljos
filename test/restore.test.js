@@ -388,7 +388,8 @@ test('a process ending while a copy is written leaves no temporary file behind',
   const script = `
     const { Readable } = require('stream');
     const r = require(${JSON.stringify(lib)});
-    const data = new Readable({ read() { this.push(Buffer.alloc(65536, 1)); } });
+    // Each piece a turn of the event loop later, so that the timer below always gets its turn.
+    const data = new Readable({ read() { setImmediate(() => this.push(Buffer.alloc(65536, 1))); } });
     r._internal.writeNew(${JSON.stringify(out)}, 'clip.mp4', data).catch(() => {});
     setTimeout(() => {
       const fs = require('fs');
@@ -397,7 +398,7 @@ test('a process ending while a copy is written leaves no temporary file behind',
       process.exit(0);
     }, 200);
   `;
-  const before = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+  const before = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8', timeout: 30000 });
   assert.strictEqual(before, '1', 'the temporary file was there while it was written');
   assert.deepStrictEqual(left(out), []);
 });

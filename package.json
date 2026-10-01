@@ -59,7 +59,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node --test --test-timeout=120000 \"test/*.test.js\"",
     "bundle": "node scripts/bundle.js",
     "build:exe": "node scripts/build-exe.js",
     "build:desktop": "node scripts/build-desktop.js",
