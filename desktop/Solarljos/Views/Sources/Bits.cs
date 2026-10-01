@@ -58,30 +58,50 @@ public static class Bits
     /// A list with bullets, as the page's ul: each item 4 pixels apart, set in by 20. `ownWay`:
     /// each item reads in the direction of its first letter, as dir="auto" has it -- for what the
     /// engine says, which is in English where its words are not in the language chosen, and would
-    /// be put in the wrong order right to left.
+    /// be put in the wrong order right to left. Assistive technology is told a list of items, each
+    /// named by its words, as it is the page's; not the bullets, which are for the eye.
     /// </summary>
-    public static StackPanel Bullets(IEnumerable<string> items, double fontSize = 15, double lineHeight = 23, bool ownWay = false)
+    public static Labeled Bullets(IEnumerable<string> items, double fontSize = 15, double lineHeight = 23, bool ownWay = false)
     {
         var list = new StackPanel();
         foreach (var item in items)
         {
-            var bullet = Build.Text("\u2022");
+            var bullet = new ForTheEye { Text = "\u2022" };
+            bullet.SetResourceReference(FrameworkElement.StyleProperty, "Body");
             bullet.FontSize = fontSize;
             bullet.LineHeight = lineHeight;
             bullet.Width = 20;
             bullet.TextAlignment = TextAlignment.Center;
             bullet.Margin = new Thickness(-2, 0, 2, 0);
-            var words = Build.Text(item);
+            var words = new ForTheEye { Text = item };
+            words.SetResourceReference(FrameworkElement.StyleProperty, "Body");
             words.FontSize = fontSize;
             words.LineHeight = lineHeight;
-            var row = new DockPanel { Margin = new Thickness(0, list.Children.Count == 0 ? 0 : 4, 0, 0) };
+            var row = new DockPanel();
             DockPanel.SetDock(bullet, Dock.Left);
             row.Children.Add(bullet);
             row.Children.Add(words);
             if (ownWay) row.FlowDirection = RightToLeftFirst(item) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-            list.Children.Add(row);
+            var li = new Labeled { Kind = AutomationControlType.ListItem, Child = row, Margin = new Thickness(0, list.Children.Count == 0 ? 0 : 4, 0, 0) };
+            AutomationProperties.SetName(li, item);
+            list.Children.Add(li);
         }
-        return list;
+        return new Labeled { Kind = AutomationControlType.List, Child = list };
+    }
+
+    /// <summary>
+    /// Words for the eye only: a list's bullet, or an item's words that its item is named by.
+    /// Assistive technology is not told them again (not a control or content element).
+    /// </summary>
+    sealed class ForTheEye : TextBlock
+    {
+        protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+
+        sealed class Peer(TextBlock owner) : TextBlockAutomationPeer(owner)
+        {
+            protected override bool IsControlElementCore() => false;
+            protected override bool IsContentElementCore() => false;
+        }
     }
 
     /// <summary>Whether the first letter of a text is of a script written right to left: Hebrew, Arabic and theirs.</summary>

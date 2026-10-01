@@ -161,12 +161,18 @@ static class RebuildView
                 count.Margin = new Thickness(16, 0, 0, 0);
                 line.Children.Add(count);
                 line.Children.Add(label);
-                var cell = new Border { Child = line, Padding = new Thickness(0, 8, 0, 8), BorderThickness = new Thickness(0, 0, 0, i < byKind.Count - 1 ? 1 : 0) };
+                // An item of a list, as the page's li, named by a kind and its count side by side:
+                // not every language's colon between them.
+                var cell = new Labeled
+                {
+                    Kind = AutomationControlType.ListItem, Child = line, Padding = new Thickness(0, 8, 0, 8),
+                    BorderThickness = new Thickness(0, 0, 0, i < byKind.Count - 1 ? 1 : 0),
+                };
                 cell.SetResourceReference(Border.BorderBrushProperty, "Divider");
-                AutomationProperties.SetName(cell, label.Text + ": " + count.Text);
+                AutomationProperties.SetName(cell, label.Text + " " + count.Text);
                 list.Children.Add(cell);
             }
-            var panel = Bits.Panel(T["rebuild.byKind"], list);
+            var panel = Bits.Panel(T["rebuild.byKind"], new Labeled { Kind = AutomationControlType.List, Child = list });
             panel.Margin = new Thickness(0, 16, 0, 0);
             panel.MaxWidth = 512;
             panel.HorizontalAlignment = HorizontalAlignment.Left;

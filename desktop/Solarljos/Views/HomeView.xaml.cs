@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Shapes;
 using Solarljos.Core;
@@ -62,15 +63,16 @@ public partial class HomeView : UserControl, IPage
         var now = string.Join("\n", links.Select((l) => l.Route + "\t" + l.Text));
         if (now == shown) return;
         shown = now;
-        var focused = Last.Children.OfType<Button>().FirstOrDefault((b) => b.IsKeyboardFocusWithin)?.Tag as string;
+        var focused = Last.Children.OfType<Labeled>().Select((li) => li.Child).OfType<Button>().FirstOrDefault((b) => b.IsKeyboardFocusWithin)?.Tag as string;
         Last.Children.Clear();
         foreach (var (route, text) in links)
         {
             var row = LinkRow(route, text);
-            Last.Children.Add(row);
+            // Each link an item of the list, as the page's li.
+            Last.Children.Add(new Labeled { Kind = AutomationControlType.ListItem, Child = row });
             if (route == focused) row.Focus();
         }
-        Last.Visibility = links.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        LastList.Visibility = links.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>A row that leads to results: a grey dot, as a state that is done, the words, and an arrow on.</summary>

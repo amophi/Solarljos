@@ -46,8 +46,11 @@ public sealed class PlanNode
     public bool Expanded { get; set; }
     public PlanFile? File { get; init; }
     public bool Conflict { get; set; }
-    /// <summary>Its row, while it is shown.</summary>
+    /// <summary>Its row, while one is made for it: only the rows in sight are.</summary>
     internal PlanTreeItem? Item { get; set; }
+
+    /// <summary>Its name, as UI Automation says a row that is not made yet.</summary>
+    public override string ToString() => Name;
 
     static PlanNode Folder(string name, PlanNode? parent, string rel) =>
         new() { Name = name, Rel = rel, Dir = true, Parent = parent, Level = parent is null ? 1 : parent.Level + 1, Expanded = parent is null };
@@ -142,7 +145,9 @@ public sealed class PlanNode
 /// The tree of a plan, to tick and untick, as the page's role=tree: arrow keys move, Right and Left
 /// open and close a folder (the other way round right to left), Home and End go to the first and
 /// the last row, Space ticks or unticks -- a folder all below it -- and Enter opens a folder or
-/// shows a file. A folder's rows are made when it is first opened. It scrolls with the page.
+/// shows a file. Its items are the plan's nodes, and only the rows in sight are made
+/// (VirtualizingStackPanel), so that a plan of tens of thousands of files, every folder open, shows
+/// at once; for that it scrolls on its own, as high as the page lets it be (MaxHeight).
 /// </summary>
 public sealed class PlanTree : TreeView
 {
@@ -174,69 +179,79 @@ public sealed class PlanTree : TreeView
     internal bool Narrow => narrow;
     internal Func<PlanNode, bool> Included => included;
 
+    /// <summary>The row made for the top folder, once it is.</summary>
+    internal HashSet<PlanTreeItem> Kids { get; } = new();
+
+    /// <summary>Where its rows scroll, inside it.</summary>
+    internal ScrollViewer? Scroller => Template?.FindName("_tv_scrollviewer_", this) as ScrollViewer;
+
     protected override AutomationPeer OnCreateAutomationPeer() => new TreePeer(this);
+
+    protected override DependencyObject GetContainerForItemOverride() => new PlanTreeItem(this);
+
+    protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
+    {
+        base.PrepareContainerForItemOverride(element, item);
+        if (element is not PlanTreeItem row || item is not PlanNode node) return;
+        Kids.Add(row);
+        row.Bind(node);
+    }
+
+    protected override void ClearContainerForItemOverride(DependencyObject element, object item)
+    {
+        if (element is PlanTreeItem row && Kids.Remove(row)) row.Unbind();
+        base.ClearContainerForItemOverride(element, item);
+    }
 
     /// <summary>Shows this tree, as far as its folders are open.</summary>
     public void Show(PlanNode node)
     {
         top = node;
         Current = null;
-        foreach (var item in Rows().ToList()) item.Node.Item = null;
+        foreach (var row in Kids) row.Unbind();
+        Kids.Clear();
         Items.Clear();
-        Items.Add(Make(node));
+        Items.Add(node);
     }
 
-    internal PlanTreeItem Make(PlanNode node)
-    {
-        var item = new PlanTreeItem(this, node);
-        node.Item = item;
-        if (node.Dir)
-        {
-            if (node.Expanded) foreach (var c in node.Children) item.Items.Add(Make(c));
-            else if (node.Children.Count > 0) item.Items.Add(PlanTreeItem.NotYet);
-            item.IsExpanded = node.Expanded;
-        }
-        return item;
-    }
-
-    /// <summary>Every row made, shown or not.</summary>
+    /// <summary>Every row made, in sight or not.</summary>
     IEnumerable<PlanTreeItem> Rows()
     {
-        var stack = new Stack<ItemsControl>();
-        stack.Push(this);
+        var stack = new Stack<PlanTreeItem>(Kids);
         while (stack.Count > 0)
         {
-            foreach (var o in stack.Pop().Items)
-            {
-                if (o is not PlanTreeItem item) continue;
-                yield return item;
-                stack.Push(item);
-            }
+            var row = stack.Pop();
+            yield return row;
+            foreach (var kid in row.Kids) stack.Push(kid);
         }
     }
 
-    /// <summary>Opens or closes a folder; the top one stays open (setExpanded).</summary>
+    /// <summary>
+    /// Opens or closes a folder; the top one stays open (setExpanded). Its row, if one is made,
+    /// follows (PlanTreeItem's IsExpanded is its node's), and its rows are made as they come into sight.
+    /// </summary>
     internal void SetExpanded(PlanNode node, bool on)
     {
-        if (!node.Dir || (node.Parent is null && !on) || node.Item is not { } item) return;
+        if (!node.Dir || (node.Parent is null && !on)) return;
         node.Expanded = on;
         expandedChanged(node, on);
-        if (on && item.Items.Count == 1 && item.Items[0] == PlanTreeItem.NotYet)
-        {
-            item.Items.Clear();
-            foreach (var c in node.Children) item.Items.Add(Make(c));
-        }
-        item.IsExpanded = on;
-        if (on) Refresh(node);
+        if (node.Item is not { } item) return;
+        item.CoerceValue(TreeViewItem.IsExpandedProperty);
+        item.Refresh();
     }
 
-    /// <summary>Each shown row's box as it now stands, from this node down.</summary>
-    public void Refresh(PlanNode? from = null)
+    /// <summary>Opens a folder and every folder below it, as TreeView's own * does.</summary>
+    void OpenAll(PlanNode node)
     {
-        var node = from ?? top;
-        if (node is null) return;
-        node.Item?.Refresh();
-        if (node.Dir && node.Expanded) foreach (var c in node.Children) Refresh(c);
+        if (!node.Dir) return;
+        SetExpanded(node, true);
+        foreach (var c in node.Children) OpenAll(c);
+    }
+
+    /// <summary>Each row's box as it now stands: the rows made; one made later is made so.</summary>
+    public void Refresh()
+    {
+        foreach (var row in Rows()) row.Refresh();
     }
 
     /// <summary>The rows in the order they show, as far as folders are open.</summary>
@@ -252,9 +267,42 @@ public sealed class PlanTree : TreeView
         return list;
     }
 
+    /// <summary>
+    /// A row that shows, made and brought into the tree's sight if it was not: only the rows in
+    /// sight are made, so the one the keyboard goes to may not be yet. The folder above it is
+    /// asked for it, as that folder's own panel makes its rows, and that folder of its own folder.
+    /// </summary>
+    PlanTreeItem? Realize(PlanNode node)
+    {
+        if (node.Item is { } made) return made;
+        ItemsControl? owner = node.Parent is null ? this : Realize(node.Parent);
+        if (owner is null or PlanTreeItem { IsExpanded: false }) return null;
+        var panel = RowsPanel(owner);
+        if (panel is null)
+        {
+            // A folder opened a moment ago has no panel until it is laid out.
+            owner.UpdateLayout();
+            panel = RowsPanel(owner);
+        }
+        panel?.BringIndexIntoViewPublic(node.Parent is null ? 0 : node.Parent.Children.IndexOf(node));
+        return node.Item;
+    }
+
+    /// <summary>The panel that makes a folder's rows, or the tree's own, once there is one.</summary>
+    static VirtualizingStackPanel? RowsPanel(ItemsControl owner)
+    {
+        owner.ApplyTemplate();
+        if (owner.Template?.FindName(owner is PlanTree ? "Rows" : "ItemsHost", owner) is not ItemsPresenter presenter) return null;
+        presenter.ApplyTemplate();
+        if (VisualTreeHelper.GetChildrenCount(presenter) == 0 || VisualTreeHelper.GetChild(presenter, 0) is not VirtualizingStackPanel panel) return null;
+        // Its rows' maker is set up when its children are first asked for.
+        _ = panel.Children;
+        return panel;
+    }
+
     public void FocusNode(PlanNode? node)
     {
-        if (node?.Item is not { } item) return;
+        if (node is null || Realize(node) is not { } item) return;
         Current = node;
         item.Focus();
         item.Row.BringIntoView();
@@ -267,7 +315,7 @@ public sealed class PlanTree : TreeView
     internal void Press(Key key)
     {
         var node = Current ?? top;
-        if (node?.Item is not { } item || PresentationSource.FromVisual(item) is not { } source) return;
+        if (node is null || Realize(node) is not { } item || PresentationSource.FromVisual(item) is not { } source) return;
         item.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
         if (Current?.Item is { } now) now.Ring = true;
         if (item != Current?.Item) item.Ring = false;
@@ -321,11 +369,13 @@ public sealed class PlanTree : TreeView
             case Key.Enter:
                 Open(node, item);
                 break;
-            // TreeView's own: + and * open a folder, - closes it; the top folder stays open.
+            // TreeView's own: + opens a folder, * it and every folder below it, - closes it; the top folder stays open.
             case Key.Add:
             case Key.Subtract:
+                if (node.Dir) SetExpanded(node, key == Key.Add);
+                break;
             case Key.Multiply:
-                if (node.Dir) SetExpanded(node, key != Key.Subtract);
+                OpenAll(node);
                 break;
             default:
                 base.OnPreviewKeyDown(e);
@@ -340,50 +390,68 @@ public sealed class PlanTree : TreeView
     /// <summary>The tree's rows are told as tree items that are also ticked, unticked or partly (aria-checked).</summary>
     sealed class TreePeer(PlanTree owner) : TreeViewAutomationPeer(owner)
     {
-        protected override ItemAutomationPeer CreateItemAutomationPeer(object item) => new RowPeer(item, this, null);
+        protected override ItemAutomationPeer CreateItemAutomationPeer(object item) => new RowPeer(item, this, null, owner);
     }
 
-    internal sealed class RowPeer(object item, ItemsControlAutomationPeer parent, TreeViewDataItemAutomationPeer? parentRow)
+    /// <summary>A row as UI Automation knows it, made or not yet: ticked as its node is.</summary>
+    internal sealed class RowPeer(object item, ItemsControlAutomationPeer parent, TreeViewDataItemAutomationPeer? parentRow, PlanTree tree)
         : TreeViewDataItemAutomationPeer(item, parent, parentRow), IToggleProvider
     {
         public override object GetPattern(PatternInterface p) =>
-            p == PatternInterface.Toggle && Item is PlanTreeItem ? this : base.GetPattern(p);
+            p == PatternInterface.Toggle && Item is PlanNode ? this : base.GetPattern(p);
 
-        public ToggleState ToggleState => Item is PlanTreeItem row ? row.State : ToggleState.Off;
+        public ToggleState ToggleState => Item is PlanNode node ? node.State(tree.Included) : ToggleState.Off;
 
         public void Toggle()
         {
-            if (Item is PlanTreeItem row) row.Tree.Toggle(row.Node);
+            if (Item is PlanNode node) tree.Toggle(node);
         }
     }
 
-    internal sealed class ItemPeer(PlanTreeItem owner) : TreeViewItemAutomationPeer(owner), IToggleProvider
+    /// <summary>
+    /// A row made, as UI Automation knows it: ticked as it is, and opened and closed as the
+    /// keyboard does it, through the tree, so that its node follows -- not by setting IsExpanded,
+    /// which is its node's (Narrator, Voice Access).
+    /// </summary>
+    internal sealed class ItemPeer(PlanTreeItem owner) : TreeViewItemAutomationPeer(owner), IToggleProvider, IExpandCollapseProvider
     {
-        protected override ItemAutomationPeer CreateItemAutomationPeer(object item) => new RowPeer(item, this, EventsSource as TreeViewDataItemAutomationPeer);
+        protected override ItemAutomationPeer CreateItemAutomationPeer(object item) =>
+            new RowPeer(item, this, EventsSource as TreeViewDataItemAutomationPeer, owner.Tree);
 
         public override object GetPattern(PatternInterface p) => p == PatternInterface.Toggle ? this : base.GetPattern(p);
 
-        public ToggleState ToggleState => ((PlanTreeItem)Owner).State;
+        public ToggleState ToggleState => owner.State;
 
-        public void Toggle()
-        {
-            var row = (PlanTreeItem)Owner;
-            row.Tree.Toggle(row.Node);
-        }
+        public void Toggle() => owner.Tree.Toggle(owner.Node);
+
+        ExpandCollapseState IExpandCollapseProvider.ExpandCollapseState =>
+            !owner.Node.Dir ? ExpandCollapseState.LeafNode : owner.IsExpanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed;
+
+        void IExpandCollapseProvider.Expand() => owner.Tree.SetExpanded(owner.Node, true);
+
+        void IExpandCollapseProvider.Collapse() => owner.Tree.SetExpanded(owner.Node, false);
     }
 }
 
 /// <summary>
 /// A row of the tree: the arrow that opens a folder, its box, its icon, its name, and how many
 /// files a folder holds or, for a file, its best copy: when it is from, what kind, how good, its
-/// size, and whether something is at its place now. An unticked name is struck through.
+/// size, and whether something is at its place now. An unticked name is struck through. A row is
+/// made for a node as it comes into sight (Bind) and let go of when it goes (Unbind); a folder's
+/// own rows are its node's children, made as they come into sight in turn.
 /// </summary>
 public sealed class PlanTreeItem : TreeViewItem
 {
     static Tr T => Tr.Instance;
 
-    /// <summary>What a closed folder holds until it is first opened, so that it says it can be.</summary>
-    internal static readonly object NotYet = new();
+    static PlanTreeItem()
+    {
+        // Whether a row is open is its node's, whatever sets IsExpanded: the virtualizing panel
+        // clears what was set on a row it has just made, and the top folder's is always open.
+        // The tree opens and closes a node, and its row follows (SetExpanded).
+        IsExpandedProperty.OverrideMetadata(typeof(PlanTreeItem), new FrameworkPropertyMetadata(false, null,
+            (d, value) => d is PlanTreeItem { Node: { } node } ? node.Dir && node.Expanded : value));
+    }
 
     public static readonly DependencyProperty RingProperty = DependencyProperty.Register(
         nameof(Ring), typeof(bool), typeof(PlanTreeItem), new PropertyMetadata(false));
@@ -395,21 +463,43 @@ public sealed class PlanTreeItem : TreeViewItem
     public bool Ring { get => (bool)GetValue(RingProperty); set => SetValue(RingProperty, value); }
 
     internal PlanTree Tree { get; }
-    internal PlanNode Node { get; }
-    internal RowPanel Layout { get; }
+    /// <summary>Its node, from when it is made for one.</summary>
+    internal PlanNode Node { get; private set; } = null!;
+    internal RowPanel Layout { get; private set; } = null!;
     internal FrameworkElement Row => Layout;
     internal ToggleState State { get; private set; }
+    /// <summary>The rows made for its folder's own files and folders.</summary>
+    internal HashSet<PlanTreeItem> Kids { get; } = new();
 
-    readonly Border box;
-    readonly Icon tick;
-    readonly TextBlock name;
-    readonly Border twisty;
+    Border box = null!;
+    Icon tick = null!;
+    TextBlock name = null!;
+    Border twisty = null!;
     readonly RotateTransform turn = new(0);
 
-    internal PlanTreeItem(PlanTree tree, PlanNode node)
+    internal PlanTreeItem(PlanTree tree) => Tree = tree;
+
+    protected override DependencyObject GetContainerForItemOverride() => new PlanTreeItem(Tree);
+
+    protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {
-        Tree = tree;
+        base.PrepareContainerForItemOverride(element, item);
+        if (element is not PlanTreeItem row || item is not PlanNode node) return;
+        Kids.Add(row);
+        row.Bind(node);
+    }
+
+    protected override void ClearContainerForItemOverride(DependencyObject element, object item)
+    {
+        if (element is PlanTreeItem row && Kids.Remove(row)) row.Unbind();
+        base.ClearContainerForItemOverride(element, item);
+    }
+
+    /// <summary>Makes it the row of a node: what it says, as it stands, and, for a folder, its own rows to make.</summary>
+    internal void Bind(PlanNode node)
+    {
         Node = node;
+        node.Item = this;
         var level = node.Level - 1;
         Padding = new Thickness(6 + level * 24, 2, 10, 2);
 
@@ -465,20 +555,32 @@ public sealed class PlanTreeItem : TreeViewItem
             if (c.State == "exists") add(Build.Badge("Exists", null, T["plan.stillThere"]), T["plan.stillThere"]);
             if (meta.Children.Count > 0 && meta.Children[^1] is FrameworkElement last) last.Margin = new Thickness(0, 2, 0, 2);
             extra = meta;
-            help = string.Join(", ", words);
+            // Side by side as the row shows them: no comma, which is not every language's.
+            help = string.Join(" ", words);
         }
         TextBlock? hint = null;
         if (node.Conflict)
         {
             hint = Build.Text(T["plan.conflict"], "Hint");
             hint.Margin = new Thickness(0, 0, 0, 4);
-            help += ". " + hint.Text;
+            help += " " + hint.Text;
         }
-        Layout = new RowPanel(lead, name, extra, hint, atEnd: !node.Dir) { Narrow = tree.Narrow };
+        Layout = new RowPanel(lead, name, extra, hint, atEnd: !node.Dir) { Narrow = Tree.Narrow };
         Header = Layout;
         AutomationProperties.SetName(this, node.Name);
         AutomationProperties.SetHelpText(this, help);
+        // A folder's rows are its node's children, made when it is open and they come into sight.
+        if (node.Dir) ItemsSource = node.Children;
+        CoerceValue(IsExpandedProperty);
         Refresh();
+    }
+
+    /// <summary>No longer its node's row, nor the rows made inside it theirs (ClearContainerForItemOverride).</summary>
+    internal void Unbind()
+    {
+        foreach (var kid in Kids) kid.Unbind();
+        Kids.Clear();
+        if (Node.Item == this) Node.Item = null;
     }
 
     static TextBlock Small(string text)
