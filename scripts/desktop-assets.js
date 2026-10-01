@@ -10,6 +10,7 @@
 //   icons.json      the page's icons (src/gui/ui/app.js's ICONS), the rail's (index.html) and the
 //                   program's own, by name: each a list of SVG path data on a 24 by 24 box
 //   languages.json  src/i18n.js's LOCALES: each language's code and its own name
+//   Solarljos.ico   the program's icon, the page's mark (scripts/desktop-icon.js)
 //
 //   node scripts/desktop-assets.js           write them
 //   node scripts/desktop-assets.js --check   say whether they are what would be written, exit 1 if not
@@ -58,6 +59,7 @@ function assets() {
     'en.json': json(en),
     'icons.json': json(Object.fromEntries(Object.keys(icons).sort().map((k) => [k, icons[k]]))),
     'languages.json': json(LOCALES.map(({ code, name }) => ({ code, name }))),
+    'Solarljos.ico': require('./desktop-icon').icon(),
   };
 }
 
@@ -66,7 +68,8 @@ function main(argv) {
   if (argv.includes('--check')) {
     const stale = Object.keys(want).filter((name) => {
       try {
-        return fs.readFileSync(path.join(OUT, name), 'utf8') !== want[name];
+        const have = fs.readFileSync(path.join(OUT, name));
+        return !have.equals(Buffer.isBuffer(want[name]) ? want[name] : Buffer.from(want[name]));
       } catch (_) {
         return true;
       }

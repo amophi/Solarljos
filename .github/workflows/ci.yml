@@ -20,24 +20,12 @@ jobs:
       # test/bundle.test.js bundles the tree and runs the bundle too.
       - run: npm test
 
-  # The program as release.yml builds it, with the same Node, and tried by scripts/build-exe.js
-  # itself: what breaks it -- a change in --build-sea, a page file the server cannot find -- shows
-  # here, before a v* tag is pushed rather than after. Nothing is uploaded.
+  # The Windows program as release.yml builds it, with the same Node and the same .NET SDK
+  # (global.json), and tried by scripts/build-desktop.js itself, which builds the engine with
+  # scripts/build-exe.js and tries it too: what breaks either -- a change in --build-sea, a page
+  # file the server cannot find, a XAML error, an icon the page renamed -- shows here, before a v*
+  # tag is pushed rather than after. Nothing is uploaded.
   exe:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '26.10.0'
-      - run: node scripts/build-exe.js
-
-  # The Windows program (desktop/Solarljos), built as release.yml will build it: what breaks its
-  # build -- a XAML error, an icon the page renamed -- shows here. Nothing is uploaded.
-  desktop:
     runs-on: windows-latest
     defaults:
       run:
@@ -47,7 +35,10 @@ jobs:
       DOTNET_NOLOGO: '1'
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26.10.0'
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
-      - run: dotnet build desktop/Solarljos/Solarljos.csproj -c Release
+          global-json-file: global.json
+      - run: node scripts/build-desktop.js

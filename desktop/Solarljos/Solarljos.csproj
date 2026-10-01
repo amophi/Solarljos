@@ -19,6 +19,8 @@
     <AssemblyName>Solarljos</AssemblyName>
     <RootNamespace>Solarljos</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The page's mark, drawn by scripts/desktop-icon.js; the window and the taskbar show it too. -->
+    <ApplicationIcon>Assets\Solarljos.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -37,7 +39,8 @@
     <Resource Include="Fonts\*.otf" />
     <EmbeddedResource Include="Assets\*.json" LogicalName="Assets.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\src\gui\ui\lang\*.json" LogicalName="Lang.%(Filename)%(Extension)" Link="Lang\%(Filename)%(Extension)" />
-    <None Include="Fonts\Pretendard-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The font's licence goes beside the program, which carries the font. -->
+    <None Include="Fonts\Pretendard-OFL.txt" Link="Pretendard-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
