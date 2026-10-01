@@ -64,10 +64,15 @@ public sealed class Icon : FrameworkElement
         if (!Paths.TryGetValue(Glyph ?? "", out var geometries)) return;
         double scale = Math.Min(ActualWidth, ActualHeight) / 24;
         if (scale <= 0) return;
-        // RTL mirroring of the arrows that point on through the page is the layout's: FlowDirection.
+        // Right to left, WPF mirrors what an element draws. That is right for the arrow that points
+        // on through the page, and wrong for every other icon -- a tick, a clock, a magnifier do
+        // not turn -- so those are mirrored back, as the page mirrors .icon-chevron alone.
+        bool turnBack = FlowDirection == FlowDirection.RightToLeft && Glyph != "chevron";
+        if (turnBack) dc.PushTransform(new MatrixTransform(-1, 0, 0, 1, ActualWidth, 0));
         dc.PushTransform(new ScaleTransform(scale, scale));
         var pen = Filled ? null : new Pen(Foreground, Thickness) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
         foreach (var g in geometries) dc.DrawGeometry(Filled ? Foreground : null, pen, g);
         dc.Pop();
+        if (turnBack) dc.Pop();
     }
 }
