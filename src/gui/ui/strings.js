@@ -176,6 +176,11 @@
     'find.type.label': 'Kind of file',
     'find.type.any': 'Any kind',
     'find.submit': 'Search',
+    // The Windows program's Find a file: what a browser draws by itself on the page, a video's controls and a day's calendar.
+    'desktop.find.play': 'Play',
+    'desktop.find.pause': 'Pause',
+    'desktop.find.position': 'Where in the video',
+    'desktop.find.calendar': 'Choose the day on a calendar',
 
     'type.document': 'Documents',
     'type.image': 'Pictures',

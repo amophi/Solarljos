@@ -1,0 +1,549 @@
+<!--
+  What Find a file draws that the rest of the window does not, as the page draws it
+  (src/gui/ui/style.css): the choice of views as a pill of segments, the preview's tabs, the
+  other copies of a file under a line that opens them, the day of "Only copies from" with its
+  calendar, a copy's text, and a video's place in it. Colours from the theme, as DynamicResource.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:u="clr-namespace:Solarljos.Ui">
+
+  <!-- ==== a choice of views: a pill on the track, the one shown filled (.segmented, .btn.seg) ==== -->
+  <Style x:Key="FindSegments" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource Track}" />
+    <Setter Property="CornerRadius" Value="22" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style x:Key="FindSeg" TargetType="RadioButton">
+    <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusRing}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TextOnTrack}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="16,6" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}" CornerRadius="18" Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
+            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource TrackHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource Text}" />
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentFill}" />
+        <Setter Property="Foreground" Value="{DynamicResource OnFill}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- ==== the preview's tabs: bold words and a short bar below the chosen one (.tablist, .tab) ==== -->
+  <Style x:Key="FindTabs" TargetType="TabControl">
+    <!-- The keyboard stops at the chosen tab, not at the list of them too. -->
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabControl">
+          <DockPanel KeyboardNavigation.TabNavigation="Local">
+            <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Margin="0,8,0,0">
+              <!-- WPF's own panel of tabs: Tab comes into it once, at the chosen tab, and the arrow keys go round them. -->
+              <TabPanel x:Name="HeaderPanel" IsItemsHost="True" KeyboardNavigation.TabIndex="1" />
+            </Border>
+            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="0,12,0,4"
+                              KeyboardNavigation.TabIndex="2" />
+          </DockPanel>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <!-- The keyboard's ring around the tab's words and bar, not the room after them. -->
+  <Style x:Key="FindTabFocus">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-3,-1,17,-1" RadiusX="8" RadiusY="8" Stroke="{DynamicResource Focus}" StrokeThickness="2" SnapsToDevicePixels="True" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindTab" TargetType="TabItem">
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FindTabFocus}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <!-- The words' weight and colour are the heading's own, not passed on to what the tab shows. -->
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabItem">
+          <!-- The room after it is its own: the panel of tabs lays them out without their margins. -->
+          <StackPanel Background="Transparent" Margin="0,0,20,0">
+            <ContentPresenter x:Name="Head" ContentSource="Header" Margin="2,8,2,6" HorizontalAlignment="Center" RecognizesAccessKey="False"
+                              TextElement.FontWeight="Bold" TextElement.FontSize="15" TextElement.Foreground="{DynamicResource Text2}" />
+            <Border x:Name="Bar" Width="28" Height="3" CornerRadius="1.5" Background="Transparent" HorizontalAlignment="Center" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Head" Property="TextElement.Foreground" Value="{DynamicResource TabHover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Head" Property="TextElement.Foreground" Value="{DynamicResource Text}" />
+              <Setter TargetName="Bar" Property="Background" Value="{DynamicResource Text}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ==== a file's other copies, under a line in the accent that opens them (.btn.disclosure) ==== -->
+  <Style x:Key="FindDisclosureHead" TargetType="ToggleButton">
+    <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusRing}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="8,4,12,4" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <u:Icon x:Name="Chevron" Glyph="chevron" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                      Foreground="{TemplateBinding Foreground}" RenderTransformOrigin="0.5,0.5">
+                <u:Icon.RenderTransform>
+                  <RotateTransform Angle="0" />
+                </u:Icon.RenderTransform>
+              </u:Icon>
+              <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False" />
+            </StackPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Chevron" Property="RenderTransform">
+                <Setter.Value>
+                  <RotateTransform Angle="90" />
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource Hover}" />
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter Property="Background" Value="{DynamicResource Press}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="FindDisclosure" TargetType="Expander">
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <!-- Its line is where the keyboard stops, once: not the card around it too. -->
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Expander">
+          <StackPanel>
+            <ToggleButton Style="{StaticResource FindDisclosureHead}" Content="{TemplateBinding Header}"
+                          IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                          AutomationProperties.Name="{Binding (AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}" />
+            <ContentPresenter x:Name="Body" Visibility="Collapsed" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsExpanded" Value="True">
+              <Setter TargetName="Body" Property="Visibility" Value="Visible" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ==== a copy's text: its own lines, left to right, in a box that scrolls both ways (.text-view) ==== -->
+  <Style x:Key="FindTextView" TargetType="TextBox">
+    <Setter Property="IsReadOnly" Value="True" />
+    <Setter Property="IsReadOnlyCaretVisible" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource Raised}" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Text}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Segoe UI" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FlowDirection" Value="LeftToRight" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+    <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="Box" Background="{TemplateBinding Background}" CornerRadius="10" BorderBrush="Transparent" BorderThickness="2">
+            <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" Focusable="False"
+                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                          VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Focus}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ==== where a video is: a white thumb on a line, blue up to it (input[type=range]) ==== -->
+  <Style x:Key="FindSliderPart" TargetType="RepeatButton">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="OverridesDefaultStyle" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RepeatButton">
+          <Grid Background="Transparent">
+            <Border Height="4" CornerRadius="2" Background="{TemplateBinding Background}" VerticalAlignment="Center" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindSliderThumb" TargetType="Thumb">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Ellipse Width="20" Height="20" Fill="{DynamicResource OnFill}" Stroke="{DynamicResource FieldLine}" StrokeThickness="1" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindSlider" TargetType="Slider">
+    <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusRing}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="IsMoveToPointEnabled" Value="True" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Slider">
+          <Grid Height="28" Background="Transparent">
+            <Border Height="4" CornerRadius="2" Background="{DynamicResource Track}" VerticalAlignment="Center" />
+            <Track x:Name="PART_Track">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Style="{StaticResource FindSliderPart}" Background="{DynamicResource Accent}" Command="Slider.DecreaseLarge" />
+              </Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Style="{StaticResource FindSliderPart}" Background="Transparent" Command="Slider.IncreaseLarge" />
+              </Track.IncreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb Style="{StaticResource FindSliderThumb}" />
+              </Track.Thumb>
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ==== the day of "Only copies from": typed, or chosen on a calendar (input[type=date]) ==== -->
+  <Style x:Key="FindDayButton" TargetType="CalendarDayButton">
+    <Setter Property="MinWidth" Value="36" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CalendarDayButton">
+          <Grid Margin="1">
+            <Border x:Name="Back" CornerRadius="8" Background="Transparent" />
+            <Border x:Name="Today" CornerRadius="8" BorderBrush="{DynamicResource AccentText}" BorderThickness="0" />
+            <Border x:Name="Ring" CornerRadius="8" BorderBrush="{DynamicResource Focus}" BorderThickness="0" />
+            <ContentPresenter x:Name="Words" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,4" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource Hover}" />
+            </Trigger>
+            <Trigger Property="IsInactive" Value="True">
+              <Setter Property="Foreground" Value="{DynamicResource Text2}" />
+            </Trigger>
+            <Trigger Property="IsToday" Value="True">
+              <Setter TargetName="Today" Property="BorderThickness" Value="1.5" />
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource Hover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource AccentFill}" />
+              <Setter Property="Foreground" Value="{DynamicResource OnFill}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Ring" Property="BorderThickness" Value="2" />
+            </Trigger>
+            <Trigger Property="IsBlackedOut" Value="True">
+              <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindMonthButton" TargetType="CalendarButton">
+    <Setter Property="MinWidth" Value="56" />
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CalendarButton">
+          <Grid Margin="2">
+            <Border x:Name="Back" CornerRadius="10" Background="Transparent" />
+            <Border x:Name="Ring" CornerRadius="10" BorderBrush="{DynamicResource Focus}" BorderThickness="0" />
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,4" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource Hover}" />
+            </Trigger>
+            <Trigger Property="HasSelectedDays" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource AccentSoft}" />
+            </Trigger>
+            <Trigger Property="IsInactive" Value="True">
+              <Setter Property="Foreground" Value="{DynamicResource Text2}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Ring" Property="BorderThickness" Value="2" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindCalendarNav" TargetType="Button">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Back" Background="{TemplateBinding Background}" CornerRadius="10" Padding="8,6" MinHeight="36" MinWidth="36">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False"
+                              TextElement.FontWeight="Bold" TextElement.FontSize="15" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource Hover}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindCalendarItem" TargetType="CalendarItem">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CalendarItem">
+          <ControlTemplate.Resources>
+            <DataTemplate x:Key="{x:Static CalendarItem.DayTitleTemplateResourceKey}">
+              <TextBlock Text="{Binding}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Text2}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,6" />
+            </DataTemplate>
+          </ControlTemplate.Resources>
+          <Grid x:Name="PART_Root">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14" Padding="10">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Button x:Name="PART_PreviousButton" Grid.Column="0" Style="{StaticResource FindCalendarNav}">
+                  <u:Icon Glyph="chevron" Width="18" Height="18" Foreground="{DynamicResource Text}" RenderTransformOrigin="0.5,0.5">
+                    <u:Icon.RenderTransform>
+                      <ScaleTransform ScaleX="-1" />
+                    </u:Icon.RenderTransform>
+                  </u:Icon>
+                </Button>
+                <Button x:Name="PART_HeaderButton" Grid.Column="1" Style="{StaticResource FindCalendarNav}" HorizontalAlignment="Center" />
+                <Button x:Name="PART_NextButton" Grid.Column="2" Style="{StaticResource FindCalendarNav}">
+                  <u:Icon Glyph="chevron" Width="18" Height="18" Foreground="{DynamicResource Text}" />
+                </Button>
+                <Grid x:Name="PART_MonthView" Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Center" Margin="0,6,0,0" Visibility="Visible">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                </Grid>
+                <Grid x:Name="PART_YearView" Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Center" Margin="0,6,0,0" Visibility="Hidden">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                </Grid>
+              </Grid>
+            </Border>
+            <Rectangle x:Name="PART_DisabledVisual" Fill="{DynamicResource Bg}" Opacity="0.5" RadiusX="14" RadiusY="14" Visibility="Collapsed" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="PART_DisabledVisual" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Calendar}}}" Value="Year">
+              <Setter TargetName="PART_MonthView" Property="Visibility" Value="Hidden" />
+              <Setter TargetName="PART_YearView" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Calendar}}}" Value="Decade">
+              <Setter TargetName="PART_MonthView" Property="Visibility" Value="Hidden" />
+              <Setter TargetName="PART_YearView" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindCalendar" TargetType="Calendar">
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="Background" Value="{DynamicResource Card}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CalendarItemStyle" Value="{StaticResource FindCalendarItem}" />
+    <Setter Property="CalendarDayButtonStyle" Value="{StaticResource FindDayButton}" />
+    <Setter Property="CalendarButtonStyle" Value="{StaticResource FindMonthButton}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Calendar">
+          <StackPanel x:Name="PART_Root" HorizontalAlignment="Center" Margin="0,4,0,0">
+            <CalendarItem x:Name="PART_CalendarItem" Style="{TemplateBinding CalendarItemStyle}" Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" />
+          </StackPanel>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindDateText" TargetType="DatePickerTextBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Text}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DatePickerTextBox">
+          <ScrollViewer x:Name="PART_ContentHost" Focusable="False" VerticalAlignment="Center"
+                        HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindDateButton" TargetType="Button">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Back" Background="{TemplateBinding Background}" CornerRadius="8" Width="36" Height="36" Margin="0,0,4,0">
+            <Canvas Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <!-- A calendar's page: the page's line icons are drawn the same way, 1.7 wide on a 24 box. -->
+              <Path Data="M4 5.5h12a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-12a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5z M2.5 9h15 M6.5 3.5v3 M13.5 3.5v3"
+                    Stroke="{DynamicResource Text2}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+            </Canvas>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Back" Property="Background" Value="{DynamicResource Hover}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="FindDate" TargetType="DatePicker">
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="IsTodayHighlighted" Value="True" />
+    <Setter Property="SelectedDateFormat" Value="Short" />
+    <Setter Property="Width" Value="208" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="CalendarStyle" Value="{StaticResource FindCalendar}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DatePicker">
+          <Grid x:Name="PART_Root">
+            <Border x:Name="Box" Background="{DynamicResource Field}" BorderBrush="{DynamicResource FieldLine}" BorderThickness="1"
+                    CornerRadius="10" MinHeight="44" SnapsToDevicePixels="True">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <DatePickerTextBox x:Name="PART_TextBox" Grid.Column="0" Style="{StaticResource FindDateText}" Margin="12,0,4,0" />
+                <Button x:Name="PART_Button" Grid.Column="1" Style="{StaticResource FindDateButton}" />
+                <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom" PlacementTarget="{Binding ElementName=Box}" StaysOpen="False" />
+              </Grid>
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource FieldLineHover}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Focus}" />
+              <Setter TargetName="Box" Property="BorderThickness" Value="2" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>
