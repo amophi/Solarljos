@@ -598,7 +598,8 @@
               <ColumnDefinition Width="Auto" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border x:Name="Box" Width="20" Height="20" CornerRadius="6" BorderThickness="2" BorderBrush="{DynamicResource CheckLine}"
+            <!-- The tick does not turn right to left: the box keeps its own direction. -->
+            <Border x:Name="Box" Width="20" Height="20" CornerRadius="6" BorderThickness="2" BorderBrush="{DynamicResource CheckLine}" FlowDirection="LeftToRight"
                     Background="Transparent" VerticalAlignment="Top" Margin="0,2,0,0">
               <Grid>
                 <Path x:Name="Tick" Data="M3.5 8.5l3 3 6-6.5" Stroke="{DynamicResource OnFill}" StrokeThickness="2" StrokeStartLineCap="Round"

@@ -174,7 +174,10 @@ public sealed class JobStore
                             if (job.State == "done" && job.Kind is "search" or "plan" && !job.Complete) _ = FetchItemsAsync(job);
                         }
                     }
-                    foreach (var job in jobs.Values.Where((j) => !kept.Contains(j.Id)).ToList()) Forget(job);
+                    // What the engine no longer keeps, the program lets go of too: an ended job it has
+                    // dropped. Not one still running, which may have been started after the stream
+                    // opened and before its hello was read.
+                    foreach (var job in jobs.Values.Where((j) => !kept.Contains(j.Id) && !j.Running).ToList()) Forget(job);
                     foreach (var job in jobs.Values.ToList()) Changed?.Invoke(job);
                     break;
                 }
