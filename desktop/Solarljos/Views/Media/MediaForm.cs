@@ -173,8 +173,8 @@ public sealed class MediaForm
             // The calendar's button says what it is in the language chosen, not WPF's own English.
             if (d.Template?.FindName("PART_Button", d) is Button b)
             {
-                AutomationProperties.SetName(b, Tr.Instance["desktop.media.calendar"]);
-                b.ToolTip = Tr.Instance["desktop.media.calendar"];
+                AutomationProperties.SetName(b, Tr.Instance["desktop.calendar"]);
+                b.ToolTip = Tr.Instance["desktop.calendar"];
             }
             if (d.Template?.FindName("PART_TextBox", d) is TextBox tb)
             {

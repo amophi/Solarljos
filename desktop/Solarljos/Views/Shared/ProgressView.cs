@@ -222,7 +222,8 @@ public static class StatePage
         badge.SetResourceReference(Border.BackgroundProperty, kind == "error" ? "ErrorBg" : kind == "success" ? "SuccessBg" : "AccentSoft");
         var words = Build.Stack(Build.Heading(title));
         foreach (var b in body) if (b is not null) words.Children.Add(b);
-        var dock = new DockPanel { Margin = new Thickness(0, 24, 0, 0) };
+        // As the page's state-page: a column of its own, in the middle of the part.
+        var dock = new DockPanel { Margin = new Thickness(0, 24, 0, 0), MaxWidth = 880, HorizontalAlignment = HorizontalAlignment.Center };
         DockPanel.SetDock(badge, Dock.Left);
         dock.Children.Add(badge);
         dock.Children.Add(words);

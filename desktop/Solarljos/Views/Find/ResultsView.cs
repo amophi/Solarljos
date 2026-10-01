@@ -448,7 +448,7 @@ public sealed class ResultsView : UserControl
         if (g.IsDir && best.Path is { Length: > 0 } folderPath)
         {
             Button? rb = null;
-            rb = Small(T["results.rebuildFolder"], () => MainWindow.Navigate("folder"), "BtnQuiet");
+            rb = Small(T["results.rebuildFolder"], () => MainWindow.Navigate("folder/fill:" + folderPath), "BtnQuiet");
             rb.Margin = new Thickness(0, 0, 8, 4);
             rb.Tag = folderPath;
             acts.Children.Add(rb);

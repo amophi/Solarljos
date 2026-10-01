@@ -665,6 +665,8 @@
     </Setter>
   </Style>
   <Style x:Key="MoreCard" TargetType="Expander">
+    <!-- Its title is the one place the keyboard stops, not the card around it as well. -->
+    <Setter Property="Focusable" Value="False" />
     <Setter Property="Background" Value="{DynamicResource Raised}" />
     <Setter Property="Foreground" Value="{DynamicResource Text}" />
     <Setter Property="Margin" Value="0,8,0,0" />

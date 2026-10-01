@@ -266,7 +266,7 @@ public sealed class Lightbox : Window
     /// <summary>What Windows cannot show or play here, with its format: restored, it opens in an app that can.</summary>
     static FrameworkElement Cannot(Copy it, string? ext)
     {
-        var key = MediaData.IsVideo(it) ? "desktop.media.videoCannot" : "desktop.media.imageCannot";
+        var key = MediaData.IsVideo(it) ? "desktop.videoCannot" : "desktop.imageCannot";
         var said = Tr.Instance.Get(key, ("format", Formats.FormatName(ext ?? it.Ext)));
         return Centered(Build.Callout("info", null, Build.Text(said)).Margin(16, 16, 16, 16));
     }
@@ -406,12 +406,12 @@ public sealed class Lightbox : Window
         time.FlowDirection = FlowDirection.LeftToRight;
         time.FontFeatures();
         var seek = new Slider { Minimum = 0, Maximum = 1, VerticalAlignment = VerticalAlignment.Center, IsMoveToPointEnabled = true, Style = (Style)look["MediaSeek"] };
-        AutomationProperties.SetName(seek, T["desktop.media.position"]);
+        AutomationProperties.SetName(seek, T["desktop.video.position"]);
         bool dragging = false, setting = false;
         void showToggle()
         {
             toggle.Content = PlayGlyph(playing);
-            var label = T[playing ? "desktop.media.pause" : "desktop.media.play"];
+            var label = T[playing ? "desktop.video.pause" : "desktop.video.play"];
             AutomationProperties.SetName(toggle, label);
             toggle.ToolTip = label;
         }

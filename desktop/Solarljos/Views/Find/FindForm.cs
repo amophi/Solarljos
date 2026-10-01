@@ -89,8 +89,8 @@ public sealed class FindForm : UserControl
             // The calendar's button, which the template has; named here, in the program's words.
             if (sinceDate.Template?.FindName("PART_Button", sinceDate) is Button b)
             {
-                AutomationProperties.SetName(b, T["desktop.find.calendar"]);
-                b.ToolTip = T["desktop.find.calendar"];
+                AutomationProperties.SetName(b, T["desktop.calendar"]);
+                b.ToolTip = T["desktop.calendar"];
             }
         };
         void syncSince() => sinceField.El.Visibility = since.Value == "pick" ? Visibility.Visible : Visibility.Collapsed;

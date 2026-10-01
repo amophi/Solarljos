@@ -35,7 +35,9 @@ public static class Theme
     {
         string list = code switch
         {
-            "ja" => "Yu Gothic UI, Meiryo UI, Segoe UI",
+            // Segoe UI first, for the Latin letters: a Japanese font draws the backslash of a path
+            // as a yen sign. It has no kana or kanji, which come from Yu Gothic UI, all in one hand.
+            "ja" => "Segoe UI, Yu Gothic UI, Meiryo UI",
             "zh-CN" => "Microsoft YaHei UI, Segoe UI",
             "zh-TW" => "Microsoft JhengHei UI, Segoe UI",
             _ => "./Fonts/#Pretendard, Segoe UI, Malgun Gothic, Leelawadee UI, Nirmala UI",

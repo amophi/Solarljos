@@ -269,6 +269,8 @@ public partial class MainWindow : Window
     public void Connected(Session s)
     {
         session = s;
+        // A file of a folder's plan is shown on its own, in the preview the results have.
+        FolderView.ShowPreview = (copy, opener) => Views.Shared.PreviewWindow.Show(s, copy, opener);
         Starting.Visibility = Visibility.Collapsed;
         foreach (var p in pages.Values) p.Connected(s);
     }

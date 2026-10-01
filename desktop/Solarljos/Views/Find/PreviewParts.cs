@@ -220,11 +220,11 @@ public static class PreviewParts
                 Stretch = Stretch.Uniform, MaxHeight = 420, AllowDrop = false,
             };
             AutomationProperties.SetName(media, copy.Name ?? T["results.nameUnknown"]);
-            play = IconButton("play", T["desktop.find.play"], Toggle, 40);
+            play = IconButton("play", T["desktop.video.play"], Toggle, 40);
             play.IsEnabled = false;
             where.SetResourceReference(FrameworkElement.StyleProperty, "FindSlider");
             where.IsEnabled = false;
-            AutomationProperties.SetName(where, T["desktop.find.position"]);
+            AutomationProperties.SetName(where, T["desktop.video.position"]);
             where.ValueChanged += (_, _) =>
             {
                 if (moving) return;
@@ -304,7 +304,7 @@ public static class PreviewParts
 
         void SetButton()
         {
-            var label = T[playing ? "desktop.find.pause" : "desktop.find.play"];
+            var label = T[playing ? "desktop.video.pause" : "desktop.video.play"];
             AutomationProperties.SetName(play, label);
             play.ToolTip = label;
             play.Content = playing ? PauseGlyph() : new Ui.Icon { Glyph = "play", Width = 20, Height = 20 };
