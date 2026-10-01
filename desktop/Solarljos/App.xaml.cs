@@ -24,6 +24,15 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // Something unforeseen in a click or an answer must not take the window and its results
+        // with it: it is said, as the page says an error, and the window stays. Nothing is logged
+        // to disk.
+        DispatcherUnhandledException += (_, ex) =>
+        {
+            ex.Handled = true;
+            ShowUnexpected(ex.Exception);
+        };
+        TaskScheduler.UnobservedTaskException += (_, ex) => ex.SetObserved();
         var shot = Shot.FromEnvironment();
         var tr = Tr.Instance;
         tr.Use(tr.Pick(shot?.Lang is { } lang ? [lang] : [CultureInfo.CurrentUICulture.Name]));
@@ -66,6 +75,25 @@ public partial class App : Application
             await window.ActAsync(shot.Act);
             await shot.TakeAsync(window);
             Shutdown();
+        }
+    }
+
+    static bool showing;
+
+    static void ShowUnexpected(Exception e)
+    {
+        var tr = Tr.Instance;
+        var message = Formats.ErrorText(e) + (e is CoreException or HttpRequestException ? "" : " (" + e.GetType().Name + ": " + e.Message + ")");
+        Announce.Alert(message);
+        if (showing || Current?.MainWindow is not { IsLoaded: true } w) return;
+        showing = true;
+        try
+        {
+            _ = Dialog.InformAsync(w, tr["error.title"], message, tr["common.close"]);
+        }
+        finally
+        {
+            showing = false;
         }
     }
 

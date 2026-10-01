@@ -12,7 +12,10 @@ namespace Solarljos.Ui;
 /// </summary>
 public static class Dialog
 {
-    public static Task<bool> ConfirmAsync(Window owner, string title, string body, string ok, string cancel, bool danger = false)
+    /// <summary>Says something that needs only to be read: one button, which Esc presses too.</summary>
+    public static Task<bool> InformAsync(Window owner, string title, string body, string ok) => ConfirmAsync(owner, title, body, ok, null);
+
+    public static Task<bool> ConfirmAsync(Window owner, string title, string body, string ok, string? cancel, bool danger = false)
     {
         var w = new Window
         {
@@ -46,6 +49,7 @@ public static class Dialog
             answer = true;
             w.Close();
         };
+        if (cancel is null) yes.IsCancel = true;
         foreach (var b in new[] { no, yes })
         {
             b.MinHeight = 48;
@@ -53,14 +57,14 @@ public static class Dialog
             Look.SetRadius(b, new CornerRadius(14));
         }
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 24, 0, 0) };
-        buttons.Children.Add(no);
+        if (cancel is not null) buttons.Children.Add(no);
         buttons.Children.Add(yes);
         var stack = new StackPanel { Margin = new Thickness(28, 24, 28, 24), MinWidth = 380 };
         stack.Children.Add(heading);
         stack.Children.Add(text);
         stack.Children.Add(buttons);
         w.Content = stack;
-        w.Loaded += (_, _) => Keyboard.Focus(no);
+        w.Loaded += (_, _) => Keyboard.Focus(cancel is null ? yes : no);
         w.ShowDialog();
         return Task.FromResult(answer);
     }
