@@ -164,7 +164,9 @@ async function main(argv) {
   if (!fs.existsSync(CORE)) throw new Error(`${CORE} is not there: run scripts/build-exe.js first`);
 
   fs.rmSync(OUT, { recursive: true, force: true });
-  run('dotnet', ['build', PROJECT, '-c', 'Release', '-p:ContinuousIntegrationBuild=true', '-p:DebugType=none', '-o', OUT, '-nologo', '-v', 'q'],
+  // From nothing, every time: an incremental build keeps the window's compiled XAML from the last
+  // one, which names the version that one had.
+  run('dotnet', ['build', PROJECT, '-c', 'Release', '--no-incremental', '-p:ContinuousIntegrationBuild=true', '-p:DebugType=none', '-o', OUT, '-nologo', '-v', 'q'],
   { env: { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1' } });
   const windowExe = path.join(OUT, 'Solarljos.exe');
   const coreExe = path.join(OUT, 'solarljos-core.exe');
