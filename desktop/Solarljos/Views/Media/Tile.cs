@@ -257,6 +257,13 @@ public sealed class Tile : Grid
 
     internal void AskSelected(bool on) => SelectRequested?.Invoke(this, on);
 
+    /// <summary>The grid it is drawn in; none while it waits to be used again.</summary>
+    GridList? Holder()
+    {
+        for (var at = VisualTreeHelper.GetParent(this); at is not null; at = VisualTreeHelper.GetParent(at)) if (at is GridList list) return list;
+        return null;
+    }
+
     /// <summary>A tile to assistive technology: an item, named by what it shows, that is selected or not and that opens.</summary>
     sealed class TilePeer(Tile owner) : FrameworkElementAutomationPeer(owner), ISelectionItemProvider, IInvokeProvider
     {
@@ -272,7 +279,9 @@ public sealed class Tile : Grid
 
         public bool IsSelected => owner.selected;
 
-        public IRawElementProviderSimple? SelectionContainer => null;
+        /// <summary>The grid it is drawn in, which says that several can be selected, and which are.</summary>
+        public IRawElementProviderSimple? SelectionContainer =>
+            owner.Holder() is { } list && UIElementAutomationPeer.CreatePeerForElement(list) is { } peer ? ProviderFromPeer(peer) : null;
 
         public void Select() => owner.AskSelected(true);
 

@@ -1,6 +1,9 @@
 using System.Windows;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace Solarljos.Views.Media;
 
@@ -22,9 +25,12 @@ public sealed class GridList : ItemsControl
     public Action<RowHost, object>? Prepare { get; set; }
     public Action<RowHost, object>? Release { get; set; }
 
+    /// <summary>The tiles drawn now that are selected, which assistive technology is told of as the grid's selection.</summary>
+    public Func<IEnumerable<UIElement>>? Selection { get; set; }
+
     public GridList()
     {
-        var scroll = new FrameworkElementFactory(typeof(ScrollViewer), "PART_Scroll");
+        var scroll = new FrameworkElementFactory(typeof(RowsScroller), "PART_Scroll");
         scroll.SetValue(ScrollViewer.CanContentScrollProperty, true);
         scroll.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
         scroll.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Auto);
@@ -53,6 +59,57 @@ public sealed class GridList : ItemsControl
     {
         base.OnApplyTemplate();
         Scroller = GetTemplateChild("PART_Scroll") as ScrollViewer;
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new GridListPeer(this);
+
+    /// <summary>
+    /// The grid to assistive technology: a list in which several tiles can be selected (the page's
+    /// grid, aria-multiselectable), holding what its rows draw now -- the heading and the choices,
+    /// each month's heading and its tiles -- as the window shows them. An ItemsControl's own would
+    /// read out each row as an item named by what the program calls it. The scroller is passed by,
+    /// as a list box's is, and its scrolling is the list's.
+    /// </summary>
+    sealed class GridListPeer(GridList owner) : FrameworkElementAutomationPeer(owner), ISelectionProvider
+    {
+        ScrollViewerAutomationPeer? scroll;
+
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.List;
+
+        protected override string GetClassNameCore() => "GridList";
+
+        protected override List<AutomationPeer>? GetChildrenCore()
+        {
+            if (owner.Rows is not { } rows) return null;
+            var found = new List<AutomationPeer>();
+            Collect(rows, found);
+            return found.Count > 0 ? found : null;
+        }
+
+        /// <summary>The nearest elements under one that assistive technology knows, as an element's own peer finds them.</summary>
+        static void Collect(DependencyObject at, List<AutomationPeer> into)
+        {
+            for (int i = 0, n = VisualTreeHelper.GetChildrenCount(at); i < n; i++)
+            {
+                var child = VisualTreeHelper.GetChild(at, i);
+                if (child is UIElement e && UIElementAutomationPeer.CreatePeerForElement(e) is { } peer) into.Add(peer);
+                else Collect(child, into);
+            }
+        }
+
+        public override object GetPattern(PatternInterface p)
+        {
+            if (p == PatternInterface.Selection) return this;
+            if (p == PatternInterface.Scroll && owner.Scroller is { } s) return scroll ??= new ScrollViewerAutomationPeer(s);
+            return base.GetPattern(p)!;
+        }
+
+        public bool CanSelectMultiple => true;
+
+        public bool IsSelectionRequired => false;
+
+        public IRawElementProviderSimple[] GetSelection() =>
+            (owner.Selection?.Invoke() ?? []).Select(UIElementAutomationPeer.CreatePeerForElement).OfType<AutomationPeer>().Select(ProviderFromPeer).ToArray();
     }
 
     protected override bool IsItemItsOwnContainerOverride(object item) => item is UIElement;
@@ -100,6 +157,12 @@ public sealed class GridRows : VirtualizingStackPanel
     }
 
     public void BringIntoView(int index) => BringIndexIntoViewPublic(index);
+}
+
+/// <summary>The grid's scroller, which assistive technology does not see: the grid stands for it (GridListPeer).</summary>
+public sealed class RowsScroller : ScrollViewer
+{
+    protected override AutomationPeer? OnCreateAutomationPeer() => null;
 }
 
 /// <summary>Where one row of the grid is drawn: a month's heading, or a row of tiles.</summary>

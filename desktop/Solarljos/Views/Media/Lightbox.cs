@@ -189,6 +189,11 @@ public sealed class Lightbox : Window
         var uid = it.Uid;
         var name = it.Name is { Length: > 0 } n ? n : MediaData.TileLabel(it);
         heading.Text = name;
+        // In its own direction, as the page's <bdi> has it, and still at the start of the line: right to
+        // left, "20240501_123045.jpg" would otherwise read "jpg.123045_20240501". WPF's text knows
+        // neither the isolates Tr puts round a value nor embeddings, so the heading itself turns.
+        heading.FlowDirection = DirectionOf(name);
+        heading.TextAlignment = heading.FlowDirection == FlowDirection ? TextAlignment.Left : TextAlignment.Right;
         Title = name;
         StopVideo();
         frame.Child = Centered(Build.Text(T["preview.loading"], "Muted"));
@@ -256,6 +261,17 @@ public sealed class Lightbox : Window
         Ready = true;
     }
 
+    /// <summary>The direction a name reads in, from its first letter that has one: Arabic or Hebrew right to left, any other left to right.</summary>
+    static FlowDirection DirectionOf(string text)
+    {
+        foreach (var ch in text)
+        {
+            if (ch is >= '\u0590' and <= '\u08FF' or >= '\uFB1D' and <= '\uFDFF' or >= '\uFE70' and <= '\uFEFC') return FlowDirection.RightToLeft;
+            if (char.IsLetter(ch)) return FlowDirection.LeftToRight;
+        }
+        return FlowDirection.LeftToRight;
+    }
+
     static FrameworkElement Centered(FrameworkElement e)
     {
         e.HorizontalAlignment = HorizontalAlignment.Center;
@@ -318,7 +334,9 @@ public sealed class Lightbox : Window
         facts.Children.Add(badges.Margin(0, 0, 0, 4));
         facts.Children.Add(Build.Text(Formats.TierHelp(it), "Hint").Margin(0, 0, 0, 4));
         var found = Build.Text("", "Body");
-        found.Inlines.Add(new System.Windows.Documents.Run(T["preview.info.foundIn"] + ": ") { Foreground = (Brush)FindResource("Text2") });
+        var term = new System.Windows.Documents.Run(T["preview.info.foundIn"] + ": ");
+        term.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text2");
+        found.Inlines.Add(term);
         found.Inlines.Add(new System.Windows.Documents.Run(MediaData.FoundIn(it)) { FontWeight = FontWeights.SemiBold });
         facts.Children.Add(found.Margin(0, 0, 0, 4));
         var details = new Expander { Header = T["preview.technical"], Content = InfoList(it), Style = (Style)look["MediaDisclosure"] };
@@ -448,18 +466,22 @@ public sealed class Lightbox : Window
         };
         seek.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, _) => dragging = true));
         seek.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) => dragging = false));
-        clock = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-        clock.Tick += (_, _) => tick();
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        timer.Tick += (_, _) => tick();
+        clock = timer;
+        // What a video shown before says late -- that it opened, ended or failed -- is not this one's: it is let be.
         media.MediaOpened += (_, _) =>
         {
+            if (video != media) return;
             // Never larger than it is, as the page's player.
             if (media.NaturalVideoWidth > 0) media.MaxWidth = media.NaturalVideoWidth;
             if (media.NaturalVideoHeight > 0) media.MaxHeight = media.NaturalVideoHeight;
             tick();
-            clock.Start();
+            timer.Start();
         };
         media.MediaEnded += (_, _) =>
         {
+            if (video != media) return;
             playing = false;
             media.Pause();
             media.Position = TimeSpan.Zero;
@@ -468,6 +490,7 @@ public sealed class Lightbox : Window
         };
         media.MediaFailed += (_, _) =>
         {
+            if (video != media) return;
             StopVideo();
             frame.Child = Cannot(it, ext);
         };

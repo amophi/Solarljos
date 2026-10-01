@@ -139,7 +139,8 @@
                   <ColumnDefinition Width="*" />
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Button x:Name="PART_PreviousButton" Style="{StaticResource MediaCalendarStep}">
+                <Button x:Name="PART_PreviousButton" Style="{StaticResource MediaCalendarStep}"
+                        AutomationProperties.Name="{u:T preview.prevItem}">
                   <u:Icon Glyph="chevron" Width="18" Height="18" RenderTransformOrigin="0.5,0.5">
                     <u:Icon.RenderTransform>
                       <ScaleTransform ScaleX="-1" />
@@ -147,7 +148,8 @@
                   </u:Icon>
                 </Button>
                 <Button x:Name="PART_HeaderButton" Grid.Column="1" Style="{StaticResource MediaCalendarStep}" />
-                <Button x:Name="PART_NextButton" Grid.Column="2" Style="{StaticResource MediaCalendarStep}">
+                <Button x:Name="PART_NextButton" Grid.Column="2" Style="{StaticResource MediaCalendarStep}"
+                        AutomationProperties.Name="{u:T preview.nextItem}">
                   <u:Icon Glyph="chevron" Width="18" Height="18" />
                 </Button>
                 <Grid x:Name="PART_MonthView" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,6,0,0" Visibility="Visible">
