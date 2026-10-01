@@ -22,6 +22,14 @@ The Windows program:
   not between syllables.
 - Dialogs are windows of their own, which Windows and screen readers know as dialogs. Esc and
   the close button answer no.
+- Screen readers meet it as they meet the page: headings, lists, tables with their column
+  headers, the photo grid as a list whose tiles say whether they are chosen, cards that open as
+  expanded or collapsed, and what a check or a search finds said as it is found. The focus goes
+  to a part's heading when it is reached from another, and stays on the rail while the arrow
+  keys go along it. Dates, lists and numbers are written as the page writes them, and a path or
+  a name keeps its own direction in an Arabic sentence.
+- A folder's plan draws only the rows in sight, so a plan of tens of thousands of files stays
+  quick to open, filter and go through.
 - Pictures are previewed by Windows' own decoders and videos by its media player, from the
   engine's memory; what Windows cannot show says so and how to open it once it is restored.
 - It opens no browser, no folder picker and no Explorer, all of which would add pictures to the
