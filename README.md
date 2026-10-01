@@ -649,7 +649,7 @@ command line alone for Node.js 22 or later, with its own. The zip holds:
 | --- | --- |
 | `Solarljos.exe`, `Solarljos.dll`, `Solarljos.deps.json`, `Solarljos.runtimeconfig.json` | the window ([desktop/Solarljos](desktop/Solarljos)): WPF on .NET 10, which needs the .NET 10 Desktop Runtime, and nothing from NuGet. It carries the page's words in every language, its icons and the Pretendard font |
 | `solarljos-core.exe` | the engine: the command line, the page and the node.exe they run on, as `scripts/build-exe.js` makes it. The window starts it as `solarljos-core.exe desktop` |
-| `LICENSE.txt`, `Pretendard-OFL.txt` | Solarljos's licence, and the font's |
+| `LICENSE.txt`, `Node.js-LICENSE.txt`, `dotnet-LICENSE.txt`, `Pretendard-OFL.txt` | Solarljos's licence, and those of what it carries: Node.js 26.10, with the licences of what Node.js itself carries; .NET's program that starts the window; and the font |
 
 The release workflow attests where each was built:
 
@@ -701,12 +701,15 @@ must draw itself off the screen and stop. CI does the same on every push.
 included, into one script; `scripts/build-exe.js` puts that script and the page's files, its
 language tables included, into a copy of the node.exe running it, with that node.exe's signature
 taken off first, since it would no longer verify. It then sets the header's Subsystem to the
-Windows GUI's before it makes the checksum right, and reads the file back, which must say 2. It
+Windows GUI's, and writes over node.exe's version resource one of Solarljos's own, in the same
+room -- the name, *Solarljos engine*, and the version that the file's Details and Task Manager
+show -- before it makes the checksum right, and reads the file back, which must say 2 and
+Solarljos. It
 then runs the exe, with pipes for its output -- its version, its help, every source, a search and a
 restore on a made-up Linux trash, and the front end serving its page, started with `--no-open`,
 where every page file must come back as the bytes that went in -- and only then writes
-`dist/Solarljos.exe.sha256` and `dist/solarljos.cjs.sha256`. Setting the Subsystem and the
-checksum adds nothing that depends on the machine or the folder.
+`dist/Solarljos.exe.sha256` and `dist/solarljos.cjs.sha256`. Setting the Subsystem, the version
+resource and the checksum adds nothing that depends on the machine or the folder.
 
 `scripts/desktop-assets.js` copies into the window what it takes from the page -- the English
 table, the icons, the list of languages -- and draws its icon, the page's mark
@@ -774,6 +777,25 @@ one. `planFolder()` and `rebuildFolder()` read a folder the way `rebuild` does (
 drive's root on any system, a relative folder is made absolute), and `planFolder()` returns it
 as `folder`, as it was understood.
 
+## What stays the same
+
+From 1.0, every 1.x release keeps working as the one before it did for whatever reads its output
+or calls it, and what would break that waits for 2.0:
+
+- the command line's commands and options, as *Usage* lists them, and its exit codes;
+- the fields of `--json`, which may gain new ones but keep those there;
+- the API `require('solarljos')` gives, as *Using it from code* shows it: its functions, their
+  options, and the fields of a copy, which may gain new ones;
+- what a restored copy's name says: its own name, and the marks a copy that is not simply the
+  file gets, such as *(may be incomplete)*, or a name already taken, such as *(recovered 2)*, in
+  the language spoken;
+- that nothing is written but what you restore, into the folder you choose.
+
+Any release may change the words it prints for people and their translations, the columns of
+`find`'s table, the window and the page, which places are searched and how copies are ordered
+within a tier, and how `Solarljos.exe` and `solarljos-core.exe` talk to each other -- `desktop`
+mode and the page's `/api`, which only the two programs of one release use.
+
 ## Speed
 
 Measured on the machine this was written on, a search for `package.json` across all fifteen
@@ -821,6 +843,9 @@ that lies anywhere else.
 - The Recycle Bin is found on Windows only, though one from a Windows drive can be given on any
   system with `--recycle-dir`; the Linux trash is read on any system; the macOS Trash is not
   read yet.
+- The page in a browser is let in once, by the address it was opened with: a program on the same
+  computer that opened that address first would be let in instead, and the window refused. The
+  Windows program has no such address; its window is given its key on the engine's own output.
 - Copies larger than 32 MB are listed but not compared, so they are never merged as duplicates.
 - A search by content (`--containing`) reads the bytes as stored, so it does not see into
   compressed formats such as HWP or DOCX.
@@ -867,8 +892,26 @@ and tries the Windows program, the window and its engine, on every push.
   window of its own for what would not be seen. Every program is a stand-in, but for one cmd.exe
   on Windows, run with the command line such a window gets in a console that is hidden.
 
-On Windows 11 with Node 24.20, `npm test` ran 635 tests: 626 passed, and 9 were skipped, which
+On Windows 11 with Node 26.10, `npm test` ran 642 tests: 633 passed, and 9 were skipped, which
 need Linux or what Windows does not give without privileges.
+
+### On your own computer
+
+The tests never read real data. `scripts/field-test.js` does, on the computer it runs on, through
+the API the window uses, and prints a report that names no file and no folder -- counts, times,
+and how each place searched went -- so that it can be shared as it is:
+
+```
+node scripts/field-test.js                                 four searches, and one stopped
+node scripts/field-test.js --to E:\field-test              and restores some copies there
+node scripts/field-test.js --to E:\ft --plan C:\work\app   and plans that folder, written there
+node scripts/field-test.js --engine C:\Solarljos\solarljos-core.exe   a release's own engine
+```
+
+Restored exact copies of files still in their place are compared with them byte for byte; the
+rest are checked for the size recorded. It writes nothing but what `--to` receives. What a script
+cannot try -- the window itself, a real memory card, a screen reader, and what Process Monitor
+sees Solarljos write -- is listed in [docs/field-test.md](docs/field-test.md).
 
 ## License
 
@@ -877,3 +920,8 @@ MIT
 The page's font, Pretendard 1.3.9 (`src/gui/ui/fonts/PretendardVariable.woff2`, unchanged from its
 release), is © 2021 Kil Hyung-jin and licensed under the SIL Open Font License 1.1, whose text is
 beside it in `src/gui/ui/fonts/Pretendard-OFL.txt`.
+
+The Windows program's engine is built on Node.js 26.10, © Node.js contributors, under the MIT
+licence, with what Node.js itself carries under their own; its window is started by a program of
+.NET's, © .NET Foundation and contributors, MIT. Their licences, as each project publishes them,
+are in `desktop/licenses` and in the zip of every release.
