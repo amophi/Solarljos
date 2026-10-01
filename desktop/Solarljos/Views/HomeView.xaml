@@ -68,8 +68,10 @@
         </Button>
       </UniformGrid>
 
-      <!-- The last results of each kind, once there are some. -->
-      <StackPanel x:Name="Last" Margin="0,0,0,24" Visibility="Collapsed" />
+      <!-- The last results of each kind, once there are some: a list, as the page's ul.last. -->
+      <u:Labeled x:Name="LastList" Kind="List" Margin="0,0,0,24" Visibility="Collapsed">
+        <StackPanel x:Name="Last" />
+      </u:Labeled>
 
       <Border Style="{StaticResource PanelCard}">
         <StackPanel>

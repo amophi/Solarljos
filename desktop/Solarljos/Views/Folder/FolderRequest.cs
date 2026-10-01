@@ -54,20 +54,20 @@ public sealed record FolderRequest
         return body;
     }
 
-    static readonly string[] DayForms = ["yyyy-MM-dd", "yyyy-M-d", "yyyy/M/d", "yyyy.M.d", "yyyy. M. d.", "yyyy. M. d", "yyyy年M月d日"];
-
     /// <summary>
-    /// Midnight where the user is at the start of a day typed as year-month-day, as the command
-    /// line reads --since 2026-09-01, or as the language writes a date; null for a day that cannot
-    /// be read or does not exist, such as 2026-02-30 (dayStart in app.js).
+    /// Midnight where the user is at the start of a day written as year-month-day, 2026-09-01, as
+    /// the command line reads --since and the page's box for a day gives it; null for a day written
+    /// any other way -- 03/04/2026 is not the same day in every language -- or one that does not
+    /// exist, such as 2026-02-30 (dayStart in app.js).
     /// </summary>
     public static long? DayStart(string typed)
     {
-        var s = (typed ?? "").Trim();
-        if (s.Length == 0) return null;
-        if (!DateTime.TryParseExact(s, DayForms, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var day)
-            && !DateTime.TryParse(s, Tr.Instance.Culture, DateTimeStyles.AllowWhiteSpaces, out day)) return null;
+        if (!DateTime.TryParseExact((typed ?? "").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)) return null;
         var midnight = DateTime.SpecifyKind(day.Date, DateTimeKind.Local);
         return new DateTimeOffset(midnight).ToUnixTimeMilliseconds();
     }
+
+    /// <summary>Written as a day is, four digits, two and two, whether or not there is such a day.</summary>
+    public static bool DayShaped(string s) =>
+        s.Length == 10 && s[4] == '-' && s[7] == '-' && s.Where((c, i) => i is not (4 or 7)).All(char.IsAsciiDigit);
 }

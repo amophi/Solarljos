@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using Solarljos.Core;
 using Solarljos.Text;
@@ -26,6 +27,8 @@ public sealed class SourcesView : UserControl, IPage
     {
         public required StackPanel Lines { get; init; }
         public required StackPanel Added { get; init; }
+        /// <summary>The places added, as a list (the page's ul.added); out of sight while there are none.</summary>
+        public required Labeled AddedList { get; init; }
         public required Button Add { get; init; }
     }
 
@@ -122,8 +125,9 @@ public sealed class SourcesView : UserControl, IPage
         notes.Expanded += (_, _) => notesOpen.Add(source.Id);
         notes.Collapsed += (_, _) => notesOpen.Remove(source.Id);
         body.Children.Add(notes);
-        var added = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
-        body.Children.Add(added);
+        var added = new StackPanel();
+        var addedList = new Labeled { Kind = AutomationControlType.List, Child = added, Margin = new Thickness(0, 4, 0, 0), Visibility = Visibility.Collapsed };
+        body.Children.Add(addedList);
 
         Button? add = null;
         add = Bits.Small(Build.Button(T["sources.add"], () => AddPlace(source, add!)));
@@ -139,7 +143,7 @@ public sealed class SourcesView : UserControl, IPage
         Grid.SetRow(add, 1);
         layout.Children.Add(body);
         layout.Children.Add(add);
-        cards[source.Id] = new Card { Lines = linesBox, Added = added, Add = add };
+        cards[source.Id] = new Card { Lines = linesBox, Added = added, AddedList = addedList, Add = add };
         return new Region(label) { Child = layout };
     }
 
@@ -263,8 +267,9 @@ public sealed class SourcesView : UserControl, IPage
         foreach (var (id, c) in cards)
         {
             c.Added.Children.Clear();
-            if (!s.Added.TryGetValue(id, out var places)) continue;
-            foreach (var place in places.ToList())
+            var places = s.Added.TryGetValue(id, out var some) ? some.ToList() : [];
+            c.AddedList.Visibility = places.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var place in places)
             {
                 // A folder for every restore point is shown as that folder; any other place is a path.
                 bool walk = id == "vss" && place.StartsWith("walk=", StringComparison.Ordinal);
@@ -281,11 +286,12 @@ public sealed class SourcesView : UserControl, IPage
                 }
                 var remove = Bits.Small(Build.Button(T["sources.remove"], () => RemovePlace(id, place), "BtnQuiet"));
                 AutomationProperties.SetHelpText(remove, walk ? place[5..] : place);
-                var row = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+                var row = new WrapPanel();
                 row.Children.Add(said);
                 row.Children.Add(what);
                 row.Children.Add(remove);
-                c.Added.Children.Add(row);
+                // An item of the list, as the page's li: what it says, and its button, are in it.
+                c.Added.Children.Add(new Labeled { Kind = AutomationControlType.ListItem, Child = row, Margin = new Thickness(0, 4, 0, 0) });
             }
         }
     }

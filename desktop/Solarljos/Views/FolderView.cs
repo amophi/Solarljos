@@ -85,11 +85,12 @@ public sealed partial class FolderView : UserControl, IPage
 
     public void Shown(string sub)
     {
-        // "fill:<folder>": sent here to bring back a folder found elsewhere, the form filled in with it.
+        // "fill:<folder>": sent here to bring back a folder found elsewhere, the form filled in with
+        // it; the focus goes to its heading, as the page's prefill puts it there.
         if (sub.StartsWith("fill:", StringComparison.Ordinal))
         {
             Prefill(sub[5..]);
-            Show("");
+            Show("", focus: true);
             return;
         }
         Show(sub switch { "plan" => "plan", "done" => "done", "" => active, _ => "" });

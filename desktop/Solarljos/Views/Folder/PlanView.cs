@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using Solarljos.Core;
@@ -104,6 +105,7 @@ sealed class PlanView : Part
         if (normal.Count > 0)
         {
             tree = new PlanTree((n) => !excluded.Contains(n.Rel), Toggle, Opened, FolderView.ShowPreview, T.Get("plan.treeLabel", ("folder", folder)));
+            tree.PreviewMouseWheel += Wheel;
             body.Children.Add(Toolbar(tierCounts));
             body.Children.Add(Build.Text(T["plan.keys"], "Hint").Margin(0, 0, 0, 8));
             body.Children.Add(tree);
@@ -130,8 +132,16 @@ sealed class PlanView : Part
         Theme.Changed += Shadow;
 
         scroller = Build.Page(body);
-        scroller.ScrollChanged += (_, _) => Stick();
-        bar.SizeChanged += (_, _) => Stick();
+        scroller.ScrollChanged += (_, e) =>
+        {
+            if (e.ViewportHeightChange != 0) Fit();
+            Stick();
+        };
+        bar.SizeChanged += (_, _) =>
+        {
+            Fit();
+            Stick();
+        };
         El = scroller;
         Recount();
     }
@@ -159,6 +169,34 @@ sealed class PlanView : Part
         double natural = bar.TranslatePoint(new Point(0, 0), scroller).Y - lift.Y;
         double floor = scroller.ViewportHeight - 16 - bar.ActualHeight;
         lift.Y = Math.Min(0, floor - natural);
+    }
+
+    /// <summary>
+    /// The tree no taller than the window shows above the bar, so that all of it can be in sight at
+    /// once: past that its rows scroll inside it, which is what lets it make only the ones in sight.
+    /// </summary>
+    void Fit()
+    {
+        if (tree is null || scroller.ViewportHeight <= 0) return;
+        tree.MaxHeight = Math.Max(240, scroller.ViewportHeight - bar.ActualHeight - 40);
+    }
+
+    /// <summary>
+    /// The wheel over the tree: the page scrolls until the whole tree is in sight above the bar,
+    /// then the tree's rows, then the page again past either end of them -- as the page goes on
+    /// over a tree that has no more to show, where the tree's scroller would keep the wheel.
+    /// </summary>
+    void Wheel(object sender, MouseWheelEventArgs e)
+    {
+        if (tree?.Scroller is not { } inner || !tree.IsLoaded) return;
+        bool down = e.Delta < 0;
+        double top = tree.TranslatePoint(new Point(0, 0), scroller).Y;
+        bool inSight = down ? top + tree.ActualHeight <= scroller.ViewportHeight - bar.ActualHeight - 16 + 1 : top >= -1;
+        bool pageCan = down ? scroller.VerticalOffset < scroller.ScrollableHeight - 0.5 : scroller.VerticalOffset > 0.5;
+        bool treeCan = down ? inner.VerticalOffset < inner.ScrollableHeight - 0.5 : inner.VerticalOffset > 0.5;
+        if (treeCan && (inSight || !pageCan)) return;
+        e.Handled = true;
+        if (pageCan) scroller.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = UIElement.MouseWheelEvent });
     }
 
     WrapPanel Toolbar(Dictionary<string, int> tierCounts)
@@ -303,12 +341,13 @@ sealed class PlanView : Part
             size.Margin = new Thickness(8, 0, 0, 0);
             var meta = Build.Stack(Orientation.Horizontal, Build.TierBadge(f.Copy), size);
             meta.VerticalAlignment = VerticalAlignment.Center;
-            AutomationProperties.SetHelpText(check, Formats.TierText(f.Copy) + ", " + size.Text);
+            // Joined by a space, as they stand side by side: not every language's comma or colon.
+            AutomationProperties.SetHelpText(check, Formats.TierText(f.Copy) + " " + size.Text);
             Button? preview = null;
             if (FolderView.ShowPreview is { } show)
             {
                 preview = Bits.Small(T["results.preview"], () => show(f.Copy, preview!));
-                AutomationProperties.SetName(preview, T["results.preview"] + ": " + rel);
+                AutomationProperties.SetName(preview, T["results.preview"] + " " + rel);
             }
             var line = new WrapPanel();
             foreach (var e in new FrameworkElement?[] { check, meta, preview })
