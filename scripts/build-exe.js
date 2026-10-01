@@ -164,6 +164,153 @@ function setSubsystem(buf, subsystem) {
   return out;
 }
 
+// ---- the version resource ------------------------------------------------------------------------
+
+// What a section and the resource tree hold (Microsoft's "PE Format", .rsrc): the sections follow
+// the optional header; the resource table is the third data directory; its directories list
+// entries of 8 bytes -- an ID, and an offset whose high bit says it is another directory -- down
+// to a data entry: the RVA of the data, and its size.
+function peSections(buf) {
+  const pe = buf.readUInt32LE(0x3c);
+  const opt = pe + 24;
+  const plus = buf.readUInt16LE(opt) === 0x20b;
+  const count = buf.readUInt16LE(pe + 6);
+  const table = opt + buf.readUInt16LE(pe + 20);
+  const sections = [];
+  for (let i = 0; i < count; i++) {
+    const s = table + 40 * i;
+    sections.push({ va: buf.readUInt32LE(s + 12), vsize: buf.readUInt32LE(s + 8), raw: buf.readUInt32LE(s + 20), rawSize: buf.readUInt32LE(s + 16) });
+  }
+  const dirs = opt + (plus ? 112 : 96);
+  const ndirs = buf.readUInt32LE(opt + (plus ? 108 : 92));
+  const rsrc = ndirs > 2 ? { rva: buf.readUInt32LE(dirs + 16), size: buf.readUInt32LE(dirs + 20) } : { rva: 0, size: 0 };
+  const offsetOf = (rva) => {
+    const s = sections.find((x) => rva >= x.va && rva < x.va + Math.max(x.vsize, x.rawSize));
+    if (!s || rva - s.va >= s.rawSize) throw new Error(`RVA 0x${rva.toString(16)} is in no section's bytes`);
+    return s.raw + (rva - s.va);
+  };
+  return { rsrc, offsetOf };
+}
+
+const RT_VERSION = 16;
+
+/** Every data entry of the version resource (each name, each language): where its size is written, and its bytes. */
+function versionEntries(buf) {
+  const { rsrc, offsetOf } = peSections(buf);
+  if (!rsrc.rva) throw new Error('the program has no resources, so no version resource to rewrite');
+  const base = offsetOf(rsrc.rva);
+  const entries = (dir) => {
+    const n = buf.readUInt16LE(base + dir + 12) + buf.readUInt16LE(base + dir + 14);
+    return Array.from({ length: n }, (_, i) => {
+      const e = base + dir + 16 + 8 * i;
+      const name = buf.readUInt32LE(e);
+      const to = buf.readUInt32LE(e + 4);
+      return { id: name & 0x80000000 ? null : name, sub: to & 0x80000000 ? to & 0x7fffffff : null, data: to & 0x80000000 ? null : to };
+    });
+  };
+  const found = [];
+  for (const type of entries(0).filter((e) => e.id === RT_VERSION && e.sub !== null)) {
+    for (const name of entries(type.sub).filter((e) => e.sub !== null)) {
+      for (const lang of entries(name.sub).filter((e) => e.data !== null)) {
+        const entry = base + lang.data;
+        found.push({ sizeAt: entry + 4, at: offsetOf(buf.readUInt32LE(entry)), size: buf.readUInt32LE(entry + 4) });
+      }
+    }
+  }
+  if (!found.length) throw new Error('the program has no version resource to rewrite');
+  return found;
+}
+
+// A VS_VERSIONINFO block is a tree of nodes: its length, its value's length (in bytes, or for
+// text in characters), whether the value is text, a key in UTF-16 ending in 0, then the value and
+// the children, each on a 4-byte boundary.
+const pad4 = (b) => (b.length % 4 ? Buffer.concat([b, Buffer.alloc(4 - (b.length % 4))]) : b);
+function verNode(key, value, text, children = []) {
+  let out = pad4(Buffer.concat([Buffer.alloc(6), Buffer.from(key + '\0', 'utf16le')]));
+  if (value.length) out = Buffer.concat([out, value]);
+  for (const child of children) out = Buffer.concat([pad4(out), child]);
+  out.writeUInt16LE(out.length, 0);
+  out.writeUInt16LE(text ? value.length / 2 : value.length, 2);
+  out.writeUInt16LE(text ? 1 : 0, 4);
+  return out;
+}
+
+/**
+ * The version resource for `info` -- its strings, and `version` ("0.9.0") as the numbers
+ * Windows compares -- for U.S. English and Unicode, as node.exe's is.
+ */
+function versionBlock(info) {
+  const [major, minor, patch] = String(info.version).split('.').map((n) => Number.parseInt(n, 10) || 0);
+  const fixed = Buffer.alloc(52);
+  fixed.writeUInt32LE(0xfeef04bd, 0); // the signature
+  fixed.writeUInt32LE(0x00010000, 4);
+  for (const at of [8, 16]) {
+    fixed.writeUInt32LE(((major & 0xffff) << 16 | (minor & 0xffff)) >>> 0, at);
+    fixed.writeUInt32LE(((patch & 0xffff) << 16) >>> 0, at + 4);
+  }
+  fixed.writeUInt32LE(0x3f, 24); // which flags mean anything
+  fixed.writeUInt32LE(0x00040004, 32); // Windows NT, 32-bit Windows API
+  fixed.writeUInt32LE(1, 36); // an application
+  const strings = Object.entries(info.strings).map(([k, v]) => verNode(k, Buffer.from(v + '\0', 'utf16le'), true));
+  return verNode('VS_VERSION_INFO', fixed, false, [
+    verNode('StringFileInfo', Buffer.alloc(0), true, [verNode('040904B0', Buffer.alloc(0), true, strings)]),
+    verNode('VarFileInfo', Buffer.alloc(0), true, [verNode('Translation', Buffer.from([0x09, 0x04, 0xb0, 0x04]), false)]),
+  ]);
+}
+
+/** The strings of a version resource, read back: { ProductName: 'Solarljos', ... }. */
+function readVersionStrings(block) {
+  const out = {};
+  const walk = (at, end, depth) => {
+    while (at + 6 <= end) {
+      const len = block.readUInt16LE(at);
+      if (len < 6) break;
+      const vlen = block.readUInt16LE(at + 2);
+      const text = block.readUInt16LE(at + 4) === 1;
+      let k = at + 6;
+      while (k + 1 < at + len && block.readUInt16LE(k)) k += 2;
+      const key = block.toString('utf16le', at + 6, k);
+      const valueAt = (k + 2 + 3) & ~3;
+      if (depth === 3 && text) out[key] = block.toString('utf16le', valueAt, valueAt + Math.max(0, vlen - 1) * 2);
+      if (depth < 3) {
+        const childrenAt = (valueAt + (text ? vlen * 2 : vlen) + 3) & ~3;
+        walk(childrenAt, at + len, depth + 1);
+      }
+      at = (at + len + 3) & ~3;
+    }
+  };
+  walk(0, block.length, 0);
+  return out;
+}
+
+/**
+ * A copy of a PE file whose version resource says what it is -- the name, the description and
+ * the version that a file's Details and Task Manager show -- written over the one it had, in
+ * place: what follows it in the file does not move, so the new one must fit the old one's room,
+ * which node.exe's does. Its checksum is made right after.
+ */
+function setVersionInfo(buf, info) {
+  const block = versionBlock(info);
+  const out = Buffer.from(buf);
+  for (const e of versionEntries(out)) {
+    if (block.length > e.size) {
+      throw new Error(`the version resource written (${block.length} bytes) does not fit the one there (${e.size} bytes)`);
+    }
+    block.copy(out, e.at);
+    out.fill(0, e.at + block.length, e.at + e.size);
+    out.writeUInt32LE(block.length, e.sizeAt);
+  }
+  const h = peHeader(out);
+  out.writeUInt32LE(peChecksum(out, h), h.checksumAt);
+  return out;
+}
+
+/** The strings of a PE file's version resource (its first language's). */
+function versionInfo(buf) {
+  const [e] = versionEntries(buf);
+  return readVersionStrings(buf.subarray(e.at, e.at + e.size));
+}
+
 function stop(message) {
   const e = new Error(message);
   e.stop = true;
@@ -392,13 +539,32 @@ async function build() {
     throw new Error(`--build-sea made a program of PE subsystem ${h.subsystem}, not a copy of node.exe, `
       + `a console program (${IMAGE_SUBSYSTEM_WINDOWS_CUI}).`);
   }
-  fs.writeFileSync(EXE, setSubsystem(built, IMAGE_SUBSYSTEM_WINDOWS_GUI));
-  // What is on disk, read back: a GUI program, its checksum right.
+  // Its Details, and Task Manager, say Solarljos, not node.exe: the window starts it as its engine.
+  // It is written where node.exe's was (744 bytes in 26.10), and must fit there.
+  const version = {
+    version: pkg.version,
+    strings: {
+      CompanyName: 'amophi',
+      FileDescription: 'Solarljos engine',
+      FileVersion: pkg.version,
+      InternalName: 'solarljos-core',
+      LegalCopyright: 'Copyright (c) 2026 amophi',
+      OriginalFilename: 'solarljos-core.exe',
+      ProductName: 'Solarljos',
+      ProductVersion: pkg.version,
+    },
+  };
+  fs.writeFileSync(EXE, setVersionInfo(setSubsystem(built, IMAGE_SUBSYSTEM_WINDOWS_GUI), version));
+  // What is on disk, read back: a GUI program, its checksum right, and its version resource.
   const exe = fs.readFileSync(EXE);
   const w = peHeader(exe);
   if (w.subsystem !== IMAGE_SUBSYSTEM_WINDOWS_GUI || exe.readUInt32LE(w.checksumAt) !== peChecksum(exe, w)) {
     throw new Error(`Solarljos.exe was written as PE subsystem ${w.subsystem}, checksum 0x${exe.readUInt32LE(w.checksumAt).toString(16)}; `
       + `a Windows GUI program (${IMAGE_SUBSYSTEM_WINDOWS_GUI}) with checksum 0x${peChecksum(exe, w).toString(16)} was to be.`);
+  }
+  const said = versionInfo(exe);
+  for (const [k, v] of Object.entries(version.strings)) {
+    if (said[k] !== v) throw new Error(`Solarljos.exe's version resource says ${k} = ${JSON.stringify(said[k])}, not ${JSON.stringify(v)}.`);
   }
   const sha256 = sha256Of(exe);
   console.log(`exe      ${exe.length} bytes, a Windows GUI program (PE subsystem ${w.subsystem}) -> ${EXE}`);
@@ -426,4 +592,5 @@ if (require.main === module) {
 
 module.exports = {
   peHeader, certificate, peChecksum, withoutSignature, setSubsystem, IMAGE_SUBSYSTEM_WINDOWS_GUI, IMAGE_SUBSYSTEM_WINDOWS_CUI,
+  setVersionInfo, versionInfo, versionBlock, readVersionStrings,
 };

@@ -10,7 +10,10 @@
 //                        but the SDK
 //   solarljos-core.exe   the engine: the program scripts/build-exe.js makes (dist/Solarljos.exe),
 //                        which the window starts beside itself as "desktop"
-//   LICENSE.txt, Pretendard-OFL.txt   Solarljos's licence, and the licence of the font it carries
+//   LICENSE.txt          Solarljos's licence, and those of what it carries: Node.js 26.10's, which
+//   Node.js-LICENSE.txt  the engine is built on, with the licences of what Node.js itself carries;
+//   dotnet-LICENSE.txt   .NET's, whose program starts the window (the runtime itself is not in it);
+//   Pretendard-OFL.txt   and the font's (desktop/licenses, as each project publishes it)
 //
 // and its SHA-256 beside it. Each step is tried before the next: build-exe.js tries the engine its
 // own way; then the engine is started as the window starts it, and must say where it is and stop
@@ -167,8 +170,10 @@ async function main(argv) {
   const coreExe = path.join(OUT, 'solarljos-core.exe');
   fs.copyFileSync(CORE, coreExe);
   fs.copyFileSync(path.join(ROOT, 'LICENSE'), path.join(OUT, 'LICENSE.txt'));
+  const licences = ['Node.js-LICENSE.txt', 'dotnet-LICENSE.txt'];
+  for (const n of licences) fs.copyFileSync(path.join(ROOT, 'desktop', 'licenses', n), path.join(OUT, n));
   const names = ['Solarljos.exe', 'Solarljos.dll', 'Solarljos.deps.json', 'Solarljos.runtimeconfig.json', 'solarljos-core.exe',
-    'LICENSE.txt', 'Pretendard-OFL.txt'];
+    'LICENSE.txt', ...licences, 'Pretendard-OFL.txt'];
   for (const n of names) if (!fs.existsSync(path.join(OUT, n))) throw new Error(`${n} is not in ${OUT}`);
   const extra = fs.readdirSync(OUT).filter((n) => !names.includes(n));
   if (extra.length) throw new Error(`the build left more than the program: ${extra.join(', ')}`);

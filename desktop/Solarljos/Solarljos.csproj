@@ -29,6 +29,7 @@
     <Version>$([System.Text.RegularExpressions.Regex]::Match($(PackageJsonText), '(?&lt;="version":\s*")[0-9]+\.[0-9]+\.[0-9]+').Value)</Version>
     <Product>Solarljos</Product>
     <Company>amophi</Company>
+    <Copyright>Copyright (c) 2026 amophi</Copyright>
     <Description>Finds deleted files in the copies Windows and your programs keep, and brings back the ones you choose.</Description>
     <!-- The same bytes from the same commit, in whatever folder it is built. -->
     <Deterministic>true</Deterministic>

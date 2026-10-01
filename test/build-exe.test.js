@@ -4,6 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   peHeader, certificate, peChecksum, withoutSignature, setSubsystem, IMAGE_SUBSYSTEM_WINDOWS_GUI, IMAGE_SUBSYSTEM_WINDOWS_CUI,
+  setVersionInfo, versionInfo, versionBlock,
 } = require('../scripts/build-exe');
 
 // The header work scripts/build-exe.js does to node.exe -- taking its signature off, making it a
@@ -153,4 +154,96 @@ test('the steps of a build give the same bytes every time: no signature, a GUI p
   assert.deepStrictEqual([h.subsystem, certificate(exe, h).size, exe.length], [2, 0, node.length - 256]);
   assert.strictEqual(exe.readUInt32LE(h.checksumAt), referenceChecksum(exe, h.checksumAt));
   assert.ok(make().equals(exe), 'byte for byte, as a build again must be');
+});
+
+/**
+ * A made-up PE file with one section, .rsrc, holding a resource tree with one version resource
+ * (type 16, name 1, U.S. English) whose data is `block`, with `room` bytes for it in all.
+ */
+function peWithVersion(block, room = block.length) {
+  const opt = PE_AT + 24;
+  const dirs = opt + 112;
+  const table = dirs + 16 * 8;
+  const raw = 0x400;
+  const va = 0x1000;
+  const at = 0x58;
+  const size = at + room + 16;
+  const buf = Buffer.alloc(raw + size);
+  buf.write('MZ', 0, 'latin1');
+  buf.writeUInt32LE(PE_AT, 0x3c);
+  buf.write('PE\0\0', PE_AT, 'latin1');
+  buf.writeUInt16LE(0x8664, PE_AT + 4);
+  buf.writeUInt16LE(1, PE_AT + 6); // NumberOfSections
+  buf.writeUInt16LE(table - opt, PE_AT + 20);
+  buf.writeUInt16LE(0x20b, opt);
+  buf.writeUInt16LE(IMAGE_SUBSYSTEM_WINDOWS_GUI, opt + 68);
+  buf.writeUInt32LE(16, opt + 108);
+  buf.writeUInt32LE(va, dirs + 2 * 8); // the resource table
+  buf.writeUInt32LE(size, dirs + 2 * 8 + 4);
+  buf.write('.rsrc', table, 'latin1');
+  buf.writeUInt32LE(size, table + 8);
+  buf.writeUInt32LE(va, table + 12);
+  buf.writeUInt32LE(size, table + 16);
+  buf.writeUInt32LE(raw, table + 20);
+  // Three directories, each with one entry, down to the data entry.
+  const dir = (off, id, to) => {
+    buf.writeUInt16LE(1, raw + off + 14);
+    buf.writeUInt32LE(id, raw + off + 16);
+    buf.writeUInt32LE(to >>> 0, raw + off + 20);
+  };
+  dir(0x00, 16, 0x80000000 | 0x18);
+  dir(0x18, 1, 0x80000000 | 0x30);
+  dir(0x30, 0x409, 0x48);
+  buf.writeUInt32LE(va + at, raw + 0x48);
+  buf.writeUInt32LE(block.length, raw + 0x48 + 4);
+  block.copy(buf, raw + at);
+  buf.fill(0xcc, raw + at + room, raw + size); // what follows, which must stay as it is
+  return { buf, blockAt: raw + at, room };
+}
+
+const NODE = {
+  version: '26.10.0',
+  strings: {
+    CompanyName: 'Node.js', ProductName: 'Node.js', FileDescription: 'Node.js JavaScript Runtime', FileVersion: '26.10.0',
+    ProductVersion: '26.10.0', OriginalFilename: 'node.exe', InternalName: 'node', LegalCopyright: 'Copyright Node.js contributors. MIT license.',
+  },
+};
+const OURS = {
+  version: '0.9.0',
+  strings: {
+    CompanyName: 'amophi', FileDescription: 'Solarljos engine', FileVersion: '0.9.0', InternalName: 'solarljos-core',
+    LegalCopyright: 'Copyright (c) 2026 amophi', OriginalFilename: 'solarljos-core.exe', ProductName: 'Solarljos', ProductVersion: '0.9.0',
+  },
+};
+
+test('the version resource is written over the one there, and nothing else moves', () => {
+  const old = versionBlock(NODE);
+  const { buf, blockAt, room } = peWithVersion(old);
+  assert.deepStrictEqual(versionInfo(buf), NODE.strings);
+  const out = setVersionInfo(buf, OURS);
+  assert.strictEqual(out.length, buf.length);
+  assert.deepStrictEqual(versionInfo(out), OURS.strings);
+  // The numbers Windows compares: 0.9.0.0, for the file and the product.
+  const fixed = out.indexOf(Buffer.from([0xbd, 0x04, 0xef, 0xfe]));
+  assert.ok(fixed > blockAt && fixed < blockAt + room);
+  assert.deepStrictEqual([8, 12, 16, 20].map((d) => out.readUInt32LE(fixed + d)), [0x00000009, 0, 0x00000009, 0]);
+  // Its size in the data entry is the new one; the rest of the old one's room is zeros; past it, nothing changed.
+  const written = versionBlock(OURS).length;
+  assert.ok(written <= room);
+  assert.strictEqual(out.readUInt32LE(0x400 + 0x48 + 4), written);
+  assert.ok(out.subarray(blockAt + written, blockAt + room).every((b) => b === 0));
+  assert.deepStrictEqual(out.subarray(blockAt + room), buf.subarray(blockAt + room));
+  // Before it, only its size in the data entry, and the checksum.
+  const h = peHeader(out);
+  const may = new Set([0, 1, 2, 3].flatMap((d) => [h.checksumAt + d, 0x400 + 0x48 + 4 + d]));
+  for (let i = 0; i < blockAt; i++) if (out[i] !== buf[i]) assert.ok(may.has(i), 'byte ' + i + ' changed');
+  assert.strictEqual(out.readUInt32LE(peHeader(out).checksumAt), referenceChecksum(out, peHeader(out).checksumAt));
+});
+
+test('a version resource that would not fit, or a program without one, is refused', () => {
+  const small = { version: '1.0.0', strings: { ProductName: 'X' } };
+  const { buf } = peWithVersion(versionBlock(small));
+  assert.throws(() => setVersionInfo(buf, OURS), /does not fit the one there/);
+  const none = pe();
+  assert.throws(() => setVersionInfo(none, OURS), /no resources|no version resource/);
 });
