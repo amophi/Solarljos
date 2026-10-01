@@ -32,6 +32,9 @@ public partial class MainWindow : Window
     bool selecting;
     bool closing;
 
+    /// <summary>Shows a part of the program's window, from wherever: "sources", "find/results".</summary>
+    public static void Navigate(string route) => (Application.Current?.MainWindow as MainWindow)?.Go(route);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -64,7 +67,11 @@ public partial class MainWindow : Window
         page = name switch
         {
             "" => new HomeView(this),
-            _ => new PendingView(name),
+            "find" => new FindView(),
+            "media" => new MediaView(),
+            "folder" => new FolderView(),
+            "sources" => new SourcesView(),
+            _ => new HelpView(),
         };
         page.HeadingChanged += UpdateTitle;
         if (session is not null) page.Connected(session);

@@ -56,12 +56,29 @@ public sealed class Shot
         w.ShowActivated = false;
     }
 
-    /// <summary>Writes what the window's client area shows, at 96 DPI.</summary>
+    /// <summary>
+    /// Writes what the window's client area shows, at 96 DPI; and each dialog open over it beside
+    /// it, as out-dialog.png, out-dialog2.png ... A dialog opened by ActAsync is left open for it.
+    /// </summary>
     public async Task TakeAsync(Window w)
     {
         // Two rounds of layout and render, and the time a fade or a picture takes to come in.
         await Task.Delay(900);
         await w.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        await TakeOneAsync(w, Out);
+        int n = 0;
+        foreach (Window d in Application.Current.Windows)
+        {
+            if (d == w || !d.IsVisible) continue;
+            n++;
+            var file = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(Out))!,
+                Path.GetFileNameWithoutExtension(Out) + "-dialog" + (n > 1 ? n.ToString() : "") + ".png");
+            await TakeOneAsync(d, file);
+        }
+    }
+
+    static async Task TakeOneAsync(Window w, string outFile)
+    {
         var root = (FrameworkElement)w.Content;
         int width = (int)Math.Ceiling(root.ActualWidth), height = (int)Math.Ceiling(root.ActualHeight);
         var bmp = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
@@ -83,8 +100,8 @@ public sealed class Shot
         bmp.Render(back);
         var png = new PngBitmapEncoder();
         png.Frames.Add(BitmapFrame.Create(bmp));
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(Out))!);
-        await using var f = File.Create(Out);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outFile))!);
+        await using var f = File.Create(outFile);
         png.Save(f);
     }
 }

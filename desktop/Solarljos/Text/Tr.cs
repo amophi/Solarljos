@@ -122,6 +122,9 @@ public sealed partial class Tr : INotifyPropertyChanged
 
     public string this[string key] => Get(key);
 
+    /// <summary>Whether any table has the key.</summary>
+    public bool Has(string key) => table.ContainsKey(key) || english.ContainsKey(key);
+
     /// <summary>A string by key, with its placeholders filled in (see the class).</summary>
     public string Get(string key, params (string Name, object? Value)[] args)
     {

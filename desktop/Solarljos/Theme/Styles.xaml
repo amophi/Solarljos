@@ -549,6 +549,147 @@
     </Style.Triggers>
   </Style>
 
+  <!-- ==== chips: one choice among a few, the chosen one filled, as SoundVisualizer's modes are ==== -->
+  <Style x:Key="Chip" TargetType="RadioButton">
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+    <Setter Property="Background" Value="{DynamicResource Track}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextOnTrack}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="16,8" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
+            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource TrackHover}" />
+        <Setter Property="Foreground" Value="{DynamicResource Text}" />
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentFill}" />
+        <Setter Property="Foreground" Value="{DynamicResource OnFill}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="ChipSmall" TargetType="RadioButton" BasedOn="{StaticResource Chip}">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="14,6" />
+  </Style>
+
+  <!-- ==== check boxes, for choosing several: rounded, filled blue with a white tick when ticked ==== -->
+  <Style TargetType="CheckBox">
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Grid Background="Transparent">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="Box" Width="20" Height="20" CornerRadius="6" BorderThickness="2" BorderBrush="{DynamicResource CheckLine}"
+                    Background="Transparent" VerticalAlignment="Top" Margin="0,2,0,0">
+              <Grid>
+                <Path x:Name="Tick" Data="M3.5 8.5l3 3 6-6.5" Stroke="{DynamicResource OnFill}" StrokeThickness="2" StrokeStartLineCap="Round"
+                      StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" Margin="-1" />
+                <Rectangle x:Name="Dash" Width="10" Height="2" Fill="{DynamicResource OnFill}" Visibility="Collapsed" />
+              </Grid>
+            </Border>
+            <ContentPresenter Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Text}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
+              <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="{x:Null}">
+              <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}" />
+              <Setter TargetName="Dash" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ==== a card of more options, which opens when its title is clicked ==== -->
+  <Style x:Key="MoreHeader" TargetType="ToggleButton">
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border Background="Transparent" Padding="24,16" MinHeight="64" CornerRadius="20">
+            <DockPanel>
+              <u:Icon x:Name="Chevron" Glyph="down" Width="24" Height="24" Foreground="{DynamicResource Text2}" DockPanel.Dock="Right"
+                      RenderTransformOrigin="0.5,0.5" VerticalAlignment="Center">
+                <u:Icon.RenderTransform>
+                  <RotateTransform x:Name="Turn" Angle="0" />
+                </u:Icon.RenderTransform>
+              </u:Icon>
+              <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False" TextElement.FontSize="18" TextElement.FontWeight="Bold" />
+            </DockPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Chevron" Property="RenderTransform">
+                <Setter.Value>
+                  <RotateTransform Angle="180" />
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="MoreCard" TargetType="Expander">
+    <Setter Property="Background" Value="{DynamicResource Raised}" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="Margin" Value="0,8,0,0" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Expander">
+          <Border x:Name="Box" Background="{TemplateBinding Background}" CornerRadius="20">
+            <StackPanel>
+              <ToggleButton Style="{StaticResource MoreHeader}" Content="{TemplateBinding Header}"
+                            IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                            AutomationProperties.Name="{TemplateBinding Header}" />
+              <ContentPresenter x:Name="Body" Visibility="Collapsed" />
+            </StackPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsExpanded" Value="True">
+              <Setter TargetName="Body" Property="Visibility" Value="Visible" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="ExpanderCard" TargetType="Expander" BasedOn="{StaticResource MoreCard}">
+    <Setter Property="Background" Value="{DynamicResource Card}" />
+  </Style>
+
   <Style TargetType="ToolTip">
     <Setter Property="Background" Value="{DynamicResource Card}" />
     <Setter Property="Foreground" Value="{DynamicResource Text}" />
