@@ -92,6 +92,7 @@
     'desktop.stopped.title': 'Solarljos stopped searching',
     'desktop.stopped.body': 'The part of Solarljos that searches has stopped. Files you restored stay where you put them. Start Solarljos again to go on.',
     'desktop.stopped.said': 'What it said last',
+    'desktop.quit.writing': 'A folder is being written. If you quit now, Solarljos finishes writing its files first and then stops; the window closes at once.',
     'conn.lost.title': 'Solarljos has stopped',
     'conn.lost.body': 'Nothing more can be searched or restored from this page. Start Solarljos again, then try again here.',
     'conn.forbidden.title': 'This page is not connected to Solarljos',

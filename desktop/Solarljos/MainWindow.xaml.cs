@@ -53,7 +53,7 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => ApplyRail();
         SourceInitialized += (_, _) => Theme.TitleBar(this);
         PreviewKeyDown += OnKeys;
-        Closing += (_, _) => closing = true;
+        Closing += OnClosing;
         ApplyTheme();
         Go("");
         ApplyRail();
@@ -239,6 +239,29 @@ public partial class MainWindow : Window
         var tr = Tr.Instance;
         bool ok = await Dialog.ConfirmAsync(this, tr["quit.confirmTitle"], tr["quit.confirmBody"], tr["nav.quit"], tr["common.cancel"], danger: true);
         if (ok) Close();
+    }
+
+    bool quitAnyway;
+
+    /// <summary>
+    /// The window closing, by Quit or its own close button. While a folder is being written the
+    /// engine finishes it first: the window asks, and goes when told to, leaving the engine to
+    /// stop once the files are done (App.WaitForWrites).
+    /// </summary>
+    async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        bool writing = session?.Jobs.Current("rebuild") is { Running: true };
+        if (quitAnyway || !writing)
+        {
+            closing = true;
+            return;
+        }
+        e.Cancel = true;
+        var tr = Tr.Instance;
+        if (!await Dialog.ConfirmAsync(this, tr["quit.confirmTitle"], tr["desktop.quit.writing"], tr["nav.quit"], tr["common.cancel"])) return;
+        App.WaitForWrites = true;
+        quitAnyway = true;
+        Close();
     }
 
     // ---- the engine --------------------------------------------------------------------------

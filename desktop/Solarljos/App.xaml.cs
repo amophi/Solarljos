@@ -18,6 +18,9 @@ public partial class App : Application
     public static Session? Session { get; private set; }
     static CoreProcess? core;
 
+    /// <summary>The window was closed while files were being written: the engine is left to finish them.</summary>
+    public static bool WaitForWrites { get; set; }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -69,8 +72,9 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Session?.Close();
-        // The engine stops when its stdin closes; a restore it is writing finishes first.
-        core?.StopAsync(TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
+        // The engine stops when its stdin closes; what it is writing finishes first. A folder being
+        // written may take long, and the person chose to let it: it is not cut short then.
+        core?.StopAsync(WaitForWrites ? TimeSpan.FromHours(4) : TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
         base.OnExit(e);
     }
 }
