@@ -48,6 +48,47 @@ public sealed class CoreClient : IDisposable
         return await res.Content.ReadAsByteArrayAsync(cancel);
     }
 
+    /// <summary>
+    /// Bytes `start` to `start + length - 1` of a copy, fewer where it ends; none past its end. A
+    /// copy whose length the engine does not know comes whole, so only what is wanted is kept.
+    /// </summary>
+    public async Task<byte[]> ReadBytesAsync(string uid, long start, int length, CancellationToken cancel = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/copy/{Uri.EscapeDataString(uid)}");
+        req.Headers.Range = new RangeHeaderValue(start, start + length - 1);
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancel);
+        if ((int)res.StatusCode == 416) return [];
+        if (!res.IsSuccessStatusCode) throw await FailureAsync(res, cancel);
+        await using var stream = await res.Content.ReadAsStreamAsync(cancel);
+        var out_ = new byte[length];
+        int got = 0;
+        long skip = res.StatusCode == HttpStatusCode.PartialContent ? 0 : start;
+        var buf = new byte[81920];
+        while (got < length)
+        {
+            int n = await stream.ReadAsync(buf, cancel);
+            if (n == 0) break;
+            int from = 0;
+            if (skip > 0)
+            {
+                int s = (int)Math.Min(skip, n);
+                skip -= s;
+                from = s;
+            }
+            int take = Math.Min(n - from, length - got);
+            if (take > 0)
+            {
+                Array.Copy(buf, from, out_, got, take);
+                got += take;
+            }
+        }
+        return got == length ? out_ : out_[..got];
+    }
+
+    /// <summary>What a copy's first bytes say it is, and how the engine sends it (GET copy/&lt;uid&gt;/about).</summary>
+    public Task<JsonElement> AboutAsync(string uid, CancellationToken cancel = default) =>
+        GetAsync($"/api/copy/{Uri.EscapeDataString(uid)}/about", cancel);
+
     /// <summary>A POST of JSON, as the page sends one: from this origin, saying it is Solarljos's.</summary>
     public async Task<JsonElement> PostAsync(string path, object body, CancellationToken cancel = default)
     {
