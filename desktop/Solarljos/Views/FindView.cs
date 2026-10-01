@@ -363,14 +363,15 @@ public sealed class FindView : UserControl, IPage
     /// <summary>
     /// Where the focus goes when one of the two comes into sight: back where it was, else to its
     /// heading, as the page does; but not away from the rail when that is where the person is,
-    /// going through its parts with the arrow keys.
+    /// going through its parts with the arrow keys. The window itself is no place: WPF puts the
+    /// focus there when the button that had it is in a part just hidden.
     /// </summary>
     void MoveFocus(bool fromOutside, IInputElement? remembered, Action toHeading)
     {
         if (fromOutside)
         {
             var now = Keyboard.FocusedElement as DependencyObject;
-            bool elsewhere = now is UIElement { IsVisible: true } && !IsWithin(now, this);
+            bool elsewhere = now is UIElement { IsVisible: true } and not Window && !IsWithin(now, this);
             if (elsewhere) return;
         }
         Later(() =>
@@ -477,8 +478,8 @@ public sealed class FindView : UserControl, IPage
             case "press":
                 {
                     // A key as the keyboard sends it, n times ("Tab*3"), for a picture of where the
-                    // focus goes: Tab and the arrows move it as keyboard navigation does, the rest go
-                    // to what has the focus, as a key pressed there.
+                    // focus goes: each goes to what has the focus, as a key pressed there, and Tab
+                    // and the arrows, when nothing there takes them, move it as keyboard navigation does.
                     var (keyName, times) = arg.Split('*') is [var k, var n] && int.TryParse(n, out var c) ? (k, c) : (arg, 1);
                     bool shift = keyName.StartsWith("Shift+", StringComparison.Ordinal);
                     if (!Enum.TryParse<Key>(shift ? keyName[6..] : keyName, out var key)) break;
@@ -495,8 +496,7 @@ public sealed class FindView : UserControl, IPage
                             Key.Down => FocusNavigationDirection.Down,
                             _ => null,
                         };
-                        if (way is { } w) at?.MoveFocus(new TraversalRequest(w));
-                        else if (at is not null)
+                        if (at is not null)
                         {
                             var down = new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
                             at.RaiseEvent(down);
@@ -505,6 +505,7 @@ public sealed class FindView : UserControl, IPage
                                 down = new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key) { RoutedEvent = Keyboard.KeyDownEvent };
                                 at.RaiseEvent(down);
                             }
+                            if (!down.Handled && way is { } w) at.MoveFocus(new TraversalRequest(w));
                         }
                         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                     }

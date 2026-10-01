@@ -1,7 +1,10 @@
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Shapes;
 using Solarljos.Core;
 using Solarljos.Text;
 using Solarljos.Ui;
@@ -79,8 +82,6 @@ public static class EmptyView
             foreach (var s in per)
             {
                 var tb = Build.Text("", "Body");
-                tb.Margin = new Thickness(0, 4, 0, 0);
-                tb.Inlines.Add(new Run("• "));
                 tb.Inlines.Add(new Run(Formats.SourceLabel(Str(s, "id"), Str(s, "label"))) { FontWeight = FontWeights.Bold });
                 bool skipped = s.TryGetProperty("skipped", out var sk) && sk.ValueKind == JsonValueKind.True;
                 long count = s.TryGetProperty("count", out var c) && c.ValueKind == JsonValueKind.Number ? (long)c.GetDouble() : 0;
@@ -92,11 +93,14 @@ public static class EmptyView
                     why2.SetResourceReference(TextElement.ForegroundProperty, "Text2");
                     tb.Inlines.Add(why2);
                 }
-                lines.Add(tb);
-                if (s.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Array)
-                    foreach (var n in notes.EnumerateArray()) lines.Add(Build.Text("◦ " + n, "Body").Margin(20, 2, 0, 0));
+                // What the place said of its search, in a list of its own inside its line.
+                var told = s.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Array
+                    ? notes.EnumerateArray().Select((n) => n.ToString()).ToList() : [];
+                UIElement line = told.Count == 0 ? tb
+                    : Build.Stack(tb, ListOf(told.Select((n) => Item(Build.Text(n, "Body"), n, hollow: true).Margin(0, 2, 0, 0))));
+                lines.Add(Item(line, tb.Text).Margin(0, 4, 0, 0));
             }
-            body.Add(Build.More(T["empty.details"], false, false, lines.ToArray()).Margin(0, 16, 0, 0));
+            body.Add(Build.More(T["empty.details"], false, false, ListOf(lines)).Margin(0, 16, 0, 0));
         }
         bool said = per.Any((s) => Str(s, "error").Length > 0 || (s.TryGetProperty("notes", out var n) && n.ValueKind == JsonValueKind.Array && n.GetArrayLength() > 0));
         body.Add(StatePage.OldLanguage(job, said));
@@ -124,20 +128,32 @@ public static class EmptyView
         return card;
     }
 
-    static StackPanel Bullets(IEnumerable<string> lines)
+    /// <summary>Lines of words as a list, as the page's ul of li.</summary>
+    static Labeled Bullets(IEnumerable<string> lines) => ListOf(lines.Select((line) => Item(Build.Text(line, "Body"), line).Margin(4, 4, 0, 4)));
+
+    /// <summary>A list, which a screen reader says is one, and how many it holds.</summary>
+    static Labeled ListOf(IEnumerable<UIElement> items) => new() { Child = Build.Stack(items.ToArray()), Kind = AutomationControlType.List };
+
+    /// <summary>
+    /// An item of a list, named by what it says: a dot, then what it holds. The dot is drawn for
+    /// the eye only, and not read out as a word, as a list's own is not; a hollow one for a list in a list.
+    /// </summary>
+    static Labeled Item(UIElement content, string name, bool hollow = false)
     {
-        var s = new StackPanel();
-        foreach (var line in lines)
+        // Where a "•" of the words would be: level with the middle of the first line's letters.
+        var dot = new Ellipse { Width = 4, Height = 4, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 7, 13, 0) };
+        if (hollow)
         {
-            var dot = Build.Text("•", "Body");
-            dot.Margin = new Thickness(0, 0, 10, 0);
-            var text = Build.Text(line, "Body");
-            var row = new DockPanel { Margin = new Thickness(4, 4, 0, 4) };
-            DockPanel.SetDock(dot, Dock.Left);
-            row.Children.Add(dot);
-            row.Children.Add(text);
-            s.Children.Add(row);
+            dot.StrokeThickness = 1;
+            dot.SetResourceReference(Shape.StrokeProperty, "Text");
         }
-        return s;
+        else dot.SetResourceReference(Shape.FillProperty, "Text");
+        var row = new DockPanel();
+        DockPanel.SetDock(dot, Dock.Left);
+        row.Children.Add(dot);
+        row.Children.Add(content);
+        var item = new Labeled { Child = row, Kind = AutomationControlType.ListItem };
+        AutomationProperties.SetName(item, name);
+        return item;
     }
 }

@@ -121,6 +121,7 @@ public static class PreviewParts
             {
                 var bytes = await session.Client.GetBytesAsync($"/api/copy/{Uri.EscapeDataString(copy.Uid)}", cancel.Token);
                 var picture = await Task.Run(() => Decode(bytes), cancel.Token);
+                cancel.Token.ThrowIfCancellationRequested();
                 loading.Visibility = Visibility.Collapsed;
                 image.Source = picture;
             }
@@ -136,9 +137,11 @@ public static class PreviewParts
             catch (Exception e) when (e is NotSupportedException or FileFormatException or InvalidOperationException or ArgumentException
                 or OverflowException or IOException or System.Runtime.InteropServices.COMException)
             {
-                // Windows has no decoder for it (HEIC, AVIF without their extensions), or it is damaged.
+                // Windows has no decoder for it (HEIC, AVIF without their extensions), or it is damaged:
+                // said as the photos' own view says it, restored it opens in an app that can.
                 frame.Visibility = Visibility.Collapsed;
-                box.Children.Insert(0, Build.Callout("info", null, Build.Text(T.Get("preview.none.format", ("format", Formats.FormatName(a.Ext))), "Body")));
+                var said = T.Get("desktop.imageCannot", ("format", Formats.FormatName(a.Ext ?? copy.Ext)));
+                box.Children.Insert(0, Build.Callout("info", null, Build.Text(said, "Body")));
             }
         }
 
@@ -265,7 +268,8 @@ public static class PreviewParts
                 Stop();
                 frame.Visibility = Visibility.Collapsed;
                 controls.Visibility = Visibility.Collapsed;
-                msg.Children.Add(Build.Callout("info", null, Build.Text(T.Get("preview.none.format", ("format", Formats.FormatName(a.Ext))), "Body")));
+                var said = T.Get("desktop.videoCannot", ("format", Formats.FormatName(a.Ext ?? copy.Ext)));
+                msg.Children.Add(Build.Callout("info", null, Build.Text(said, "Body")));
                 msg.Visibility = Visibility.Visible;
             };
             timer.Tick += (_, _) => Sync();
@@ -363,6 +367,7 @@ public static class PreviewParts
         readonly About a;
         readonly ComboBox select;
         readonly Build.SwitchRow wrap;
+        readonly CancellationTokenSource cancel = new();
         byte[]? bytes;
         string encoding = "auto";
 
@@ -376,7 +381,7 @@ public static class PreviewParts
         {
             this.a = a;
             view.SetResourceReference(FrameworkElement.StyleProperty, "FindTextView");
-            view.Text = T["preview.loading"];
+            Put(T["preview.loading"]);
             AutomationProperties.SetName(view, copy.Name ?? T["preview.tab.text"]);
             view.Loaded += (_, _) => view.MaxHeight = Tall(window());
             view.AllowDrop = false;
@@ -411,12 +416,17 @@ public static class PreviewParts
         {
             try
             {
-                bytes = a.Size is { } size && size <= head.Length ? head : await session.Client.ReadBytesAsync(copy.Uid, 0, TextMax);
+                bytes = a.Size is { } size && size <= head.Length ? head : await session.Client.ReadBytesAsync(copy.Uid, 0, TextMax, cancel.Token);
+                cancel.Token.ThrowIfCancellationRequested();
                 Show();
+            }
+            catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+            {
+                // Closed meanwhile.
             }
             catch (Exception e) when (Arrangement.IsTrouble(e))
             {
-                view.Text = "";
+                Put("");
                 notes.Children.Add(Build.Callout("error", null, Build.Text(Formats.ErrorText(e), "Body")));
             }
         }
@@ -426,7 +436,7 @@ public static class PreviewParts
             var b = bytes!;
             bool cut = a.Size is null ? b.Length >= TextMax : b.Length < a.Size;
             var d = Bytes.DecodeText(b, encoding, cut);
-            view.Text = d.Text;
+            Put(d.Text);
             notes.Children.Clear();
             var key = Bytes.Encodings.FirstOrDefault((e) => e.Value == d.Encoding).Key;
             var lines = new List<string> { T.Get("preview.encoding", ("encoding", key is null ? d.Encoding : T[key])) };
@@ -434,6 +444,39 @@ public static class PreviewParts
             if (a.Ext == ".svg") lines.Add(T["preview.svgAsText"]);
             notes.Children.Add(Build.Text(string.Join(" · ", lines), "Muted"));
         }
+
+        /// <summary>
+        /// The words in the box, laid out in the direction their first letter has, as the page's
+        /// unicode-bidi: plaintext lays out each of its lines: Hebrew or Arabic from the right.
+        /// </summary>
+        void Put(string text)
+        {
+            view.Text = text;
+            view.FlowDirection = DirectionOf(text);
+        }
+
+        public void Destroy() => cancel.Cancel();
+    }
+
+    /// <summary>
+    /// The direction a text is written in, from its first letter that has one: right to left for
+    /// Hebrew, Arabic and the scripts written as they are, else left to right. Digits, marks and
+    /// punctuation have none of their own, and are passed over.
+    /// </summary>
+    static FlowDirection DirectionOf(string text)
+    {
+        foreach (var r in text.EnumerateRunes())
+        {
+            int v = r.Value;
+            // The marks that are there only to say which: right to left, and the Arabic letter mark; left to right.
+            if (v is 0x200F or 0x061C) return FlowDirection.RightToLeft;
+            if (v == 0x200E) return FlowDirection.LeftToRight;
+            if (!System.Text.Rune.IsLetter(r)) continue;
+            bool rtl = v is >= 0x0590 and <= 0x08FF or >= 0xFB1D and <= 0xFDFF or >= 0xFE70 and <= 0xFEFF
+                or >= 0x10800 and <= 0x10FFF or >= 0x1E800 and <= 0x1EFFF;
+            return rtl ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        }
+        return FlowDirection.LeftToRight;
     }
 
     // ---- the bytes ----------------------------------------------------------------------------
@@ -445,9 +488,10 @@ public static class PreviewParts
         readonly Session session;
         readonly Copy copy;
         readonly long? size;
-        readonly ScrollViewer tableBox = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false };
+        readonly ScrollViewer tableBox = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, IsTabStop = true };
         readonly TextBlock page = Build.Text("", "Muted");
         readonly Button prev, next;
+        readonly CancellationTokenSource cancel = new();
         long offset;
 
         public Hex(Session session, Copy copy, About a, byte[] head)
@@ -472,8 +516,31 @@ public static class PreviewParts
             // The bytes read left to right in any language, and so does their scroller, which starts at the offsets.
             tableBox.FlowDirection = FlowDirection.LeftToRight;
             Table.Sideways(tableBox);
+            // The table is mostly wider than the pane: the keyboard stops at it, for Left and Right to
+            // move it sideways to the text; Up and Down, and the pages, go on to the preview it is in.
+            tableBox.SetResourceReference(FrameworkElement.FocusVisualStyleProperty, "FindInsetFocus");
+            AutomationProperties.SetName(tableBox, T["preview.hex.caption"]);
+            tableBox.PreviewKeyDown += (_, e) =>
+            {
+                if (e.OriginalSource != tableBox || Keyboard.Modifiers != ModifierKeys.None || Outer(tableBox) is not { } outer) return;
+                Action? move = e.Key switch
+                {
+                    Key.Up => outer.LineUp, Key.Down => outer.LineDown, Key.PageUp => outer.PageUp, Key.PageDown => outer.PageDown, _ => null,
+                };
+                if (move is null) return;
+                e.Handled = true;
+                move();
+            };
             El = Build.Stack(summary, tableBox, actions);
             Render(head, 0);
+        }
+
+        /// <summary>The scroller around it that goes up and down.</summary>
+        static ScrollViewer? Outer(DependencyObject d)
+        {
+            for (var at = VisualTreeHelper.GetParent(d); at is not null; at = VisualTreeHelper.GetParent(at))
+                if (at is ScrollViewer sv) return sv;
+            return null;
         }
 
         static Button Small(string text, Action click)
@@ -519,15 +586,23 @@ public static class PreviewParts
             long at = Math.Max(0, offset + dir * PreviewPanel.HexPage);
             try
             {
-                Render(await session.Client.ReadBytesAsync(copy.Uid, at, PreviewPanel.HexPage), at);
+                var bytes = await session.Client.ReadBytesAsync(copy.Uid, at, PreviewPanel.HexPage, cancel.Token);
+                cancel.Token.ThrowIfCancellationRequested();
+                Render(bytes, at);
                 // The page's status line: which bytes are shown now.
                 Announce.Say(page.Text);
+            }
+            catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+            {
+                // Closed meanwhile.
             }
             catch (Exception e) when (Arrangement.IsTrouble(e))
             {
                 Announce.Alert(Formats.ErrorText(e));
             }
         }
+
+        public void Destroy() => cancel.Cancel();
     }
 
     // ---- everything known about it ------------------------------------------------------------

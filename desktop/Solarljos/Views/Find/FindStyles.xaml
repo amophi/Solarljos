@@ -175,7 +175,7 @@
     </Setter>
   </Style>
 
-  <!-- ==== a copy's text: its own lines, left to right, in a box that scrolls both ways (.text-view) ==== -->
+  <!-- ==== a copy's text: its own lines, in the direction its first letter has (TextPart), in a box that scrolls both ways (.text-view) ==== -->
   <Style x:Key="FindTextView" TargetType="TextBox">
     <Setter Property="IsReadOnly" Value="True" />
     <Setter Property="IsReadOnlyCaretVisible" Value="True" />
@@ -205,6 +205,17 @@
               <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Focus}" />
             </Trigger>
           </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ==== the bytes' table, as wide as the preview or wider: the keyboard's ring inside its edge, where the preview's own does not cut it ==== -->
+  <Style x:Key="FindInsetFocus">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle RadiusX="10" RadiusY="10" Stroke="{DynamicResource Focus}" StrokeThickness="2" SnapsToDevicePixels="True" />
         </ControlTemplate>
       </Setter.Value>
     </Setter>
@@ -384,7 +395,9 @@
                   <RowDefinition Height="Auto" />
                   <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Button x:Name="PART_PreviousButton" Grid.Column="0" Style="{StaticResource FindCalendarNav}">
+                <!-- The months before and after, each an icon: named, in the program's words, for assistive technology and the tooltip. -->
+                <Button x:Name="PART_PreviousButton" Grid.Column="0" Style="{StaticResource FindCalendarNav}"
+                        AutomationProperties.Name="{u:T preview.prevItem}" ToolTip="{u:T preview.prevItem}">
                   <u:Icon Glyph="chevron" Width="18" Height="18" Foreground="{DynamicResource Text}" RenderTransformOrigin="0.5,0.5">
                     <u:Icon.RenderTransform>
                       <ScaleTransform ScaleX="-1" />
@@ -392,7 +405,8 @@
                   </u:Icon>
                 </Button>
                 <Button x:Name="PART_HeaderButton" Grid.Column="1" Style="{StaticResource FindCalendarNav}" HorizontalAlignment="Center" />
-                <Button x:Name="PART_NextButton" Grid.Column="2" Style="{StaticResource FindCalendarNav}">
+                <Button x:Name="PART_NextButton" Grid.Column="2" Style="{StaticResource FindCalendarNav}"
+                        AutomationProperties.Name="{u:T preview.nextItem}" ToolTip="{u:T preview.nextItem}">
                   <u:Icon Glyph="chevron" Width="18" Height="18" Foreground="{DynamicResource Text}" />
                 </Button>
                 <Grid x:Name="PART_MonthView" Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Center" Margin="0,6,0,0" Visibility="Visible">
@@ -527,7 +541,10 @@
                   <ColumnDefinition Width="*" />
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <DatePickerTextBox x:Name="PART_TextBox" Grid.Column="0" Style="{StaticResource FindDateText}" Margin="12,0,4,0" />
+                <!-- The box the focus goes to: named as the field, and told its hint and error, as they are set on the picker. -->
+                <DatePickerTextBox x:Name="PART_TextBox" Grid.Column="0" Style="{StaticResource FindDateText}" Margin="12,0,4,0"
+                                   AutomationProperties.Name="{Binding (AutomationProperties.Name), RelativeSource={RelativeSource TemplatedParent}}"
+                                   AutomationProperties.HelpText="{Binding (AutomationProperties.HelpText), RelativeSource={RelativeSource TemplatedParent}}" />
                 <Button x:Name="PART_Button" Grid.Column="1" Style="{StaticResource FindDateButton}" />
                 <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom" PlacementTarget="{Binding ElementName=Box}" StaysOpen="False" />
               </Grid>
