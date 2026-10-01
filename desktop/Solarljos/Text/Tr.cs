@@ -13,7 +13,7 @@ namespace Solarljos.Text;
 /// and read as the page reads them (tr() in src/gui/ui/app.js): {name} placeholders, a number
 /// written as the language writes numbers, a set of plural forms chosen by the count, English for
 /// a key a language leaves out, and the key itself for one no table has. In Arabic what is put in
-/// is isolated (U+2068 ... U+2069), so that a path keeps its own direction.
+/// keeps its own direction (Isolate), so that a path is not turned round by the sentence.
 ///
 /// XAML binds to it through the indexer ({u:T key}), which it says has changed whenever the
 /// language does; code asks Get(key, ("name", value), ...).
@@ -211,11 +211,38 @@ public sealed partial class Tr : INotifyPropertyChanged
                 {
                     int or long => Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString("#,##0", Culture),
                     double d => d.ToString("#,##0.###", Culture),
-                    _ => isolate ? $"\u2068{value}\u2069" : value.ToString() ?? "",
+                    _ => isolate ? Isolate(value.ToString() ?? "") : value.ToString() ?? "",
                 };
             }
             return m.Value;
         });
+    }
+
+    /// <summary>
+    /// A name or a path put into a right-to-left sentence, held in its own direction, as the page
+    /// isolates it (U+2068 ... U+2069). WPF's text knows neither the isolates nor the embeddings
+    /// (U+202A ... U+202C), which leave "D:\" or "20240501_123045.jpg" turned round, so a mark
+    /// of the value's own direction goes on each side of it: what is between two left-to-right
+    /// marks stays left to right, the backslash at its end included.
+    /// </summary>
+    public static string Isolate(string value)
+    {
+        var mark = DirectionOf(value) == FlowDirection.RightToLeft ? "\u200F" : "\u200E";
+        return mark + value + mark;
+    }
+
+    /// <summary>
+    /// The direction a name reads in, from its first letter that has one (the page's bdi and
+    /// dir=auto): one in Arabic or Hebrew right to left, any other, or one with no letter, left to right.
+    /// </summary>
+    public static FlowDirection DirectionOf(string text)
+    {
+        foreach (var ch in text)
+        {
+            if (ch is >= '\u0590' and <= '\u08FF' or >= '\uFB1D' and <= '\uFDFF' or >= '\uFE70' and <= '\uFEFC') return FlowDirection.RightToLeft;
+            if (char.IsLetter(ch)) return FlowDirection.LeftToRight;
+        }
+        return FlowDirection.LeftToRight;
     }
 
     /// <summary>A number as the language writes it.</summary>

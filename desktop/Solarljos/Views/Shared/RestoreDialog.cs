@@ -241,7 +241,8 @@ public sealed class RestoreDialog : Window
             var marks = new List<string>();
             if (B(d, "system")) marks.Add(T["restore.drive.system"]);
             if (originals.Any((p) => Paths.SameRoot(Paths.RootOf(p), root))) marks.Add(T["restore.drive.original"]);
-            var letter = S(d, "letter") is { } l ? l + ":" : root;
+            // "C:" kept as it is beside the words of a right-to-left language.
+            var letter = Tr.Isolate(S(d, "letter") is { } l ? l + ":" : root);
             var text = letter + (L(d, "free") is { } free ? " " + T.Get("restore.driveFree", ("free", Formats.Size(free))) : "")
                 + (marks.Count > 0 ? $" ({string.Join(", ", marks)})" : "");
             var b = Build.Button(text, () =>
@@ -552,7 +553,7 @@ public sealed class RestoreDialog : Window
                 var name = byUid.TryGetValue(S(b, "uid") ?? "", out var c) ? c.Name ?? c.Uid : S(b, "uid") ?? "";
                 var why = Formats.ErrorText(new CoreException(0, S(b, "error") ?? "", S(b, "code"), default));
                 // The name in its own direction, as the page's <bdi>.
-                return (UIElement)Build.Text($"• \u2068{name}\u2069: {why}", "Body");
+                return (UIElement)Build.Text($"• {Tr.Isolate(name)}: {why}", "Body");
             }).ToArray();
             body.Children.Add(Build.Callout("warn", T.Get("restore.done.failed", ("count", bad.Count)), lines));
         }
