@@ -237,6 +237,7 @@
     'folder.since.label': 'Only versions from',
     'folder.since.hint': 'Only copies from that day on are used; for a file whose copies are all older, none is.',
     'folder.submit': 'Find everything that was inside',
+    'desktop.folder.since.format': 'Type the day as year-month-day, such as {example}.',
 
     'plan.title': { one: 'Found 1 file that was inside {folder}', other: 'Found {count} files that were inside {folder}' },
     'plan.explain': 'For each file, the newest exact copy is used. If there is none, an inexact one; then text that was never saved. Smaller copies, and copies that may be incomplete, are used only if you tick them below.',
