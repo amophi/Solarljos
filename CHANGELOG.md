@@ -34,6 +34,8 @@ computers before 1.0 is called.
   Solarljos write.
 - The README says what stays the same within 1.x, that nothing is sent anywhere, and, among the
   limits, the browser page's once-only address.
+- A test that hung once on CI, waiting with no limit on a child it had started, can no longer:
+  npm test gives every test two minutes, and every CI and release job has a time limit.
 
 ## 0.8.0 (2026-10-01)
 
