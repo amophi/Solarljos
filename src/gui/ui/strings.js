@@ -83,6 +83,15 @@
     'quit.done.title': 'Solarljos has stopped',
     'quit.done.body': 'You can close this window.',
     'quit.done.writing': 'Solarljos stops as soon as the files being written are done. You can close this window then.',
+
+    // ---- the Windows program's own (desktop/Solarljos), which shows the rest of this table too ----
+
+    'desktop.starting': 'Getting ready to search…',
+    'desktop.missing.title': 'Part of Solarljos is missing',
+    'desktop.missing.body': 'solarljos-core.exe, the part of Solarljos that searches, has to be in the same folder as Solarljos.exe. Keep the files of the download together, and start Solarljos.exe again.',
+    'desktop.stopped.title': 'Solarljos stopped searching',
+    'desktop.stopped.body': 'The part of Solarljos that searches has stopped. Files you restored stay where you put them. Start Solarljos again to go on.',
+    'desktop.stopped.said': 'What it said last',
     'conn.lost.title': 'Solarljos has stopped',
     'conn.lost.body': 'Nothing more can be searched or restored from this page. Start Solarljos again, then try again here.',
     'conn.forbidden.title': 'This page is not connected to Solarljos',

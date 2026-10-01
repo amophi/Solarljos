@@ -452,3 +452,31 @@ test('rebuild says what the sources noted, above all when nothing turned up', ()
   const json = JSON.parse(cli(['rebuild', path.join(f.root, 'nothing-here'), '--dry-run', '--json', '--location', 'trash=' + f.root], f).out);
   assert.ok(json.sources.find((s) => s.id === 'trash').notes.length >= 1);
 });
+
+test('desktop starts the server for the Windows program, says where on stdout, and stops when its stdin closes', () => {
+  const root = workDir('cli-desktop');
+  dirs.push(root);
+  const script = write(path.join(root, 'run.js'), `
+    const { main } = require(${JSON.stringify(path.join(__dirname, '..', 'src', 'cli.js'))});
+    const calls = [];
+    const server = { start: async (o) => {
+      calls.push({ ...o, log: typeof o.log });
+      // What the server says goes to stderr, keeping stdout for the one line the program reads.
+      o.log('the server speaks');
+      return { port: 5555, key: 'the-key', stop: (why) => process.stderr.write('stopped: ' + why + '\\n') };
+    } };
+    main(['desktop', '--lang', 'en'], { gui: () => server, isSea: () => true })
+      .then((code) => process.stderr.write(JSON.stringify({ code, calls }) + '\\n'));
+  `);
+  const r = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8', input: '' });
+  const line = r.stderr.split('\n').find((l) => l.startsWith('{'));
+  assert.ok(line, `stderr: ${r.stderr}\nstdout: ${r.stdout}`);
+  const told = JSON.parse(line);
+  assert.strictEqual(told.code, 0, r.stderr);
+  assert.deepStrictEqual(told.calls, [{ desktop: true, open: false, host: '127.0.0.1', log: 'function', lang: 'en' }]);
+  const version = require('../package.json').version;
+  assert.deepStrictEqual(r.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)), [{ solarljos: version, port: 5555, key: 'the-key' }]);
+  assert.match(r.stderr, /the server speaks/);
+  // stdin closed at once here, as it does when the program that started it ends.
+  assert.match(r.stderr, /stopped: its window was closed/);
+});

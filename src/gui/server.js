@@ -43,6 +43,16 @@ const { t } = i18n;
 //     cookie          the one this run gave out, else 403
 //     X-Solarljos: 1  on a POST, but the goodbye beacon (which cannot send one), else 403
 //     POST body       application/json (415 otherwise), which a form on another site cannot send
+//   For the Windows program (start({ desktop: true }), the command line's `desktop`) there is no
+//   browser and no token to trade: the program started this process, and is told a random key
+//   along with the port on its stdout, which no other program sees. Every request must carry
+//   it -- "Authorization: Bearer <key>", or, for a copy's bytes alone (GET and HEAD of
+//   /api/copy/...), ?key=<key>, since Windows' media player asks for a video by its address and
+//   sends no header of ours -- in place of the cookie; the other checks stay as they are. No
+//   browser sends the header by itself, so no page elsewhere can make a request that carries it.
+//   It never stops for want of a window: it stops when its stdin closes, as it does when the
+//   program that started it ends, however it ends -- a restore or rebuild being written finishes
+//   first.
 //   Every reply has Cache-Control: no-store -- the browser's disk cache may itself hold the old
 //   pictures a search looks for -- and nosniff, X-Frame-Options DENY, Cross-Origin-Resource-Policy
 //   and Cross-Origin-Opener-Policy same-origin, and Referrer-Policy same-origin. Not no-referrer:
@@ -823,11 +833,16 @@ function pump(source, res, length) {
  * @param {function} [opts.assets]   the page's files: (relative path) => Buffer | null
  * @param {object} [opts.idle]       { grace, bye, first } in ms, instead of IDLE
  * @param {object} [opts.fsp]        fs.promises, or a stand-in for the looks at drives and folders
+ * @param {boolean} [opts.desktop]  for the Windows program: no window is opened, a key instead of the
+ *   token and the cookie, and no stop for want of a window (see the top of this file)
  * @param {string} [opts.lang]       the language to speak (the command line's --lang): the library
  *   is set to it (i18n.setLocale), and the page starts in it when it has its table; by default the
  *   library speaks what it speaks, and the page the browser's language
- * @returns {Promise<{ url: string, close: () => Promise<void>, closed: Promise<void> }>}
- *   `url` is the address with the token; `closed` settles when the server has stopped
+ * @returns {Promise<{ url: string, port: number, key: string|null, close: () => Promise<void>,
+ *   stop: (why: string) => void, closed: Promise<void> }>}
+ *   `url` is the address with the token (the origin alone in desktop mode); `key`, desktop
+ *   mode's; `stop` stops once no restore or rebuild is being written; `closed` settles when
+ *   the server has stopped
  */
 async function start(opts = {}) {
   const api = opts.api || require('../index');
@@ -885,8 +900,11 @@ async function start(opts = {}) {
     }
   }
 
-  // Null once traded: the address works once (see the top of this file).
-  let token = crypto.randomBytes(TOKEN_BYTES).toString('base64url');
+  const desktop = !!opts.desktop;
+  // Desktop mode's key, which every request carries (see the top of this file).
+  const key = desktop ? crypto.randomBytes(TOKEN_BYTES).toString('base64url') : null;
+  // Null once traded: the address works once (see the top of this file). None in desktop mode.
+  let token = desktop ? null : crypto.randomBytes(TOKEN_BYTES).toString('base64url');
   const session = crypto.randomBytes(TOKEN_BYTES).toString('base64url');
   const streams = new Set();
   const jobs = new Map();
@@ -1013,6 +1031,17 @@ async function start(opts = {}) {
     } catch (_) {
       return refuse(req, res, 400, t('That address does not parse.'));
     }
+    if (desktop) {
+      const auth = String(req.headers.authorization || '');
+      const bytes = (req.method === 'GET' || req.method === 'HEAD') && url.pathname.startsWith('/api/copy/');
+      const given = auth.startsWith('Bearer ') ? auth.slice(7) : bytes ? url.searchParams.get('key') || '' : '';
+      // The words a page that is not this program's gets: no one else asks with a key.
+      if (!same(given, key)) return refuse(req, res, 403, t('Refused a request that does not come from the Solarljos page.'));
+      if (req.method === 'POST' && req.headers['x-solarljos'] !== '1') {
+        return refuse(req, res, 403, t('Refused a request that does not come from the Solarljos page.'));
+      }
+      return url;
+    }
     if (req.method === 'GET' && url.pathname === '/' && url.searchParams.has('k')) {
       if (token === null) {
         // Traded already. The window that traded it has the cookie, and a reload of its address
@@ -1090,7 +1119,7 @@ async function start(opts = {}) {
     res.write(`event: hello\ndata: ${JSON.stringify(hello())}\n\n`);
     res.on('close', () => {
       streams.delete(res);
-      if (closing || streams.size) return;
+      if (closing || streams.size || desktop) return;
       armExit(Date.now() - byeAt < 5000 ? byeWait() : idle.grace, t('its window was closed'));
     });
   }
@@ -1941,7 +1970,7 @@ async function start(opts = {}) {
   hostHeader = `${host.includes(':') ? `[${host}]` : host}:${bound}`;
   origin = `http://${hostHeader}`;
   cookieName = `solarljos-${bound}`;
-  const url = `${origin}/?k=${token}`;
+  const url = desktop ? origin : `${origin}/?k=${token}`;
 
   if (typeof api.freeze === 'function') {
     // Before any window: a browser, or Explorer, may change these the moment it starts.
@@ -1982,6 +2011,11 @@ async function start(opts = {}) {
   // Said here, for the command line leaves the telling to the server: where it is, then how its
   // window opened and how it stops (launch.js).
   log(t('Solarljos is running at {0}', url));
+  const stop = (why) => requestStop(why, true);
+  if (desktop) {
+    windowHow = 'desktop';
+    return { url, port: bound, key, close, stop, closed };
+  }
   armExit(idle.first, t('no window connected'));
   try {
     const opened = await openWindow(url, { open: opts.open === undefined ? true : opts.open, elevated, log });
@@ -1989,7 +2023,7 @@ async function start(opts = {}) {
   } catch (e) {
     log(t('Could not open a window ({0}). Open the address above in a browser.', e.message));
   }
-  return { url, close, closed };
+  return { url, port: bound, key, close, stop, closed };
 }
 
 module.exports = {

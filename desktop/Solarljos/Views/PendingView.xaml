@@ -1,0 +1,8 @@
+<!-- A part not yet built for the Windows program: its name, so that the rail leads somewhere. -->
+<UserControl x:Class="Solarljos.Views.PendingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel Margin="40" MaxWidth="1120" HorizontalAlignment="Stretch">
+    <TextBlock x:Name="Heading" Style="{StaticResource H1}" />
+  </StackPanel>
+</UserControl>

@@ -378,7 +378,7 @@
   "its restart interval (DRI) does not add up": ["src/lib/carve.js"],
   "its scans leave out a component of the image": ["src/lib/carve.js"],
   "its video codec ({0}) is not checked: only where the samples lie is": ["src/lib/carve.js"],
-  "its window was closed": ["src/gui/server.js"],
+  "its window was closed": ["src/cli.js","src/gui/server.js"],
   "its {0} box runs past the end of what was searched: the rest is missing": ["src/lib/carve.js"],
   "its {0} scan(s) are followed but not decoded ({1} coding), so foreign data inside them would go unnoticed": ["src/lib/carve.js"],
   "its {0} track's chunk table covers {1} of its {2} samples": ["src/lib/carve.js"],

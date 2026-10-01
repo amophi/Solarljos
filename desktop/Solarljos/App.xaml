@@ -1,0 +1,14 @@
+<Application x:Class="Solarljos.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- The first is the theme, swapped when it changes (Ui/Theme.cs). -->
+        <ResourceDictionary Source="Theme/Dark.xaml" />
+        <ResourceDictionary Source="Theme/Styles.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

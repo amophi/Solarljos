@@ -1355,3 +1355,38 @@ test('works with the library itself', async () => {
   assert.deepStrictEqual(fs.readdirSync(path.join(root, 'out')), ['photo.png'], 'no temporary file left beside it');
   events.close();
 });
+
+test('in desktop mode every request carries the key, a copy by address alone, and no window keeps it alive', async () => {
+  const api = stubApi();
+  const server = await start({
+    api, open: false, exit: false, elevated: false, program: false, home: fixture('gui-desktop'), fsp: fakeDrives(),
+    log: () => {}, locations: { discover: false }, desktop: true, idle: { grace: 20, bye: 20, first: 20 },
+    assets: (rel) => ({ 'index.html': Buffer.from('<!doctype html><title>t</title>') })[rel] || null,
+  });
+  servers.push(server);
+  assert.ok(/^[A-Za-z0-9_-]{43}$/.test(server.key), server.key);
+  assert.strictEqual(server.url, `http://127.0.0.1:${server.port}`);
+  const origin = server.url;
+  const auth = { Authorization: `Bearer ${server.key}` };
+  // No key, a wrong one, the old token or a cookie: refused.
+  assert.strictEqual((await request(origin, '/api/info')).status, 403);
+  assert.strictEqual((await request(origin, '/api/info', { headers: { Authorization: 'Bearer nope' } })).status, 403);
+  assert.strictEqual((await request(origin, '/?k=' + server.key)).status, 403);
+  // The key as ?key= is taken only for a copy's bytes, which Windows' media player asks for by address.
+  assert.strictEqual((await request(origin, '/api/info?key=' + server.key)).status, 403);
+  const info = await request(origin, '/api/info', { headers: auth });
+  assert.strictEqual(info.status, 200);
+  assert.strictEqual(json(info).window, 'desktop');
+  const missing = await request(origin, '/api/copy/' + '0'.repeat(32) + '?key=' + server.key);
+  assert.strictEqual(missing.status, 404, 'past the key: no such copy');
+  // A POST still says where it comes from and that it is Solarljos's.
+  const post = (headers) => request(origin, '/api/theme', { method: 'POST', body: { theme: 'light' }, headers: { ...auth, 'Content-Type': 'application/json', ...headers } });
+  assert.strictEqual((await post({ Origin: origin })).status, 403, 'without X-Solarljos');
+  assert.strictEqual((await post({ 'X-Solarljos': '1' })).status, 403, 'without Origin');
+  assert.strictEqual((await post({ Origin: origin, 'X-Solarljos': '1' })).status, 200);
+  // Long past every wait for a window, it still answers: only stop() or a closed stdin ends it.
+  await new Promise((r) => setTimeout(r, 120));
+  assert.strictEqual((await request(origin, '/api/info', { headers: auth })).status, 200);
+  server.stop('its window was closed');
+  await server.closed;
+});

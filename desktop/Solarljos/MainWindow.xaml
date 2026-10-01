@@ -1,0 +1,142 @@
+<!--
+  The window: a rail at the start — the left, the right in Arabic, since the whole window takes
+  the language's direction — and the part of the page in sight beside it. The rail as the page
+  has it (src/gui/ui/index.html): the button that folds it, the sun and the name, which lead to
+  the start; the three things to find first, then what is searched and the help, each an icon
+  and its words, chosen with the mouse, the arrow keys or Ctrl+1 to Ctrl+5; at its foot the
+  language, the light or dark theme and Quit. In a window narrower than 1,008 pixels it keeps
+  only its icons, and its button shows the words over the page.
+-->
+<Window x:Class="Solarljos.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:u="clr-namespace:Solarljos.Ui"
+        Title="Solarljos" Width="1280" Height="800" MinWidth="560" MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}"
+        FontFamily="{DynamicResource UiFont}" FontSize="15"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal">
+  <Window.Resources>
+    <Style x:Key="RailLabel" TargetType="TextBlock">
+      <Setter Property="Margin" Value="14,0,0,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+          <Setter Property="Visibility" Value="Collapsed" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <Grid x:Name="Root">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition x:Name="RailColumn" Width="Auto" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- The part of the page in sight: each part is kept, hidden, while another is shown. -->
+    <Grid x:Name="Pages" Grid.Column="1" />
+
+    <!-- Over the page, while the rail shows its words in a narrow window: a click on it closes them. -->
+    <Rectangle x:Name="Scrim" Grid.Column="1" Fill="{DynamicResource Scrim}" Visibility="Collapsed" MouseDown="Scrim_MouseDown" />
+
+    <Border x:Name="Rail" Grid.Column="0" Background="{DynamicResource Card}" BorderBrush="{DynamicResource Divider}"
+            BorderThickness="0,0,1,0" Padding="12" MinWidth="256" MaxWidth="320" HorizontalAlignment="Left"
+            Panel.ZIndex="10" KeyboardNavigation.TabNavigation="Local">
+      <DockPanel LastChildFill="False">
+        <StackPanel x:Name="RailTop" DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+          <Button x:Name="Toggle" Style="{StaticResource RailButton}" Padding="0" Width="48" HorizontalContentAlignment="Center"
+                  AutomationProperties.Name="{u:T nav.toggle}" ToolTip="{u:T nav.toggle}" Click="Toggle_Click">
+            <u:Icon Glyph="menu" Width="22" Height="22" />
+          </Button>
+          <Button x:Name="Brand" Style="{StaticResource RailButton}" Padding="10,0" Click="Brand_Click"
+                  AutomationProperties.Name="{u:T app.name}">
+            <StackPanel Orientation="Horizontal">
+              <Grid Width="28" Height="28">
+                <u:Icon Glyph="logoSun" Filled="True" Foreground="{DynamicResource Sun}" Width="28" Height="28" />
+                <u:Icon Glyph="logoRays" Foreground="{DynamicResource SunRays}" Thickness="1.8" Width="28" Height="28" />
+              </Grid>
+              <TextBlock x:Name="BrandName" Text="{u:T app.name}" FontSize="20" FontWeight="ExtraBold" Foreground="{DynamicResource Text}"
+                         Margin="10,0,0,0" VerticalAlignment="Center" Style="{x:Null}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <ListBox x:Name="Nav" DockPanel.Dock="Top" Style="{StaticResource RailList}" ItemContainerStyle="{StaticResource RailItem}"
+                 AutomationProperties.Name="{u:T nav.label}" SelectionChanged="Nav_SelectionChanged">
+          <ListBoxItem Tag="find" AutomationProperties.Name="{u:T nav.find}">
+            <StackPanel Orientation="Horizontal">
+              <u:Icon Glyph="search" Style="{StaticResource RailIcon}" />
+              <TextBlock Text="{u:T nav.find}" Style="{StaticResource RailLabel}" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="media" AutomationProperties.Name="{u:T nav.media}">
+            <StackPanel Orientation="Horizontal">
+              <u:Icon Glyph="photo" Style="{StaticResource RailIcon}" />
+              <TextBlock Text="{u:T nav.media}" Style="{StaticResource RailLabel}" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="folder" AutomationProperties.Name="{u:T nav.folder}">
+            <StackPanel Orientation="Horizontal">
+              <u:Icon Glyph="folderBack" Style="{StaticResource RailIcon}" />
+              <TextBlock Text="{u:T nav.folder}" Style="{StaticResource RailLabel}" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="sources" u:Look.GroupStart="True" AutomationProperties.Name="{u:T nav.sources}">
+            <StackPanel Orientation="Horizontal">
+              <u:Icon Glyph="places" Style="{StaticResource RailIcon}" />
+              <TextBlock Text="{u:T nav.sources}" Style="{StaticResource RailLabel}" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem Tag="help" AutomationProperties.Name="{u:T nav.help}">
+            <StackPanel Orientation="Horizontal">
+              <u:Icon Glyph="help" Style="{StaticResource RailIcon}" />
+              <TextBlock Text="{u:T nav.help}" Style="{StaticResource RailLabel}" />
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+
+        <StackPanel x:Name="Foot" DockPanel.Dock="Bottom" Margin="0,16,0,0">
+          <Grid x:Name="FootRow" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="LangPick" MinHeight="48">
+              <u:Icon Glyph="globe" Width="22" Height="22" Foreground="{DynamicResource Text2}" HorizontalAlignment="Left"
+                      Margin="13,0,0,0" IsHitTestVisible="False" />
+              <ComboBox x:Name="Lang" Margin="36,0,0,0" Background="Transparent" BorderThickness="0" Padding="12,0,36,0" MinHeight="48"
+                        u:Look.Radius="14" DisplayMemberPath="Name" SelectedValuePath="Code"
+                        AutomationProperties.Name="{u:T lang.label}" ToolTip="{u:T lang.label}" SelectionChanged="Lang_SelectionChanged" />
+            </Grid>
+            <Button x:Name="ThemeButton" Grid.Column="1" Style="{StaticResource RailButton}" Padding="0" Width="48"
+                    HorizontalContentAlignment="Center" Click="Theme_Click">
+              <u:Icon x:Name="ThemeIcon" Glyph="sun" Width="22" Height="22" />
+            </Button>
+          </Grid>
+          <Button x:Name="QuitButton" Style="{StaticResource RailButton}" HorizontalAlignment="Stretch" Click="Quit_Click"
+                  AutomationProperties.Name="{u:T nav.quit}">
+            <StackPanel Orientation="Horizontal">
+              <u:Icon Glyph="power" Width="22" Height="22" />
+              <TextBlock Text="{u:T nav.quit}" Style="{StaticResource RailLabel}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- What stops everything: the engine missing, or stopped. -->
+    <Border x:Name="Fatal" Grid.Column="1" Background="{DynamicResource Bg}" Visibility="Collapsed" Panel.ZIndex="5">
+      <Border Style="{StaticResource PanelCard}" MaxWidth="640" VerticalAlignment="Center" Margin="40">
+        <StackPanel>
+          <TextBlock x:Name="FatalTitle" Style="{StaticResource H1}" />
+          <TextBlock x:Name="FatalBody" Style="{StaticResource Lead}" Margin="0,12,0,0" />
+          <TextBlock x:Name="FatalSaidTitle" Style="{StaticResource H2}" Margin="0,20,0,8" Visibility="Collapsed" Text="{u:T desktop.stopped.said}" />
+          <TextBox x:Name="FatalSaid" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Cascadia Mono, Consolas" FontSize="13"
+                   MaxHeight="220" VerticalScrollBarVisibility="Auto" Visibility="Collapsed" />
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</Window>

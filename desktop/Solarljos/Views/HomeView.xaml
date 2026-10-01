@@ -1,0 +1,102 @@
+<!--
+  The start, as the page's (viewHome in src/gui/ui/app.js): the name, large, and what Solarljos
+  does; the three things to find, each a card; the way back to the last results of each kind;
+  and what is good to know, with the way to what is searched.
+-->
+<UserControl x:Class="Solarljos.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:u="clr-namespace:Solarljos.Ui">
+  <UserControl.Resources>
+    <Style x:Key="Tip" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+      <Setter Property="Margin" Value="14,0,0,0" />
+    </Style>
+    <Style x:Key="TipIcon" TargetType="u:Icon">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Foreground" Value="{DynamicResource Text2}" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+      <Setter Property="Margin" Value="0,1,0,0" />
+    </Style>
+  </UserControl.Resources>
+
+  <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+    <StackPanel x:Name="Body" Margin="40,40,40,96" MaxWidth="1120">
+      <TextBlock Style="{StaticResource Wordmark}" Text="{u:T app.name}" Margin="0,16,0,16"
+                 AutomationProperties.HeadingLevel="Level1" />
+      <TextBlock Style="{StaticResource Lead}" Text="{u:T home.good.copies}" Margin="0,0,0,32" />
+
+      <UniformGrid x:Name="Choices" Columns="3" Margin="-8,0,-8,24">
+        <Button Style="{StaticResource ChoiceCard}" Margin="8" Tag="find" Click="Choice_Click"
+                AutomationProperties.Name="{u:T home.file.title}" AutomationProperties.HelpText="{u:T home.file.body}">
+          <Grid>
+            <StackPanel>
+              <Border Width="52" Height="52" CornerRadius="16" Background="{DynamicResource AccentSoft}" HorizontalAlignment="Left">
+                <u:Icon Glyph="search" Width="28" Height="28" Foreground="{DynamicResource AccentText}" />
+              </Border>
+              <TextBlock Style="{StaticResource CardTitle}" Text="{u:T home.file.title}" Margin="0,16,0,8" />
+              <TextBlock Style="{StaticResource CardBody}" Text="{u:T home.file.body}" Margin="0,0,28,0" />
+            </StackPanel>
+            <u:Icon Glyph="chevron" Width="20" Height="20" Foreground="{DynamicResource Text2}" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+          </Grid>
+        </Button>
+        <Button Style="{StaticResource ChoiceCard}" Margin="8" Tag="media" Click="Choice_Click"
+                AutomationProperties.Name="{u:T home.media.title}" AutomationProperties.HelpText="{u:T home.media.body}">
+          <Grid>
+            <StackPanel>
+              <Border Width="52" Height="52" CornerRadius="16" Background="{DynamicResource AccentSoft}" HorizontalAlignment="Left">
+                <u:Icon Glyph="photo" Width="28" Height="28" Foreground="{DynamicResource AccentText}" />
+              </Border>
+              <TextBlock Style="{StaticResource CardTitle}" Text="{u:T home.media.title}" Margin="0,16,0,8" />
+              <TextBlock Style="{StaticResource CardBody}" Text="{u:T home.media.body}" Margin="0,0,28,0" />
+            </StackPanel>
+            <u:Icon Glyph="chevron" Width="20" Height="20" Foreground="{DynamicResource Text2}" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+          </Grid>
+        </Button>
+        <Button Style="{StaticResource ChoiceCard}" Margin="8" Tag="folder" Click="Choice_Click"
+                AutomationProperties.Name="{u:T home.folder.title}" AutomationProperties.HelpText="{u:T home.folder.body}">
+          <Grid>
+            <StackPanel>
+              <Border Width="52" Height="52" CornerRadius="16" Background="{DynamicResource AccentSoft}" HorizontalAlignment="Left">
+                <u:Icon Glyph="folderBack" Width="28" Height="28" Foreground="{DynamicResource AccentText}" />
+              </Border>
+              <TextBlock Style="{StaticResource CardTitle}" Text="{u:T home.folder.title}" Margin="0,16,0,8" />
+              <TextBlock Style="{StaticResource CardBody}" Text="{u:T home.folder.body}" Margin="0,0,28,0" />
+            </StackPanel>
+            <u:Icon Glyph="chevron" Width="20" Height="20" Foreground="{DynamicResource Text2}" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+          </Grid>
+        </Button>
+      </UniformGrid>
+
+      <!-- The last results of each kind, once there are some. -->
+      <StackPanel x:Name="Last" Margin="0,0,0,24" Visibility="Collapsed" />
+
+      <Border Style="{StaticResource PanelCard}">
+        <StackPanel>
+          <TextBlock Style="{StaticResource H2}" Text="{u:T home.good.title}" Margin="0,0,0,16" AutomationProperties.HeadingLevel="Level2" />
+          <DockPanel Margin="0,0,0,14">
+            <u:Icon Glyph="clock" Style="{StaticResource TipIcon}" />
+            <TextBlock Style="{StaticResource Tip}" Text="{u:T home.good.soon}" />
+          </DockPanel>
+          <DockPanel Margin="0,0,0,14">
+            <u:Icon Glyph="usb" Style="{StaticResource TipIcon}" />
+            <TextBlock Style="{StaticResource Tip}" Text="{u:T home.good.drive}" />
+          </DockPanel>
+          <DockPanel Margin="0,0,0,14">
+            <u:Icon Glyph="file" Style="{StaticResource TipIcon}" />
+            <TextBlock Style="{StaticResource Tip}" Text="{u:T home.good.exe}" />
+          </DockPanel>
+          <DockPanel Margin="0,0,0,14">
+            <u:Icon Glyph="eraser" Style="{StaticResource TipIcon}" />
+            <TextBlock Style="{StaticResource Tip}" Text="{u:T home.good.cleanup}" />
+          </DockPanel>
+          <DockPanel>
+            <u:Icon Glyph="power" Style="{StaticResource TipIcon}" />
+            <TextBlock Style="{StaticResource Tip}" Text="{u:T home.good.window}" />
+          </DockPanel>
+          <Button Style="{StaticResource BtnOutlined}" Content="{u:T home.sourcesLink}" Margin="0,24,0,0" Tag="sources" Click="Choice_Click" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

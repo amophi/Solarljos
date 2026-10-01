@@ -460,6 +460,27 @@ async function cmdGui(v, deps, lang) {
 }
 
 /**
+ * The engine of the Windows program (desktop/, Solarljos.exe): the server gui starts, in desktop
+ * mode -- no browser window, a key in place of the token and the cookie (see server.js). It
+ * prints one line of JSON on stdout, { solarljos: <version>, port, key }, which only the program
+ * that started it reads, and what the server has to say on stderr; it stops once its stdin
+ * closes, as it does when that program ends, however it ends. Not listed in the help: it is not
+ * for typing.
+ */
+async function cmdDesktop(deps, lang) {
+  const server = await deps.gui().start({
+    desktop: true, open: false, host: '127.0.0.1', log: (s) => process.stderr.write(s + '\n'),
+    ...(lang === undefined ? {} : { lang }),
+  });
+  process.stdout.write(JSON.stringify({ solarljos: pkg.version, port: server.port, key: server.key }) + '\n');
+  const gone = () => server.stop(t('its window was closed'));
+  process.stdin.on('end', gone);
+  process.stdin.on('error', gone);
+  process.stdin.resume();
+  return 0;
+}
+
+/**
  * The arguments as far as they can be read before they are checked, which a mistake in them
  * stops: the language asked for, the command, and whether there is nothing else -- no argument
  * at all, or --lang alone.
@@ -604,6 +625,7 @@ async function main(argv, deps = {}) {
       case 'rebuild': return await cmdRebuild(rest, v);
       case 'sources': return await cmdSources(v);
       case 'gui': return await cmdGui(v, d, lang);
+      case 'desktop': return await cmdDesktop(d, lang);
       default: throw usageError(t('Unknown command: {0}', command));
     }
   } catch (e) {

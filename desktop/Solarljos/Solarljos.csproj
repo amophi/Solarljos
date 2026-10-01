@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Solarljos.exe, the Windows program: its window, in WPF, over the engine that searches and
+    restores, solarljos-core.exe (the Node program the rest of this repository builds), which it
+    starts beside itself and speaks to over 127.0.0.1 with a key only the two of them know (see
+    src/gui/server.js, desktop mode). It needs the .NET 10 Desktop Runtime and nothing from NuGet:
+    what it shows it takes from the page (src/gui/ui): the words of every language, and the icons
+    (Assets/, written by scripts/desktop-assets.js).
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Solarljos</AssemblyName>
+    <RootNamespace>Solarljos</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- One version for the whole of Solarljos: the one package.json gives. -->
+    <PackageJsonText>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\package.json'))</PackageJsonText>
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($(PackageJsonText), '(?&lt;="version":\s*")[0-9]+\.[0-9]+\.[0-9]+').Value)</Version>
+    <Product>Solarljos</Product>
+    <Company>amophi</Company>
+    <Description>Finds deleted files in the copies Windows and your programs keep, and brings back the ones you choose.</Description>
+    <!-- The same bytes from the same commit, in whatever folder it is built. -->
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildProjectDirectory)=/solarljos/desktop</PathMap>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Fonts\*.otf" />
+    <EmbeddedResource Include="Assets\*.json" LogicalName="Assets.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\src\gui\ui\lang\*.json" LogicalName="Lang.%(Filename)%(Extension)" Link="Lang\%(Filename)%(Extension)" />
+    <None Include="Fonts\Pretendard-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -4,3 +4,5 @@ test/.work/
 *.log
 .DS_Store
 Thumbs.db
+desktop/**/bin/
+desktop/**/obj/
