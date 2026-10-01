@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "एक सिंबॉलिक लिंक, जिसे checkout उसके लक्ष्य वाली फ़ाइल के रूप में लिखता है, क्योंकि core.symlinks false है",
   "a track with compact sample sizes (stz2), which are not checked": "संक्षिप्त सैंपल आकारों (stz2) वाला एक ट्रैक, जो जाँचे नहीं जाते",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "एक {0} के अंत के बाद कुछ नहीं है, और वह अंत दर्ज आकार से {1} बाइट पहले आता है: यह इस फ़ाइल की शुरुआत पर लिखी गई कोई छोटी फ़ाइल हो सकती है",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG दर्ज आकार से {0} बाइट पहले खत्म होता है, और उसके बाद जो आता है वह किसी दूसरे JPEG का अंत है: यह इस फ़ाइल की शुरुआत पर लिखी गई कोई छोटी फ़ोटो हो सकती है",
   "a {0} track whose sample tables do not add up": "एक {0} ट्रैक जिसकी सैंपल तालिकाएँ सुसंगत नहीं हैं",
   "a {0} track without its sample tables": "अपनी सैंपल तालिकाओं के बिना एक {0} ट्रैक",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "एक {0}x{1} {2} चित्र जिसे Windows ने फ़ाइल एक्सप्लोरर के लिए किसी फ़ाइल से बनाया; छोटा और फिर से एन्कोड किया गया, स्वयं फ़ाइल नहीं। फ़ाइल का नाम, प्रकार और दिनांक ज्ञात नहीं हैं",

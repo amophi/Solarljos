@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "シンボリック リンク: core.symlinks が false のため、checkout はリンク先を記したファイルとして書き出します",
   "a track with compact sample sizes (stz2), which are not checked": "コンパクトなサンプル サイズ (stz2) を持つトラック: サンプル サイズは確認していません",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "{0} の終わりの後には何もなく、その終わりは記録されたサイズより {1} バイト手前です: このファイルの先頭に上書きされた、より短いファイルの可能性があります",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG は記録されたサイズより {0} バイト手前で終わり、その後に続くのは別の JPEG の終わりの部分です: このファイルの先頭に上書きされた、より短い写真の可能性があります",
   "a {0} track whose sample tables do not add up": "サンプル テーブルが整合しない {0} トラック",
   "a {0} track without its sample tables": "サンプル テーブルのない {0} トラック",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "Windows がエクスプローラー用にファイルから作成した {0}x{1} の {2} 画像: 縮小・再エンコードされたもので、ファイルそのものではありません。ファイルの名前、種類、日付は不明です",

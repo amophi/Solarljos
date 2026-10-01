@@ -456,6 +456,7 @@
   "the AVI header: when the video was made, by the camera's clock": ["src/lib/carve.js"],
   "the CRC-32 of chunk {0} at +{1} does not match": ["src/lib/carve.js"],
   "the IDE noted {0} error(s) in it": ["src/sources/jetbrains.js"],
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": ["src/sources/removable.js"],
   "the Multi-Picture index lists an image at +{0} that is not whole there": ["src/lib/carve.js"],
   "the PNG tIME chunk: when the image was last changed": ["src/lib/carve.js"],
   "the ZIP directory: when a member was last changed, no time zone recorded": ["src/lib/carve.js"],

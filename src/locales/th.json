@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "ลิงก์สัญลักษณ์ ซึ่ง checkout เขียนเป็นไฟล์ที่มีปลายทางของลิงก์ เนื่องจาก core.symlinks เป็น false",
   "a track with compact sample sizes (stz2), which are not checked": "แทร็กที่มีขนาดตัวอย่างแบบย่อ (stz2) ซึ่งไม่ได้ตรวจสอบ",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "{0} ไม่มีสิ่งใดหลังจุดสิ้นสุด ซึ่งอยู่ก่อนขนาดที่บันทึกไว้ {1} ไบต์: อาจเป็นไฟล์ที่สั้นกว่าซึ่งเขียนทับส่วนต้นของไฟล์นี้",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG สิ้นสุดก่อนขนาดที่บันทึกไว้ {0} ไบต์ และสิ่งที่ตามมาคือส่วนท้ายของ JPEG อื่น: อาจเป็นรูปถ่ายที่สั้นกว่าซึ่งเขียนทับส่วนต้นของไฟล์นี้",
   "a {0} track whose sample tables do not add up": "แทร็ก {0} ที่ตารางตัวอย่างไม่สอดคล้องกัน",
   "a {0} track without its sample tables": "แทร็ก {0} ที่ไม่มีตารางตัวอย่าง",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "รูปภาพ {2} ขนาด {0}x{1} ที่ Windows สร้างจากไฟล์หนึ่งสำหรับ File Explorer ขนาดเล็กลงและเข้ารหัสใหม่ ไม่ใช่ตัวไฟล์ ไม่ทราบชื่อ ชนิด และวันที่ของไฟล์",

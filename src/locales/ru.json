@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "символическая ссылка, которую checkout записывает как файл с её целью, так как core.symlinks равно false",
   "a track with compact sample sizes (stz2), which are not checked": "дорожка с компактными размерами сэмплов (stz2), которые не проверяются",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "файл {0} заканчивается на {1} байт раньше записанного размера, и после конца ничего нет: возможно, это более короткий файл, записанный поверх начала этого",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG заканчивается на {0} байт раньше записанного размера, а после него идёт конец другого JPEG: возможно, это более короткое фото, записанное поверх начала этого файла",
   "a {0} track whose sample tables do not add up": "дорожка {0}, таблицы сэмплов которой не сходятся",
   "a {0} track without its sample tables": "дорожка {0} без таблиц сэмплов",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "изображение {2} {0}x{1}, которое Windows создала из файла для Проводника; уменьшенное и перекодированное, это не сам файл. Имя, тип и дата файла неизвестны",

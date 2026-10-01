@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "심볼릭 링크; core.symlinks가 false이므로 checkout은 이 링크를 대상 경로가 담긴 파일로 씀",
   "a track with compact sample sizes (stz2), which are not checked": "압축된 샘플 크기(stz2)를 쓰는 트랙; 이 크기는 확인하지 않음",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "{0} 파일이 끝난 뒤로 아무것도 없고, 그 끝은 기록된 크기보다 {1}바이트 앞임: 더 짧은 파일이 이 파일의 앞부분 위에 쓰였을 수 있음",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG가 기록된 크기보다 {0}바이트 앞에서 끝나고, 그 뒤에 이어지는 것은 다른 JPEG의 끝부분임: 더 짧은 사진이 이 파일의 앞부분 위에 쓰였을 수 있음",
   "a {0} track whose sample tables do not add up": "샘플 표가 맞지 않는 {0} 트랙",
   "a {0} track without its sample tables": "샘플 표가 없는 {0} 트랙",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "Windows가 탐색기에 보여 주려고 어떤 파일로 만든 {0}x{1} {2} 이미지; 더 작고 다시 인코딩된 것으로 파일 자체가 아님. 파일의 이름, 종류, 날짜는 알 수 없음",

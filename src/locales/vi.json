@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "một liên kết tượng trưng, mà checkout ghi thành tệp chứa đích của nó, vì core.symlinks là false",
   "a track with compact sample sizes (stz2), which are not checked": "một track có kích thước mẫu thu gọn (stz2), không được kiểm tra",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "một {0} không có gì sau điểm kết thúc, điểm này đến sớm hơn {1} byte so với kích thước được ghi: có thể đó là một tệp ngắn hơn đã được ghi đè lên phần đầu của tệp này",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG kết thúc sớm hơn {0} byte so với kích thước được ghi, và phần tiếp theo là phần cuối của một JPEG khác: có thể đó là một ảnh ngắn hơn đã được ghi đè lên phần đầu của tệp này",
   "a {0} track whose sample tables do not add up": "một track {0} có bảng mẫu không hợp lệ",
   "a {0} track without its sample tables": "một track {0} không có bảng mẫu",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "một hình {2} {0}x{1} mà Windows tạo từ một tệp cho File Explorer; nhỏ hơn và được mã hóa lại, không phải chính tệp. Không rõ tên, loại và ngày của tệp",

@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "core.symlinks false olduğu için checkout'un, hedefini içeren bir dosya olarak yazdığı bir sembolik bağlantı",
   "a track with compact sample sizes (stz2), which are not checked": "sıkıştırılmış örnek boyutlarına (stz2) sahip bir iz; bunlar denetlenmez",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "bu {0} dosyası kaydedilen boyuttan {1} bayt önce bitiyor ve sonundan sonra hiçbir şey yok: bunun başlangıcının üzerine yazılmış daha kısa bir dosya olabilir",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG, kaydedilen boyuttan {0} bayt önce bitiyor ve ardından gelen, başka bir JPEG dosyasının sonu: bunun başlangıcının üzerine yazılmış daha kısa bir fotoğraf olabilir",
   "a {0} track whose sample tables do not add up": "örnek tabloları tutarsız bir {0} izi",
   "a {0} track without its sample tables": "örnek tabloları olmayan bir {0} izi",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "Windows'un Dosya Gezgini için bir dosyadan oluşturduğu {0}x{1} boyutunda bir {2} resmi; daha küçük ve yeniden kodlanmış, dosyanın kendisi değil. Dosyanın adı, türü ve tarihi bilinmiyor",

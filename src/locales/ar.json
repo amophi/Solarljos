@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "ارتباط رمزي، تكتبه عملية checkout كملف يحتوي على هدفه، لأن قيمة core.symlinks هي false",
   "a track with compact sample sizes (stz2), which are not checked": "مسار بأحجام عينات مضغوطة (stz2)، لا يُتحقق منها",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "ملف {0} لا يليه شيء بعد نهايته، التي تأتي قبل الحجم المسجل بـ {1} بايت: قد يكون ملفًا أقصر كُتب فوق بداية هذا الملف",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "ينتهي ملف JPEG قبل الحجم المسجل بـ {0} بايت، وما يليه هو نهاية ملف JPEG آخر: قد تكون صورة أقصر كُتبت فوق بداية هذا الملف",
   "a {0} track whose sample tables do not add up": "مسار {0} جداول عيناته غير متسقة",
   "a {0} track without its sample tables": "مسار {0} بلا جداول عيناته",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "صورة {2} بحجم {0}x{1} أنشأها Windows من ملف لمستكشف الملفات؛ أصغر ومُعاد ترميزها، وليست الملف نفسه. واسم الملف ونوعه وتاريخه غير معروفة",

@@ -114,8 +114,24 @@ const CHECKED_EXT = new Set(FAMILY.keys());
 
 // Formats that end where their structure does, with nothing after as a rule: one that ends before
 // the size recorded may be a shorter file written over the start of a longer one. Not JPEG, after
-// whose end phones and cameras append their own data.
+// whose end phones and cameras append their own data; endsAnother() looks at what follows one.
 const ENDS_EXACTLY = new Set(['png', 'gif', 'zip']);
+
+/**
+ * Whether what follows a JPEG's end, up to the size recorded, is the end of another JPEG -- what a
+ * shorter photo written over the start of a longer one leaves -- rather than what a phone or a
+ * camera puts there: a second picture (MPF), past any padding, starts with its own FF D8; a motion
+ * photo's video, or a maker's trailer, does not end in FF D9, as the last bytes of a JPEG do.
+ */
+function endsAnother(reader, x, from, size) {
+  const r = fat.extentReader(reader, x);
+  const last = r.read(size - 2, 2);
+  if (last[0] !== 0xff || last[1] !== 0xd9) return false;
+  const next = r.read(from, Math.min(4096, size - from));
+  let i = 0;
+  while (i < next.length && (next[i] === 0 || (next[i] === 0xff && next[i + 1] !== 0xd8))) i++;
+  return !(next[i] === 0xff && next[i + 1] === 0xd8);
+}
 
 // The types carving can find. A search for none of them has nothing to carve for.
 const CARVED_TYPES = new Set(Object.values(carve.FORMATS).map((f) => f.mediaType));
@@ -409,6 +425,10 @@ async function undeleted(reader, p, volume, prefix, o, tally, claimed) {
       flags.unverified = true;
       own.push(t('a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter '
         + 'file written over the start of this one', hit.ext.slice(1).toUpperCase(), o.size - hit.length));
+    }
+    if (hit && hit.complete && hit.type === 'jpeg' && o.size > hit.length + 2 && endsAnother(reader, x, hit.length, o.size)) {
+      flags.unverified = true;
+      own.push(t('the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one', o.size - hit.length));
     }
     if (extra.renamed) {
       own.push(t('its bytes are a whole {0}, of exactly the size recorded, though its name says otherwise: the file was '

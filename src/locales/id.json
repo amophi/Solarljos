@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "tautan simbolis, yang ditulis checkout sebagai file berisi targetnya, karena core.symlinks bernilai false",
   "a track with compact sample sizes (stz2), which are not checked": "track dengan ukuran sampel ringkas (stz2), yang tidak diperiksa",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "sebuah {0} tidak memiliki apa pun setelah akhirnya, yang terletak {1} byte sebelum ukuran yang tercatat: mungkin itu file yang lebih pendek yang ditulis di atas awal file ini",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG berakhir {0} byte sebelum ukuran yang tercatat, dan yang mengikutinya adalah akhir dari JPEG lain: mungkin itu foto yang lebih pendek yang ditulis di atas awal file ini",
   "a {0} track whose sample tables do not add up": "track {0} yang tabel sampelnya tidak konsisten",
   "a {0} track without its sample tables": "track {0} tanpa tabel sampel",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "gambar {2} {0}x{1} yang dibuat Windows dari sebuah file untuk File Explorer; lebih kecil dan dienkode ulang, bukan file itu sendiri. Nama, jenis, dan tanggal file tidak diketahui",

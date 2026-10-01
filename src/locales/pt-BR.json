@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "um link simbólico, que o checkout grava como um arquivo contendo o destino dele, já que core.symlinks é false",
   "a track with compact sample sizes (stz2), which are not checked": "uma faixa com tamanhos de amostra compactos (stz2), que não são verificados",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "um arquivo {0} não tem nada depois do fim, que fica {1} bytes antes do tamanho registrado: pode ser um arquivo menor gravado sobre o início deste",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "o JPEG termina {0} bytes antes do tamanho registrado, e o que vem depois é o fim de outro JPEG: pode ser uma foto menor gravada sobre o início deste arquivo",
   "a {0} track whose sample tables do not add up": "uma faixa de {0} cujas tabelas de amostras não são coerentes",
   "a {0} track without its sample tables": "uma faixa de {0} sem as tabelas de amostras",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "uma imagem {2} de {0}x{1} que o Windows criou de um arquivo para o Explorador de Arquivos; reduzida e recodificada, não o próprio arquivo. O nome, o tipo e a data do arquivo não são conhecidos",

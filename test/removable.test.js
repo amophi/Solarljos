@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const { workDir, cleanup, write, only, snapshot } = require('./helpers');
+const { makeJpeg } = require('./make-jpeg');
 const { search, readCopy, restoreCopy, describeSources, tier } = require('../src/index');
 const removable = require('../src/sources/removable');
 
@@ -691,6 +692,37 @@ test('a PNG that ends before the size recorded may be a shorter file written ove
   const [c] = (await find(file, { pattern: '*' })).results;
   assert.strictEqual(tier(c), 3);
   assert.match(c.note, /has nothing after its end, which comes 300 bytes before the size recorded/);
+});
+
+test('a JPEG followed by the end of another may be a shorter photo written over a longer one', async () => {
+  const short = makeJpeg({ seed: 11, width: 64, height: 48 });
+  const long = makeJpeg({ seed: 12, width: 160, height: 120 });
+  assert.ok(long.length > short.length + 600);
+  const cases = [
+    // A shorter photo over the start of a longer one: the rest is the longer one's end.
+    ['IMG_0001.JPG', Buffer.concat([short, long.subarray(short.length)]), true],
+    // A phone's second picture (MPF), right after the first or past padding: kept as it is.
+    ['IMG_0002.JPG', Buffer.concat([short, long]), false],
+    ['IMG_0003.JPG', Buffer.concat([short, Buffer.alloc(700), long]), false],
+    // A maker's trailer, which does not end as a JPEG does.
+    ['IMG_0004.JPG', Buffer.concat([short, bytes(500, 7), Buffer.from('SEFHSEFT', 'latin1')]), false],
+  ];
+  for (const [name, data, flagged] of cases) {
+    const ex = new ExfatImage({ sectors: 8192 });
+    ex.file(name, data, 10);
+    ex.remove(name);
+    const { file } = saved(name + '.img', ex.image());
+    const [c] = (await find(file, { pattern: '*' })).results;
+    assert.ok(c, name);
+    const said = /what follows it is the end of another JPEG/.test(c.note || '');
+    assert.strictEqual(said, flagged, name);
+    if (flagged) {
+      assert.strictEqual(tier(c), 3, name);
+      assert.match(c.note, new RegExp('ends ' + (data.length - short.length) + ' bytes before the size recorded'));
+    } else {
+      assert.notStrictEqual(tier(c), 3, name);
+    }
+  }
 });
 
 test('a card changed since the search is not restored from', async () => {

@@ -220,6 +220,7 @@
   "a symbolic link, which checkout writes as a file holding its target, since core.symlinks is false": "符號連結；由於 core.symlinks 為 false，checkout 會把它寫成一個包含其目標的檔案",
   "a track with compact sample sizes (stz2), which are not checked": "使用精簡樣本大小（stz2）的軌道，這些大小未經檢查",
   "a {0} has nothing after its end, which comes {1} bytes before the size recorded: it may be a shorter file written over the start of this one": "{0} 在其結尾之後沒有內容，而該結尾比記錄的大小早 {1} 位元組：它可能是一個寫在此檔案開頭之上的較短檔案",
+  "the JPEG ends {0} bytes before the size recorded, and what follows it is the end of another JPEG: it may be a shorter photo written over the start of this one": "JPEG 比記錄的大小早 {0} 位元組結束，其後是另一個 JPEG 的結尾部分：它可能是一張寫在此檔案開頭之上的較短相片",
   "a {0} track whose sample tables do not add up": "樣本表資料不一致的 {0} 軌道",
   "a {0} track without its sample tables": "缺少樣本表的 {0} 軌道",
   "a {0}x{1} {2} picture Windows made of a file for Explorer; smaller and re-encoded, not the file itself. The file's name, type and date are not known": "Windows 為檔案總管根據某個檔案產生的 {0}x{1} {2} 圖片；已縮小並重新編碼，不是檔案本身。該檔案的名稱、類型和日期不明",
