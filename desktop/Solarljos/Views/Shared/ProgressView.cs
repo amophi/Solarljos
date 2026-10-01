@@ -309,30 +309,18 @@ public static class StatePage
         var general = job.Said("notes") is { ValueKind: JsonValueKind.Array } g ? g.EnumerateArray().Select((x) => x.ToString()).ToList() : [];
         if (failed.Count > 0)
         {
-            var lines = failed.Select((s) => (UIElement)Line(Formats.SourceLabel(Str(s, "id"), Str(s, "label")), Str(s, "error"))).ToArray();
-            out_.Children.Add(Build.Callout("warn", T.Get("results.failedPlaces", ("count", failed.Count)), lines));
+            var list = Build.Bullets(failed.Select((s) => Build.NamedLine(Formats.SourceLabel(Str(s, "id"), Str(s, "label")), Str(s, "error"))));
+            out_.Children.Add(Build.Callout("warn", T.Get("results.failedPlaces", ("count", failed.Count)), list));
         }
         if (noted.Count > 0 || general.Count > 0)
         {
-            var items = new List<UIElement>();
-            foreach (var n in general) items.Add(Build.Text("• " + n, "Body").Margin(0, 4, 0, 0));
+            var items = general.Select((n) => new Build.Bulleted(n, new SilentText { Text = n })).ToList();
             foreach (var s in noted)
                 foreach (var n in s.GetProperty("notes").EnumerateArray())
-                    items.Add(Line(Formats.SourceLabel(Str(s, "id"), Str(s, "label")), n.ToString()));
-            out_.Children.Add(Build.More(T["results.notes"], false, false, items.ToArray()));
+                    items.Add(Build.NamedLine(Formats.SourceLabel(Str(s, "id"), Str(s, "label")), n.ToString()));
+            out_.Children.Add(Build.More(T["results.notes"], false, false, Build.Bullets(items)));
         }
         if (OldLanguage(job, failed.Count + noted.Count + general.Count > 0) is { } lang) out_.Children.Add(lang);
         return out_;
-    }
-
-    /// <summary>"• Name: what it said", the name bold.</summary>
-    static TextBlock Line(string name, string said)
-    {
-        var tb = Build.Text("", "Body");
-        tb.Margin = new Thickness(0, 4, 0, 0);
-        tb.Inlines.Add(new System.Windows.Documents.Run("• "));
-        tb.Inlines.Add(new System.Windows.Documents.Run(name) { FontWeight = FontWeights.Bold });
-        tb.Inlines.Add(new System.Windows.Documents.Run(": " + said));
-        return tb;
     }
 }

@@ -61,7 +61,7 @@ public sealed class HelpView : UserControl, IPage
         page.Children.Add(Part("help.states.title", Legend(States.Select((s) => ((UIElement)Build.StateBadge(s), Formats.StateHelp(s))))));
         page.Children.Add(Part("help.media.title",
             Bits.Para(T["help.media.ssd"], first: true), Bits.Para(T["help.media.video"]), Bits.Para(T["help.media.card"])));
-        page.Children.Add(Part("help.cant.title", Bits.Bullets(new[] { "help.cant.formatted", "help.cant.nocopy", "help.cant.original" }.Select((k) => T[k]))));
+        page.Children.Add(Part("help.cant.title", Build.Bullets(new[] { "help.cant.formatted", "help.cant.nocopy", "help.cant.original" }.Select((k) => T[k]))));
         page.Children.Add(Part("help.writes.title", Bits.Para(T["help.writes.body"], first: true)));
         page.Children.Add(Part("help.stop.title", Bits.Para(T["help.stop.body"], first: true)));
         // The page's help.browser.* say how the browser keeps the page; this window is no browser's.

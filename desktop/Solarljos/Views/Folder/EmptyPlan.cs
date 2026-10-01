@@ -63,7 +63,7 @@ static class EmptyPlan
         UIElement? details = null;
         if (per.Count > 0)
         {
-            var lines = new List<UIElement>();
+            var lines = new List<Build.Bulleted>();
             foreach (var s in per)
             {
                 var name = Formats.SourceLabel(Str(s, "id"), Str(s, "label"));
@@ -71,22 +71,10 @@ static class EmptyPlan
                 bool skipped = s.TryGetProperty("skipped", out var sk) && sk.ValueKind == JsonValueKind.True;
                 long count = s.TryGetProperty("count", out var c) && c.ValueKind == JsonValueKind.Number ? c.GetInt64() : 0;
                 var said = error.Length > 0 ? T["progress.failed"] : skipped ? T["progress.skipped"] : T.Get("progress.found", ("count", count));
-                var line = Build.Text("", "Body");
-                line.Margin = new Thickness(0, 4, 0, 0);
-                line.Inlines.Add(new System.Windows.Documents.Run("• "));
-                line.Inlines.Add(new System.Windows.Documents.Run(name) { FontWeight = FontWeights.Bold });
-                line.Inlines.Add(new System.Windows.Documents.Run(": " + said));
-                if (error.Length > 0)
-                {
-                    var why2 = new System.Windows.Documents.Run($" ({error})");
-                    why2.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text2");
-                    line.Inlines.Add(why2);
-                }
-                lines.Add(line);
-                if (s.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Array)
-                    foreach (var n in notes.EnumerateArray()) lines.Add(Bits.Bullet(n.ToString()).Margin(24, 2, 0, 0));
+                var notes = s.TryGetProperty("notes", out var ns) && ns.ValueKind == JsonValueKind.Array ? ns.EnumerateArray().Select((n) => n.ToString()).ToList() : null;
+                lines.Add(Build.NamedLine(name, said, error, notes));
             }
-            var more = Build.More(T["empty.details"], false, true, lines.ToArray());
+            var more = Build.More(T["empty.details"], false, true, Build.Bullets(lines));
             more.Margin = new Thickness(0, 16, 0, 0);
             details = more;
         }
@@ -99,9 +87,9 @@ static class EmptyPlan
         }
         var back = Build.Button(T["common.back"], () => owner.Go("", focus: true));
         var page = StatePage.Make("empty", title,
-            part("empty.why", why.Select((t) => (UIElement)Bits.Bullet(t)).ToArray()),
+            part("empty.why", Build.Bullets(why)),
             part("empty.try", Build.Text(T["empty.try.spelling"], "Body"), StatePage.Actions(tries.ToArray())),
-            part("empty.elsewhere", elsewhere.Select((t) => (UIElement)Bits.Bullet(t)).ToArray()),
+            part("empty.elsewhere", Build.Bullets(elsewhere)),
             details,
             StatePage.OldLanguage(job, per.Any((s) => Str(s, "error").Length > 0 || (s.TryGetProperty("notes", out var n) && n.ValueKind == JsonValueKind.Array && n.GetArrayLength() > 0))),
             StatePage.Actions(back).Margin(0, 16, 0, 0));

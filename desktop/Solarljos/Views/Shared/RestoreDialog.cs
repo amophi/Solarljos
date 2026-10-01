@@ -553,9 +553,9 @@ public sealed class RestoreDialog : Window
                 var name = byUid.TryGetValue(S(b, "uid") ?? "", out var c) ? c.Name ?? c.Uid : S(b, "uid") ?? "";
                 var why = Formats.ErrorText(new CoreException(0, S(b, "error") ?? "", S(b, "code"), default));
                 // The name in its own direction, as the page's <bdi>.
-                return (UIElement)Build.Text($"• {Tr.Isolate(name)}: {why}", "Body");
-            }).ToArray();
-            body.Children.Add(Build.Callout("warn", T.Get("restore.done.failed", ("count", bad.Count)), lines));
+                return new Build.Bulleted(T.Get("a11y.sourceDone", ("source", name), ("result", why)), new SilentText { Text = $"{Tr.Isolate(name)}: {why}" });
+            });
+            body.Children.Add(Build.Callout("warn", T.Get("restore.done.failed", ("count", bad.Count)), Build.Bullets(lines)));
         }
         if (ok.Count > 0) body.Children.Add(Build.Text(T["restore.openWarning"], "Hint").Margin(0, 12, 0, 0));
         buttons.Children.Clear();

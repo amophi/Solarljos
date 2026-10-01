@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -228,6 +229,79 @@ public static class Build
         chips.El.Children.Add(Labeled.Group(legend, wrap));
         if (hint is not null) chips.El.Children.Add(Text(hint, "Hint").Margin(0, 0, 0, 0));
         return chips;
+    }
+
+    // ---- a list with bullets ----------------------------------------------------------------
+
+    /// <summary>
+    /// One item of a list with bullets: its name for assistive technology, the words shown for it
+    /// (a SilentText, which may hold a name in bold), and the items under it, if any.
+    /// </summary>
+    public sealed record Bulleted(string Name, TextBlock Words, IReadOnlyList<string>? Under = null);
+
+    /// <summary>A list with bullets of these lines, each named by its words.</summary>
+    public static Labeled Bullets(IEnumerable<string> lines, double fontSize = 15, double lineHeight = 23, bool ownWay = false) =>
+        Bullets(lines.Select((l) => new Bulleted(l, new SilentText { Text = l })), fontSize, lineHeight, ownWay);
+
+    /// <summary>
+    /// A list with bullets, as the page's ul: each item 4 pixels below the last, its bullet in a
+    /// column of 20. Assistive technology is told a list and its items, each by its name; not the
+    /// bullets, which are for the eye, nor the words again. The items under one are a list of their
+    /// own, with hollow bullets. `ownWay`: each item reads in the direction of its first letter, as
+    /// dir="auto" has it -- for what the engine says, in English where the language chosen has no
+    /// words for it, which right to left would be put in the wrong order.
+    /// </summary>
+    public static Labeled Bullets(IEnumerable<Bulleted> items, double fontSize = 15, double lineHeight = 23, bool ownWay = false) =>
+        BulletList(items, fontSize, lineHeight, ownWay, "•");
+
+    static Labeled BulletList(IEnumerable<Bulleted> items, double fontSize, double lineHeight, bool ownWay, string glyph)
+    {
+        var list = new StackPanel();
+        foreach (var item in items)
+        {
+            var bullet = new SilentText { Text = glyph, Width = 20, TextAlignment = TextAlignment.Center, Margin = new Thickness(-2, 0, 2, 0) };
+            bullet.SetResourceReference(FrameworkElement.StyleProperty, "Body");
+            bullet.FontSize = fontSize;
+            bullet.LineHeight = lineHeight;
+            var words = item.Words;
+            if (words.ReadLocalValue(FrameworkElement.StyleProperty) == DependencyProperty.UnsetValue) words.SetResourceReference(FrameworkElement.StyleProperty, "Body");
+            words.FontSize = fontSize;
+            words.LineHeight = lineHeight;
+            words.TextWrapping = TextWrapping.Wrap;
+            var row = new DockPanel();
+            DockPanel.SetDock(bullet, Dock.Left);
+            row.Children.Add(bullet);
+            row.Children.Add(words);
+            if (ownWay) row.FlowDirection = Tr.DirectionOf(item.Name) == FlowDirection.RightToLeft || (!item.Name.Any(char.IsLetter) && Tr.Instance.Direction == FlowDirection.RightToLeft)
+                ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+            UIElement content = row;
+            if (item.Under is { Count: > 0 } under)
+            {
+                var sub = BulletList(under.Select((u) => new Bulleted(u, new SilentText { Text = u })), fontSize - 1, lineHeight - 2, ownWay, "◦");
+                sub.Margin = new Thickness(20, 2, 0, 0);
+                content = Stack(row, sub);
+            }
+            var li = new Labeled { Kind = AutomationControlType.ListItem, Child = content, Margin = new Thickness(0, list.Children.Count == 0 ? 0 : 4, 0, 0) };
+            AutomationProperties.SetName(li, item.Name);
+            list.Children.Add(li);
+        }
+        return new Labeled { Kind = AutomationControlType.List, Child = list };
+    }
+
+    /// <summary>"Name: what it says", the name in bold, for a list's item: words for the eye, its item named the same.</summary>
+    public static Bulleted NamedLine(string name, string said, string? aside = null, IReadOnlyList<string>? under = null)
+    {
+        var t = new SilentText();
+        t.Inlines.Add(new System.Windows.Documents.Run(name) { FontWeight = FontWeights.Bold });
+        t.Inlines.Add(new System.Windows.Documents.Run(": " + said));
+        if (aside is { Length: > 0 })
+        {
+            var why = new System.Windows.Documents.Run($" ({aside})");
+            why.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text2");
+            t.Inlines.Add(why);
+        }
+        var spoken = Tr.Instance.Get("a11y.sourceDone", ("source", name), ("result", said)) + (aside is { Length: > 0 } ? " (" + aside + ")" : "");
+        return new Bulleted(spoken, t, under);
     }
 
     // ---- a check box, for choosing several --------------------------------------------------

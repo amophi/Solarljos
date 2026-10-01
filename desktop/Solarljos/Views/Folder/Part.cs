@@ -128,12 +128,4 @@ static class Bits
         System.Windows.Automation.AutomationProperties.SetName(card, title);
         return card;
     }
-
-    /// <summary>"• what it says", as a list's item.</summary>
-    public static TextBlock Bullet(string text)
-    {
-        var t = Build.Text("• " + text, "Body");
-        t.Margin = new Thickness(0, 4, 0, 0);
-        return t;
-    }
 }

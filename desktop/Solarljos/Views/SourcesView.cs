@@ -247,7 +247,7 @@ public sealed class SourcesView : UserControl, IPage
             else if (!lines.TryGetValue(id, out var ls) || ls.Count == 0)
                 c.Lines.Children.Add(Small(T["sources.noLines"]));
             else
-                c.Lines.Children.Add(Bits.Bullets(ls, 13, 20, ownWay: true));
+                c.Lines.Children.Add(Build.Bullets(ls, 13, 20, ownWay: true));
         }
 
         static TextBlock Small(string text)

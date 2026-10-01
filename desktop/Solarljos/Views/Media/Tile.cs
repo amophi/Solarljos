@@ -272,6 +272,8 @@ public sealed class Tile : Grid
         protected override string GetClassNameCore() => "Tile";
 
         protected override string GetNameCore() => owner.label;
+        // Its badge, caption and "Loading" are in its name and help already: not said again as children.
+        protected override List<AutomationPeer>? GetChildrenCore() => null;
 
         protected override bool IsKeyboardFocusableCore() => true;
 
@@ -325,12 +327,6 @@ public sealed class TileRowPanel : Panel
         }
         return final;
     }
-}
-
-/// <summary>Words for the eye only, which assistive technology does not see: a heading already said where it is.</summary>
-public sealed class SilentText : TextBlock
-{
-    protected override AutomationPeer? OnCreateAutomationPeer() => null;
 }
 
 static class TextBlockLook

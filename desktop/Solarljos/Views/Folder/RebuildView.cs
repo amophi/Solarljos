@@ -139,14 +139,12 @@ static class RebuildView
             {
                 var rel = string.Join('/', Paths.RelParts(S(f, "rel") ?? S(f, "path") ?? ""));
                 var why = Formats.ErrorText(new CoreException(0, S(f, "error") ?? "", null, default));
-                var t = Build.Text("", "Body");
-                t.Margin = new Thickness(0, 4, 0, 0);
-                t.Inlines.Add(new Run("• "));
+                var t = new SilentText();
                 t.Inlines.Add(new Run(rel) { FlowDirection = FlowDirection.LeftToRight, FontFamily = Bits.Mono, FontSize = 13 });
                 t.Inlines.Add(new Run(": " + why));
-                return (UIElement)t;
-            }).ToArray();
-            body.Add(Build.Callout("warn", T.Get("rebuild.failed", ("count", failed.Count)), lines));
+                return new Build.Bulleted(T.Get("a11y.sourceDone", ("source", rel), ("result", why)), t);
+            });
+            body.Add(Build.Callout("warn", T.Get("rebuild.failed", ("count", failed.Count)), Build.Bullets(lines)));
         }
         if (byKind.Count > 0)
         {

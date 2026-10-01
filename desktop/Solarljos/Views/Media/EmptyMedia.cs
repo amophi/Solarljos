@@ -58,32 +58,20 @@ public static class EmptyMedia
 
         var body = new List<UIElement?>
         {
-            Part("empty.why", Bullets(why)),
+            Part("empty.why", Build.Bullets(why)),
             Part("empty.try", Build.Text(T["empty.try.card"]).Margin(0, 0, 0, 4), StatePage.Actions(tries.ToArray())),
-            Part("empty.elsewhere", Bullets(elsewhere)),
+            Part("empty.elsewhere", Build.Bullets(elsewhere)),
         };
         if (per.Count > 0)
         {
-            var lines = new List<UIElement>();
+            var lines = new List<Build.Bulleted>();
             foreach (var s in per)
             {
-                var line = Build.Text("", "Body");
-                line.Margin = new Thickness(0, 4, 0, 0);
-                line.Inlines.Add(new System.Windows.Documents.Run("• "));
-                line.Inlines.Add(new System.Windows.Documents.Run(Formats.SourceLabel(S(s, "id"), S(s, "label"))) { FontWeight = FontWeights.Bold });
                 var result = S(s, "error").Length > 0 ? T["progress.failed"] : B(s, "skipped") ? T["progress.skipped"] : T.Get("progress.found", ("count", N(s, "count")));
-                line.Inlines.Add(new System.Windows.Documents.Run(": " + result));
-                if (S(s, "error") is { Length: > 0 } err)
-                {
-                    var why2 = new System.Windows.Documents.Run($" ({err})");
-                    why2.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text2");
-                    line.Inlines.Add(why2);
-                }
-                lines.Add(line);
-                if (s.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Array)
-                    foreach (var n in notes.EnumerateArray()) lines.Add(Build.Text("◦ " + n, "Muted").Margin(20, 2, 0, 0));
+                var notes = s.TryGetProperty("notes", out var ns) && ns.ValueKind == JsonValueKind.Array ? ns.EnumerateArray().Select((n) => n.ToString()).ToList() : null;
+                lines.Add(Build.NamedLine(Formats.SourceLabel(S(s, "id"), S(s, "label")), result, S(s, "error"), notes));
             }
-            var details = Build.More(T["empty.details"], false, false, lines.ToArray());
+            var details = Build.More(T["empty.details"], false, false, Build.Bullets(lines));
             details.Margin = new Thickness(0, 16, 0, 0);
             body.Add(details);
         }
@@ -105,27 +93,5 @@ public static class EmptyMedia
         var part = Labeled.Group(T[key], Build.Card(s));
         part.Margin = new Thickness(0, 16, 0, 0);
         return part;
-    }
-
-    /// <summary>Lines with a bullet each: a list and its items to assistive technology, as the page's ul.</summary>
-    static Labeled Bullets(IEnumerable<string> lines)
-    {
-        var s = new StackPanel();
-        foreach (var l in lines) s.Children.Add(Bullet(l));
-        return new Labeled { Child = s, Kind = AutomationControlType.List };
-    }
-
-    static Labeled Bullet(string text)
-    {
-        // The bullet is for the eye: a list item says that it is one.
-        var dot = new SilentText { Text = "•", Margin = new Thickness(0, 0, 10, 0) };
-        dot.SetResourceReference(FrameworkElement.StyleProperty, "Body");
-        var line = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
-        DockPanel.SetDock(dot, Dock.Left);
-        line.Children.Add(dot);
-        line.Children.Add(Build.Text(text, "Body"));
-        var item = new Labeled { Child = line, Kind = AutomationControlType.ListItem };
-        AutomationProperties.SetName(item, text);
-        return item;
     }
 }
