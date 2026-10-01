@@ -48,6 +48,15 @@ public sealed class CoreClient : IDisposable
         return await res.Content.ReadAsByteArrayAsync(cancel);
     }
 
+    /// <summary>GetBytesAsync, with one header of the reply: how a JPEG's own small picture is turned (X-Solarljos-Orientation).</summary>
+    public async Task<(byte[] Bytes, string? Header)> GetBytesAsync(string path, string header, CancellationToken cancel = default)
+    {
+        using var res = await http.GetAsync(path, cancel);
+        if (!res.IsSuccessStatusCode) throw await FailureAsync(res, cancel);
+        var value = res.Headers.TryGetValues(header, out var v) ? v.FirstOrDefault() : null;
+        return (await res.Content.ReadAsByteArrayAsync(cancel), value);
+    }
+
     /// <summary>
     /// Bytes `start` to `start + length - 1` of a copy, fewer where it ends; none past its end. A
     /// copy whose length the engine does not know comes whole, so only what is wanted is kept.
