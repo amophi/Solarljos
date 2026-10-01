@@ -182,6 +182,9 @@ read, what is checked before a copy is offered, and what was measured is in
 
 A recovery tool that writes can destroy what it is trying to recover, so this one does not:
 
+- Nothing is sent anywhere. Solarljos makes no connection but its own, on 127.0.0.1, between
+  its window and its engine, or its page and its server; it has no update check, no telemetry
+  and no crash report, and git is only asked to read repositories, never to fetch.
 - Sources are only ever read. git runs with `GIT_OPTIONAL_LOCKS=0`, so even `status`-like
   commands do not refresh the index, and `git fsck --lost-found`, which writes into `.git`,
   is never used. No filter program runs -- every filter driver git is configured with, Git
