@@ -17,8 +17,8 @@
   worked out again for every copy. They are worked out once (25 copies: 23 s before, about 1 s).
 - A shadow copy whose time is not known says so, rather than "taken about an unknown time"; in
   Chinese (Simplified) a shadow copy was said to be photographed rather than made.
-- The test of a restore cut off mid-copy ran out its two minutes on Ubuntu with Node 24: the copy it
-  wrote never ended, and the timer meant to end it never had its turn. The copy now stalls after
+- The test of a restore cut off mid-copy failed on Ubuntu with Node 24, its child out of its 30
+  seconds: the copy it wrote never ended, and the timer meant to end it never had its turn. The copy now stalls after
   its first piece, as a slow card's can, and the timer ends it.
 
 ## 0.9.0 (2026-10-01)
