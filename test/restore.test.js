@@ -388,8 +388,11 @@ test('a process ending while a copy is written leaves no temporary file behind',
   const script = `
     const { Readable } = require('stream');
     const r = require(${JSON.stringify(lib)});
-    // Each piece a turn of the event loop later, so that the timer below always gets its turn.
-    const data = new Readable({ read() { setImmediate(() => this.push(Buffer.alloc(65536, 1))); } });
+    // One piece, then nothing more and no end: a copy whose reading stalls, as a slow card's can.
+    // Nothing is busy meanwhile, so the timer below gets its turn on any system (an endless
+    // stream of pieces kept it from ever running on Ubuntu with Node 24).
+    let given = false;
+    const data = new Readable({ read() { if (!given) { given = true; this.push(Buffer.alloc(65536, 1)); } } });
     r._internal.writeNew(${JSON.stringify(out)}, 'clip.mp4', data).catch(() => {});
     setTimeout(() => {
       const fs = require('fs');
