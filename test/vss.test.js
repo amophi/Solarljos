@@ -323,7 +323,7 @@ test('a folder reached through a link into a system folder is not read either', 
   assert.ok(notesOf(perSource).some((n) => n.startsWith(folder + ': skipped; system folders')));
 });
 
-test('a walk stops at its folder budget and says it was cut', () => {
+test('a walk stops at its folder budget and says it was cut', async () => {
   const base = workDir('vss-budget');
   dirs.push(base);
   const snap = { root: path.join(base, 'snap'), driveRoot: 'C:\\', driveKey: 'c:' };
@@ -331,7 +331,7 @@ test('a walk stops at its folder budget and says it was cut', () => {
   const ctx = ctxOf([], compile('*.txt'));
   const out = [];
   const budget = { dirs: 0, max: 2, cut: false };
-  walkSubtree(snap, ['top'], ctx, out, { unreadable: 0, outside: new Set(), system: new Set(), whole: new Set() }, budget);
+  await walkSubtree(snap, ['top'], ctx, out, { unreadable: 0, outside: new Set(), system: new Set(), whole: new Set() }, budget);
   assert.strictEqual(budget.cut, true);
   assert.strictEqual(budget.dirs, 2);
   assert.strictEqual(out.length, 1, 'only the folders within the budget were read');

@@ -933,6 +933,11 @@ async function start(opts = {}) {
     handle(req, res).catch((e) => replyError(req, res, e));
   });
   server.headersTimeout = 20000;
+  // A connection kept for the next request is closed after 15 s idle, not Node's 5: when work
+  // held the event loop for seconds, the 5 s ran out as it ended, and a request already sent on
+  // the connection was reset (a photo search, on the machine this was written on). Below the
+  // headers' 20 s, as Node needs.
+  server.keepAliveTimeout = 15000;
 
   // ---- replies -----------------------------------------------------------------------------
 

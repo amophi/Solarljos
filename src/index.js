@@ -51,7 +51,22 @@ function openCopy(copy, range) {
  * @returns {Promise<string>} the path written
  */
 async function restoreCopy(copy, destDir, locations) {
-  return restore(copy, destDir, await sourceRoots(locations || locate({})), git);
+  return restore(copy, destDir, await rootsOf(locations), git);
+}
+
+// The folders and volumes a search read from, worked out once for a minute for the same
+// `locations`, and not again for every copy of a restore of many: worked out anew, they took most
+// of a second a copy in the window (25 copies, 23 s, on the machine this was written on).
+const ROOTS_KEPT_MS = 60000;
+const rootsKept = new WeakMap();
+
+async function rootsOf(locations) {
+  if (!locations) return sourceRoots(locate({}));
+  const kept = rootsKept.get(locations);
+  if (kept && Date.now() - kept.at < ROOTS_KEPT_MS) return kept.roots;
+  const roots = await sourceRoots(locations);
+  rootsKept.set(locations, { at: Date.now(), roots });
+  return roots;
 }
 
 /**
@@ -59,7 +74,7 @@ async function restoreCopy(copy, destDir, locations) {
  * otherwise returns it made absolute. Nothing is written, and nothing is made.
  */
 async function checkDestination(destDir, locations) {
-  return refuseInside(destDir, await sourceRoots(locations || locate({})));
+  return refuseInside(destDir, await rootsOf(locations));
 }
 
 /**

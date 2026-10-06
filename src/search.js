@@ -7,6 +7,7 @@ const { t } = require('./i18n');
 const { compile, under } = require('./match');
 const { resolveLocations } = require('./locations');
 const { pathKey, isWindowsPath, absoluteFolder } = require('./paths');
+const { breather } = require('./breather');
 const { HASH_LIMIT, blobHash, load, head, asText } = require('./content');
 const { better, isDerived, isInexact, isUnverified } = require('./quality');
 const { SNIFF_BYTES, parseTypes, typeOfExt, typesOfName, sniff } = require('./types');
@@ -167,8 +168,10 @@ async function keepTypes(list, types, stop = () => {}, signal = null) {
   // Git objects to be told by their bytes are read in one call per repository, not one each.
   await git.preload(list.filter((c) => !c.isDir && !c.gone && mustRead(c)), signal);
   const kept = [];
+  const breathe = breather();
   for (const c of list) {
     stop();
+    await breathe();
     if (c.isDir) continue;
     const name = c.path || c.name;
     if (name) {
@@ -424,6 +427,7 @@ async function search(o) {
   const report = typeof o.onProgress === 'function' ? o.onProgress : () => {};
   const signal = o.signal || null;
   const stop = () => signal && signal.throwIfAborted();
+  const breathe = breather();
   const types = parseTypes(o.types);
   const matcher = o.under ? under(absoluteFolder(o.under), { types }) : compile(o.pattern, { types });
   const containing = o.containing ? String(o.containing).toLowerCase() : null;
@@ -489,6 +493,7 @@ async function search(o) {
     const kept = [];
     for (const c of all) {
       stop();
+      await breathe();
       if (c.isDir || c.gone || (c.size || 0) > HASH_LIMIT) continue;
       try {
         const buf = await load(c, git);
@@ -503,12 +508,14 @@ async function search(o) {
 
   for (const c of all) {
     stop();
+    await breathe();
     c.hash = await hashOf(c);
   }
   let results = dedupe(all);
   const stateOf = stateChecker();
   for (const c of results) {
     stop();
+    await breathe();
     c.state = stateOf(c);
     c.id = idOf(c.key);
     await describeMedia(c);

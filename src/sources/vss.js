@@ -6,6 +6,7 @@ const path = require('path');
 const { t } = require('../i18n');
 const fmt = require('../format');
 const { isWindowsPath } = require('../paths');
+const { breather } = require('../breather');
 
 // Volume Shadow Copies are read-only point-in-time snapshots of a whole volume, kept by the
 // same mechanism as System Restore. Each one is exposed as a device:
@@ -539,9 +540,10 @@ function scanFolderShallow(snap, folderSegs, ctx, out, skipped, budget, dropUnch
 
 /**
  * Every file below one folder inside a snapshot, skipping AppData, node_modules, .git and the
- * system folders. `budget` is { dirs, max, cut }, shared by the walks of one search.
+ * system folders. `budget` is { dirs, max, cut }, shared by the walks of one search; `breathe`
+ * gives the event loop its turns while the folders are read, which takes seconds.
  */
-function walkSubtree(snap, folderSegs, ctx, out, skipped, budget, dropUnchanged) {
+async function walkSubtree(snap, folderSegs, ctx, out, skipped, budget, dropUnchanged, breathe = breather()) {
   if (!folderSegs.length) {
     skipped.whole.add(shown(snap.driveRoot, []));
     return;
@@ -556,6 +558,7 @@ function walkSubtree(snap, folderSegs, ctx, out, skipped, budget, dropUnchanged)
       return;
     }
     stopIfAsked(ctx);
+    await breathe();
     const rel = stack.pop();
     const dir = snapDir(snap.root, [...start, ...rel]);
     let entries;
@@ -757,13 +760,13 @@ async function scan(ctx) {
     const wantDrive = driveKeyOf(folder) || ctx.matcher.folder.slice(0, 2);
     const segs = relBelowDrive(folder);
     const mine = snaps.filter((snap) => snap.driveKey === wantDrive);
-    mine.forEach((snap, i) => {
+    for (const [i, snap] of mine.entries()) {
       stopIfAsked(ctx);
       const budget = { dirs: 0, max: MAX_WALK_DIRS, cut: false };
-      walkSubtree(snap, segs, ctx, out, skipped, budget);
+      await walkSubtree(snap, segs, ctx, out, skipped, budget);
       if (budget.cut) ctx.notes.push(t('{0}: stopped after {1} folders; some were not searched.', snap.root, MAX_WALK_DIRS));
       ctx.progress(i + 1, mine.length);
-    });
+    }
   } else {
     // name or type search (a follow-up): known folders only, never a whole snapshot. With no
     // name to go on, a file just as it still is in its place is not worth a row.
@@ -775,14 +778,16 @@ async function scan(ctx) {
     const on = (snap) => (f) => driveKeyOf(f) === snap.driveKey;
     const total = snaps.reduce((n, snap) => n + deep.filter(on(snap)).length + shallow.filter(on(snap)).length, 0);
     let done = 0;
+    const breathe = breather();
     for (const snap of snaps) {
       for (const original of deep.filter(on(snap))) {
         stopIfAsked(ctx);
-        walkSubtree(snap, relBelowDrive(original), ctx, out, skipped, budget, dropUnchanged);
+        await walkSubtree(snap, relBelowDrive(original), ctx, out, skipped, budget, dropUnchanged, breathe);
         ctx.progress(++done, total);
       }
       for (const original of shallow.filter(on(snap))) {
         stopIfAsked(ctx);
+        await breathe();
         scanFolderShallow(snap, relBelowDrive(original), ctx, out, skipped, priorBudget, dropUnchanged);
         ctx.progress(++done, total);
       }

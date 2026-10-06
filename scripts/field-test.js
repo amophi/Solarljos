@@ -61,11 +61,28 @@ const copiesOf = (list) => list.flatMap((it) => (Array.isArray(it.copies) ? it.c
 
 let base;
 let key;
+let resets = 0;
+// The engine and what it said, for the report if the test fails.
+let core = null;
+let said = '';
+let exited = null;
 async function call(method, p, body) {
   const headers = { Authorization: 'Bearer ' + key };
   if (method === 'POST') Object.assign(headers, { 'Content-Type': 'application/json', 'X-Solarljos': '1', Origin: base });
-  const res = await fetch(base + p, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const t0 = Date.now();
+  let res;
+  try {
+    res = await fetch(base + p, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch (e) {
+    if (process.env.FIELD_TEST_DEBUG) console.error(`   [${method} ${p.replace(/\?.*$/, '')} failed after ${Date.now() - t0} ms]`);
+    // A connection kept for the next request and closed by the engine meanwhile: tried once more
+    // on a new one, as .NET's client does for the window, and counted for the report.
+    if (!(e.cause && e.cause.code === 'ECONNRESET')) throw e;
+    resets++;
+    res = await fetch(base + p, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  }
   const text = await res.text();
+  if (process.env.FIELD_TEST_DEBUG) console.error(`   [${method} ${p.replace(/\?.*$/, '')} ${res.status} ${text.length} B ${Date.now() - t0} ms]`);
   let json = null;
   try {
     json = text ? JSON.parse(text) : null;
@@ -135,20 +152,33 @@ async function restoreSome(found, dir) {
     const check = (await call('POST', '/api/check-folder', { to: dest, uids: pick.map((c) => c.uid) })).json || {};
     const t1 = Date.now();
     const res = (await call('POST', '/api/restore', { uids: pick.map((c) => c.uid), to: dest })).json || {};
+    const took = Date.now() - t1;
     const results = res.results || [];
     const ok = results.filter((x) => x.ok);
-    const verdict = ok.map((x) => {
+    // Written as read: the file restored has the bytes the engine reads for the copy. Then, for
+    // the eye, whether it is the file now in its place or an earlier or later version of it.
+    const asRead = [];
+    const verdict = [];
+    for (const x of ok) {
       const c = pick.find((p) => p.uid === x.uid);
       try {
-        return sha(x.path) === sha(c.path) ? 'equal' : `differs (${c.source})`;
+        const res = await fetch(`${base}/api/copy/${c.uid}`, { headers: { Authorization: 'Bearer ' + key } });
+        const read = crypto.createHash('sha256').update(Buffer.from(await res.arrayBuffer())).digest('hex');
+        asRead.push(read === sha(x.path) ? 'the same' : `different (${c.source})`);
       } catch (_) {
-        return 'not readable';
+        asRead.push('not readable');
       }
-    });
-    console.log(`\n== restore ${pick.length} exact copies of ${dir} (from ${new Set(pick.map((c) => c.source)).size} kind(s) of place): ${sec(Date.now() - t1)}`);
+      try {
+        verdict.push(sha(x.path) === sha(c.path) ? 'the file in its place' : `an earlier or later version (${c.source})`);
+      } catch (_) {
+        verdict.push('not readable');
+      }
+    }
+    console.log(`\n== restore ${pick.length} exact copies of ${dir} (from ${new Set(pick.map((c) => c.source)).size} kind(s) of place): ${sec(took)}`);
     console.log(`   folder check: ${check.ok ? 'ok' : 'refused'}, on the drive of ${check.sameDrive ?? '?'} of them`);
     console.log(`   written ${ok.length}, failed ${results.length - ok.length}${results.length > ok.length ? ' (' + tally(results.filter((x) => !x.ok), (x) => x.code || redact(x.error)) + ')' : ''}`);
-    console.log(`   against the file still in its place: ${tally(verdict, (v) => v)}`);
+    console.log(`   against the copy as the engine reads it: ${tally(asRead, (v) => v)}`);
+    console.log(`   what they are: ${tally(verdict, (v) => v)}`);
   } else console.log(`\n== restore exact copies of ${dir}: none of a file still in its place to try`);
   // Every other kind of copy: a few of each, written, at the size recorded.
   const others = [];
@@ -184,9 +214,9 @@ async function main() {
   const script = engine ? /\.c?js$/i.test(engine) : true;
   const file = engine || path.join(__dirname, '..', 'bin', 'solarljos.js');
   const [cmd, cmdArgs] = script ? [process.execPath, [file, 'desktop']] : [file, ['desktop']];
-  const core = spawn(cmd, cmdArgs, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
-  let said = '';
+  core = spawn(cmd, cmdArgs, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
   core.stderr.on('data', (d) => (said += d));
+  core.on('exit', (code, signal) => (exited = { code, signal, at: Date.now() }));
   const first = await new Promise((resolve, reject) => {
     let buf = '';
     core.stdout.on('data', (d) => {
@@ -223,8 +253,19 @@ async function main() {
       again = await call('POST', '/api/search', { pattern: '*.txt', view: { mode: 'find' } });
       if (again.status !== 202) await new Promise((s) => setTimeout(s, 100));
     } while (again.status !== 202 && Date.now() - ts < 60000);
+    const taken = Date.now() - ts;
+    // Running: a place of it no longer waiting, which the stopped search held up before 0.7.2.
+    let ran = null;
+    if (again.status === 202) {
+      for (;;) {
+        const j = (await call('GET', `/api/job/${again.json.job.id}`)).json;
+        if (j.state !== 'running' || (j.sources || []).some((x) => x.state !== 'waiting')) break;
+        await new Promise((s) => setTimeout(s, 50));
+      }
+      ran = Date.now() - ts;
+    }
     const job = again.status === 202 ? await waitJob(again.json.job.id) : { state: 'never started' };
-    console.log(`\n== stop, then search: the next search ${job.state} ${sec(Date.now() - ts)} after the stop`);
+    console.log(`\n== stop, then search: taken ${sec(taken)} after the stop, running at ${ran == null ? 'never' : sec(ran)}, ${job.state} at ${sec(Date.now() - ts)}`);
   }
 
   if (planFolder) {
@@ -257,10 +298,16 @@ async function main() {
   const code = await new Promise((resolve) => core.on('exit', resolve));
   console.log(`\nengine stopped ${sec(Date.now() - ts)} after its input closed (exit ${code}); it said ${said.split('\n').filter(Boolean).length} line(s)`);
   if (said.trim()) console.log('   last: ' + redact(said.trim().split('\n').slice(-3).join(' | ')));
+  console.log(`connections the engine reset, tried again: ${resets}`);
   console.log(`\nall in ${sec(Date.now() - t0)}. This report names no file and no folder: it can be shared as it is.`);
 }
 
 main().catch((e) => {
-  console.error('field test failed: ' + redact(e.stack || e));
+  const cause = e && e.cause ? ` (cause: ${e.cause.code || ''} ${redact(e.cause.message || e.cause)})` : '';
+  console.error('field test failed: ' + redact(e.stack || e) + cause);
+  console.error(exited ? `the engine had stopped: exit ${exited.code}${exited.signal ? ', ' + exited.signal : ''}` : 'the engine was still running');
+  const last = said.trim().split('\n').filter(Boolean).slice(-8);
+  if (last.length) console.error('it said last:\n   ' + last.map(redact).join('\n   '));
+  if (core && !exited) core.kill();
   process.exit(1);
 });

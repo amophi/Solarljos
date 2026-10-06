@@ -8,6 +8,13 @@
 - One list with bullets for the whole window: a search's failed places and notes, a folder's
   empty plan, the files a folder or a restore could not write are now lists to screen readers,
   which read no "bullet" before each line; a photo tile's badge and caption are not read again.
+- Tried on a real computer (`scripts/field-test.js`): a photo search of 23,911 copies there held
+  the engine for seconds at a time -- the walk of shadow copies' folders, then every result looked
+  up and hashed -- and a request waiting meanwhile had its connection reset, which 0.9.0 did twice
+  in two tries. Both now give the event loop its turns every 25 ms (the longest hold went from
+  4.3 s to 0.5 s), and a connection kept for the next request waits 15 s, not 5.
+- Restoring many copies at once took about a second each: the folders the search read from were
+  worked out again for every copy. They are worked out once (25 copies: 23 s before, about 1 s).
 - A shadow copy whose time is not known says so, rather than "taken about an unknown time"; in
   Chinese (Simplified) a shadow copy was said to be photographed rather than made.
 
