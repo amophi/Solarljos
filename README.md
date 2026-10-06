@@ -675,9 +675,10 @@ What it says meanwhile goes to its stderr, of which the window keeps the last li
 if it stops by itself. `SOLARLJOS_CORE` set to a command (such as `node "C:\...\bin\solarljos.js"`)
 makes the window start that instead, for working on it from the repository.
 
-Neither is code-signed. Windows SmartScreen asks before running one (*More info*, then *Run
-anyway*), and Smart App Control, where it is on, blocks them; there `node bin/solarljos.js gui`
-runs the same search in a browser window on Node's own signed node.exe. `solarljos-core.exe` is a
+Neither is code-signed yet (*Code signing policy*). Windows SmartScreen asks before running one
+(*More info*, then *Run anyway*), and Smart App Control, where it is on, blocks them; there
+`node bin/solarljos.js gui` runs the same search in a browser window on Node's own signed
+node.exe. `solarljos-core.exe` is a
 Windows GUI program, not a console program as node.exe is: its header's Subsystem is 2, not 3, so
 it opens no console window of its own. `NODE_OPTIONS` does not reach it, and it keeps
 `NODE_V8_COVERAGE` and `NODE_REDIRECT_WARNINGS` from writing files; only `NODE_COMPILE_CACHE`, if
@@ -916,6 +917,32 @@ apart from the file now in its place when they are an earlier version; the rest 
 the size recorded. It writes nothing but what `--to` receives. What a script
 cannot try -- the window itself, a real memory card, a screen reader, and what Process Monitor
 sees Solarljos write -- is listed in [docs/field-test.md](docs/field-test.md).
+
+## Code signing policy
+
+The Windows programs in a release are not signed yet. They are to be signed through SignPath
+Foundation, which gives open-source projects code signing for free; until then Windows SmartScreen
+asks before the first run (*The Windows program* says what to do). Once they are, this section
+will carry the line SignPath asks for: "Free code signing provided by SignPath.io, certificate by
+SignPath Foundation".
+
+What is signed then: `Solarljos.exe`, `Solarljos.dll` and `solarljos-core.exe`, as
+`.github/workflows/release.yml` builds them from a `v*` tag on GitHub's runners, the same files
+anyone can build again byte for byte from that tag (*The Windows program*). Nothing else is:
+nothing built on a person's own computer, and no program of anyone else's but the two Solarljos is
+made from, the .NET program that starts the window and Node.js's, which `solarljos-core.exe` is
+with Solarljos inside it.
+
+Who does what, one person for now:
+
+- Author and committer: [amophi](https://github.com/amophi), who changes the code.
+- Reviewer: [amophi](https://github.com/amophi), who reviews every change from anyone else
+  before it is merged.
+- Approver: [amophi](https://github.com/amophi), who approves the signing of each release by hand.
+
+Privacy: This program will not transfer any information to other networked systems unless
+specifically requested by the user. *Nothing is written* says the one connection it makes, on
+127.0.0.1, between its own window and engine.
 
 ## License
 

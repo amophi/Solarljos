@@ -10,6 +10,8 @@ made-up library the window's pictures are taken on:
   closed. It opens once the call has returned, as a button does.
 - The restore dialog and a copy's preview window were a stop of their own for Tab, read as a pane
   with no name. Their scrolling is the page's, and their keys still scroll them.
+- README: a code signing policy, as SignPath Foundation asks of a project it signs for: what is
+  to be signed, who writes, reviews and approves, and that nothing is sent anywhere.
 
 ## 0.9.1 (2026-10-06)
 
