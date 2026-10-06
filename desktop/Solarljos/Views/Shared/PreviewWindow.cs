@@ -40,6 +40,7 @@ public sealed class PreviewWindow : Window
             Content = new Border { Child = panel, Padding = new Thickness(24) },
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Focusable = false,
         };
         // Esc closes it once what has the focus has not taken the key: an open list of encodings closes first, not the whole window.
         KeyDown += (_, e) =>

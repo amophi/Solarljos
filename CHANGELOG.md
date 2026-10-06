@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+What a screen reader is given, read through UI Automation on every page of the window, on the
+made-up library the window's pictures are taken on:
+
+- A photo or video opened from the grid by a screen reader (its "invoke", Narrator's Caps+Enter)
+  opened the enlarged view inside the call, and the reader waited for it until the view was
+  closed. It opens once the call has returned, as a button does.
+- The restore dialog and a copy's preview window were a stop of their own for Tab, read as a pane
+  with no name. Their scrolling is the page's, and their keys still scroll them.
+
 ## 0.9.1 (2026-10-06)
 
 What trying 0.9.0 on a real computer found, with `scripts/field-test.js` and the window: four

@@ -291,7 +291,16 @@ public sealed class Tile : Grid
 
         public void RemoveFromSelection() => owner.AskSelected(false);
 
-        public void Invoke() => owner.Invoke();
+        /// <summary>
+        /// Opens it once the call has returned, as a button's own peer does: opening is a modal window
+        /// (the lightbox), and a screen reader that invokes waits for the call, so made within it the
+        /// reader would hang until the lightbox closed.
+        /// </summary>
+        public void Invoke()
+        {
+            if (!owner.IsEnabled) throw new ElementNotEnabledException();
+            owner.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, owner.Invoke);
+        }
     }
 }
 

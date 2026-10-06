@@ -128,7 +128,8 @@ public sealed class RestoreDialog : Window
         body = Build.Stack(Build.Heading(title, 2), dest.El, Labeled.Group(T["restore.drives"], drivesEl), suggestLine, checks, confirm, TierLines(), progress.Margin(0, 8, 0, 0));
         var all = Build.Stack(body, buttons);
         all.Margin = new Thickness(28, 24, 28, 24);
-        Content = new ScrollViewer { Content = all, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 760 };
+        // Not a stop of its own for Tab, which a screen reader would read as a pane with no name; its keys scroll it still.
+        Content = new ScrollViewer { Content = all, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 760, Focusable = false };
 
         input.TextChanged += (_, _) => ScheduleCheck(350);
         debounce.Tick += async (_, _) =>
