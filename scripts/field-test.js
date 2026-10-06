@@ -14,9 +14,10 @@
 //   2. searches four ways -- a name (*.txt), a kind (documents), a word in Markdown files, and
 //      every photo and video -- and reports each place searched: how it went, how long, how many;
 //   3. starts a photo search, stops it after 3 s, and times how soon the next search runs;
-//   4. with --to: restores up to 25 exact copies of files that are still in their place, and
-//      compares each with the file, byte for byte; then a few copies of every other kind, and
-//      checks their sizes;
+//   4. with --to, right after each search: restores up to 25 exact copies of files that are still
+//      in their place, compares each with the copy as the engine reads it, byte for byte, and says
+//      whether it is the file now in its place or another version of it; then a few copies of
+//      every other kind, and checks their sizes;
 //   5. with --plan: plans that folder and writes it into --to, and counts what was written;
 //   6. closes the engine's stdin, as the window does when it closes, and times its stop.
 // Nothing is written but what --to receives. Pick a --to on another drive than the one searched.
@@ -138,8 +139,8 @@ async function search(name, body) {
 
 /**
  * Restores some of a search's copies into --to/<dir>: up to 25 exact copies of files still in
- * their place, compared with the file byte for byte, and two of every other kind from each place,
- * whose size is checked. Right after the search: the engine keeps the last search of a view only.
+ * their place, compared byte for byte with the copy as the engine reads it, and two of every
+ * other kind from each place, whose size is checked. Right after the search: the engine keeps the last search of a view only.
  */
 async function restoreSome(found, dir) {
   const exact = copiesOf(found).filter((c) => tierOf(c) === 'exact' && c.state === 'exists' && c.size > 0 && c.size < 20e6 && c.path);

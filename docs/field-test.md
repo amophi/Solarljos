@@ -18,11 +18,13 @@ node scripts/field-test.js --engine <folder>\solarljos-core.exe --to E:\field-te
 `--to` must be a new or empty folder, best on another drive. Add `--plan <folder>` to plan a
 folder you once had, or still have, and write it into `--to` as well. The report gives, for each
 search, how each place went, how long it took and how many copies it found; a stopped search
-and how soon the next one ran; and whether restored copies of files still in their place are
-byte for byte the same as those files.
+and how soon the next one ran; whether restored copies are byte for byte what the engine reads
+for them, and of those of files still in their place, how many are that file and how many an
+earlier or later version of it; and how many connections the engine reset.
 
 What to look for: a place that failed (`failed`, with its error), a search slower than a minute,
-an exact copy that `differs`, a restore that failed, or an engine that does not stop at the end.
+a restored copy `different` from the copy as the engine reads it, a restore that failed, a
+connection the engine reset, or an engine that does not stop at the end.
 
 ## 2. The window
 

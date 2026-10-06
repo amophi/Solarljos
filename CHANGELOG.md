@@ -1,25 +1,33 @@
 # Changelog
 
-## Unreleased
+## 0.9.1 (2026-10-06)
 
-- `scripts/build-desktop.js` builds the window from nothing every time: an incremental build kept
-  the compiled XAML of the build before, which named the version that one had. The release was
-  right, being built from a clean checkout; a local build right after a new version was not.
-- One list with bullets for the whole window: a search's failed places and notes, a folder's
-  empty plan, the files a folder or a restore could not write are now lists to screen readers,
-  which read no "bullet" before each line; a photo tile's badge and caption are not read again.
-- Tried on a real computer (`scripts/field-test.js`): a photo search of 23,911 copies there held
-  the engine for seconds at a time -- the walk of shadow copies' folders, then every result looked
-  up and hashed -- and a request waiting meanwhile had its connection reset, which 0.9.0 did twice
-  in two tries. Both now give the event loop its turns every 25 ms (the longest hold went from
-  4.3 s to 0.5 s), and a connection kept for the next request waits 15 s, not 5.
+What trying 0.9.0 on a real computer found, with `scripts/field-test.js` and the window: four
+searches there, the largest of 23,911 photos and videos; 50 exact copies restored, every one byte
+for byte what the engine reads for it; a folder of 599 files planned and written in full.
+
+- A photo search of many copies held the engine for seconds at a time -- the walk of shadow
+  copies' folders, then every result looked up and hashed -- and a request waiting meanwhile had
+  its connection reset, which 0.9.0 did twice in two tries. Both now give the event loop its turns
+  every 25 ms (the longest hold went from 4.3 s to 0.5 s), and a connection kept for the next
+  request waits 15 s, not 5.
 - Restoring many copies at once took about a second each: the folders the search read from were
   worked out again for every copy. They are worked out once (25 copies: 23 s before, about 1 s).
 - A shadow copy whose time is not known says so, rather than "taken about an unknown time"; in
   Chinese (Simplified) a shadow copy was said to be photographed rather than made.
+- One list with bullets for the whole window: a search's failed places and notes, a folder's
+  empty plan, the files a folder or a restore could not write are now lists to screen readers,
+  which read no "bullet" before each line; a photo tile's badge and caption are not read again.
+- `scripts/field-test.js` restores right after each search, which the engine keeps the last of
+  only; compares each restored copy with the copy as the engine reads it, and tells the file now
+  in its place from an earlier version of it, which an exact copy often is; and counts the
+  connections the engine reset.
+- `scripts/build-desktop.js` builds the window from nothing every time: an incremental build kept
+  the compiled XAML of the build before, which named the version that one had. The release was
+  right, being built from a clean checkout; a local build right after a new version was not.
 - The test of a restore cut off mid-copy failed on Ubuntu with Node 24, its child out of its 30
-  seconds: the copy it wrote never ended, and the timer meant to end it never had its turn. The copy now stalls after
-  its first piece, as a slow card's can, and the timer ends it.
+  seconds: the copy it wrote never ended, and the timer meant to end it never had its turn. The
+  copy now stalls after its first piece, as a slow card's can, and the timer ends it.
 
 ## 0.9.0 (2026-10-01)
 
